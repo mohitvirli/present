@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { onNavigate } from '$app/navigation';
+	import { onNavigate, goto } from '$app/navigation';
 	import gsap from 'gsap';
 	import { listEntries, type Entry } from '$lib/db';
 	import Timeline from '$lib/components/Timeline.svelte';
@@ -9,7 +9,13 @@
 	let loaded = $state(false);
 
 	onMount(async () => {
-		entries = await listEntries();
+		const list = await listEntries();
+		// nothing written yet → jump straight into the composer
+		if (list.length === 0) {
+			await goto('/entry', { replaceState: true });
+			return;
+		}
+		entries = list;
 		loaded = true;
 	});
 

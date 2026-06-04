@@ -13,6 +13,7 @@
 	let entryId = $state<string | null>(null);
 	let saving = $state(false);
 	let savedAt = $state<number | null>(null);
+	let createdAt = $state<number | null>(null);
 	let showMeta = $state(false);
 	let readonly = $state(false); // viewing an existing entry
 	let ready = $state(false); // gate autosave until initial load done
@@ -37,6 +38,7 @@
 				tagsInput = (e.metadata.tags ?? []).join(', ');
 				entryId = e.id;
 				savedAt = e.updatedAt;
+				createdAt = e.createdAt;
 				readonly = true;
 				openContext = !!(e.metadata.title?.trim() || (e.metadata.tags && e.metadata.tags.length));
 			}
@@ -127,6 +129,7 @@
 	$effect(() => {
 		composer.entryId = entryId;
 		composer.readonly = readonly;
+		composer.createdAt = createdAt;
 	});
 
 	function startEditing() {
@@ -155,6 +158,7 @@
 		}
 		composer.entryId = null;
 		composer.readonly = false;
+		composer.createdAt = null;
 		composer.delete = null;
 		composer.edit = null;
 	});
@@ -164,10 +168,13 @@
 		!!(meta.title?.trim() || (meta.tags && meta.tags.length) || meta.mood || meta.location?.trim())
 	);
 	let showContext = $derived(hasContent || hasMeta);
+	// while viewing (readonly) only show Context if the entry actually has
+	// metadata; editing/creating shows it once there's something to attach
+	let showContextBtn = $derived(readonly ? hasMeta : showContext);
 	let wordCount = $derived(content.trim().split(/\s+/).filter(Boolean).length);
 
 	$effect(() => {
-		if (!showContext) showMeta = false;
+		if (!showContextBtn) showMeta = false;
 	});
 
 	function fmtTime(ts: number) {
@@ -178,7 +185,7 @@
 
 <div class="composer" class:readonly>
 	<div class="details-row">
-		{#if showContext}
+		{#if showContextBtn}
 			<button
 				type="button"
 				class="meta-toggle"

@@ -3,11 +3,13 @@
 export const composer = $state<{
 	entryId: string | null;
 	readonly: boolean; // true while viewing an existing entry (not editing)
+	createdAt: number | null; // existing entry's created time (header clock)
 	delete: (() => void) | null;
 	edit: (() => void) | null;
 }>({
 	entryId: null,
 	readonly: false,
+	createdAt: null,
 	delete: null,
 	edit: null
 });

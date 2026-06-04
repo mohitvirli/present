@@ -8,7 +8,9 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import Clock from '$lib/components/Clock.svelte';
+	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { composer } from '$lib/composer.svelte';
+	import { scroll } from '$lib/scroll.svelte';
 	let { children } = $props();
 
 	let isNew = $derived(page.url.pathname === '/entry');
@@ -76,6 +78,7 @@
 		if (reduce) return; // skip inertia smoothing
 
 		const lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+		scroll.lenis = lenis;
 		let raf: number;
 		const loop = (t: number) => {
 			lenis.raf(t);
@@ -86,6 +89,7 @@
 		return () => {
 			cancelAnimationFrame(raf);
 			lenis.destroy();
+			scroll.lenis = null;
 		};
 	});
 </script>
@@ -93,6 +97,8 @@
 <svelte:head>
 	<link rel="icon" href={favicon} />
 </svelte:head>
+
+<Scrollbar />
 
 <div class="shell">
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -105,7 +111,7 @@
 		<div class="topbar-inner" bind:this={topbarInner}>
 			{#if isNew}
 				<a class="brand" href="/" aria-label="present — home" in:gFade={{ duration: 1.1, delay: 0.7 }}>
-					<Clock />
+					<Clock at={composer.createdAt} />
 				</a>
 			{:else}
 				<a class="cta" href="/entry" in:gFade={{ duration: 0.3 }}>

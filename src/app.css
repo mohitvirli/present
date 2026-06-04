@@ -160,6 +160,60 @@
 	filter: brightness(1.05);
 }
 
+/* ---------- Custom scrollbar (hide native to avoid layout-width jank when
+   pages of different heights toggle the native bar) ---------- */
+html {
+	scrollbar-width: none; /* Firefox */
+}
+html::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
+}
+
+.scrollbar {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 12px;
+	z-index: 50;
+	opacity: 0;
+	transition: opacity 0.25s ease;
+	pointer-events: none;
+}
+
+.scrollbar.active {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.scroll-thumb {
+	position: absolute;
+	right: 3px;
+	top: 0;
+	width: 6px;
+	border-radius: 999px;
+	background: var(--color-border-strong);
+	cursor: grab;
+	transition: background 0.15s ease;
+}
+
+.scroll-thumb:hover {
+	background: var(--color-text-muted);
+}
+
+.scroll-thumb:active {
+	cursor: grabbing;
+	background: var(--color-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.scrollbar {
+		transition: none;
+	}
+}
+
 /* ---------- Lenis smooth scroll ---------- */
 html.lenis,
 html.lenis body {
@@ -392,6 +446,16 @@ a {
 	.clock .colon {
 		animation: none;
 	}
+}
+
+/* static (viewing an existing entry): no pulse, muted */
+.clock.static .digits,
+.clock.static .colon {
+	color: var(--color-text-muted);
+}
+
+.clock.static .colon {
+	animation: none;
 }
 
 .topbar nav {
