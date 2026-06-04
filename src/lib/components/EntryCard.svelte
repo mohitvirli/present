@@ -10,6 +10,17 @@
 		});
 	}
 
+	// time spent writing: updatedAt − createdAt, shown only when meaningful
+	const duration = $derived.by(() => {
+		const ms = entry.updatedAt - entry.createdAt;
+		if (ms < 60_000) return ''; // under a minute → skip
+		const mins = Math.round(ms / 60_000);
+		if (mins < 60) return `${mins} min`;
+		const h = Math.floor(mins / 60);
+		const m = mins % 60;
+		return m ? `${h}h ${m}m` : `${h}h`;
+	});
+
 	// Strip markdown syntax → clean plain-text snippet for the card preview.
 	function stripMarkdown(md: string): string {
 		return md
@@ -46,8 +57,11 @@
 	});
 </script>
 
-<a class="entry-card" href="/entry/{entry.id}">
-	<time>{time(entry.createdAt)}</time>
+<a class="entry-card" href="/entry?id={entry.id}">
+	<span class="entry-meta">
+		<time>{time(entry.createdAt)}</time>
+		{#if duration}<span class="duration">{duration}</span>{/if}
+	</span>
 
 	{#if displayTitle}
 		<h3 class="card-title">{displayTitle}</h3>

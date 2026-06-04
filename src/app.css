@@ -76,6 +76,108 @@
 	--bg-blur: rgba(38, 38, 36, 0.8);
 }
 
+/* ---------- Confirm dialog ---------- */
+.confirm-dialog {
+	width: min(360px, calc(100vw - 2rem));
+	border: 1px solid var(--color-border);
+	border-radius: 16px;
+	background: var(--color-surface);
+	color: var(--color-text);
+	padding: 1.5rem;
+	box-shadow: var(--shadow-md);
+	margin: auto; /* center */
+	/* open/close box animation handled by GSAP */
+}
+
+.confirm-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.35);
+	backdrop-filter: blur(2px);
+	opacity: 0;
+	transition:
+		opacity 0.2s ease,
+		overlay 0.2s ease allow-discrete,
+		display 0.2s ease allow-discrete;
+}
+
+.confirm-dialog[open]::backdrop {
+	opacity: 1;
+}
+
+@starting-style {
+	.confirm-dialog[open]::backdrop {
+		opacity: 0;
+	}
+}
+
+.confirm-dialog h2 {
+	margin: 0 0 0.4rem;
+	font-size: 1.1rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+
+.confirm-dialog p {
+	margin: 0 0 1.4rem;
+	font-size: 0.9rem;
+	color: var(--color-text-muted);
+}
+
+.confirm-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.6rem;
+}
+
+.confirm-actions button {
+	font-family: var(--font-sans);
+	font-size: 0.9rem;
+	font-weight: 600;
+	padding: 0.5rem 1rem;
+	border-radius: 9px;
+	cursor: pointer;
+	border: 1px solid transparent;
+	transition:
+		background 0.14s ease,
+		filter 0.14s ease;
+}
+
+.confirm-actions .ghost {
+	background: transparent;
+	border-color: var(--color-border);
+	color: var(--color-text);
+}
+
+.confirm-actions .ghost:hover {
+	background: var(--color-surface-2);
+}
+
+.confirm-actions .danger {
+	background: var(--color-danger);
+	color: #fff;
+}
+
+.confirm-actions .danger:hover {
+	filter: brightness(1.05);
+}
+
+/* ---------- Lenis smooth scroll ---------- */
+html.lenis,
+html.lenis body {
+	height: auto;
+}
+
+html.lenis {
+	scroll-behavior: auto !important;
+}
+
+.lenis [data-lenis-prevent] {
+	overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+	overflow: clip;
+}
+
 /* ---------- Base ---------- */
 * {
 	box-sizing: border-box;
@@ -122,11 +224,78 @@ a {
 }
 
 .topbar-inner {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	max-width: var(--composer-width, 760px);
 	margin: 0 auto;
+}
+
+/* right-side groups are pinned out of flow so they don't reflow (and slide
+   to the middle) when one is leaving while another enters during a route
+   change */
+.header-actions,
+.topbar nav {
+	position: absolute;
+	right: 0;
+	top: 0;
+	bottom: 0;
+}
+
+.header-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+}
+
+/* icons revealed on header hover (composer route) */
+.header-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	border: none;
+	background: transparent;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	opacity: 0;
+	transform: translateY(-2px);
+	transition:
+		opacity 0.25s ease,
+		transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+		color 0.15s ease,
+		background 0.15s ease;
+}
+
+.header-action.home {
+	transform: translateX(4px);
+}
+
+.topbar.reveal-actions .header-action,
+.topbar:focus-within .header-action {
+	opacity: 1;
+	transform: translate(0, 0);
+}
+
+.header-action:hover {
+	background: var(--color-surface-2);
+	color: var(--color-text);
+}
+
+.header-action.danger:hover {
+	background: var(--color-accent-soft);
+	color: var(--color-danger);
+}
+
+/* keyboard focus should always reveal the control */
+.header-action:focus-visible {
+	opacity: 1;
+	transform: translate(0, 0);
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
 }
 
 /* primary CTA — replaces the brand on non-composer pages */
@@ -310,8 +479,7 @@ main {
 
 /* full-page rail: spans the whole viewport height, fixed at the column's
    left edge (the content column is always centered in the viewport) */
-.timeline::before {
-	content: '';
+.timeline .rail {
 	position: fixed;
 	left: max(2rem, calc(50% - var(--composer-width) / 2));
 	top: 0;
@@ -320,6 +488,7 @@ main {
 	background: var(--color-border-strong);
 	border-radius: 2px;
 	z-index: 0;
+	list-style: none;
 }
 
 .day-group {
@@ -365,6 +534,12 @@ main {
 	gap: 1.75rem;
 }
 
+.day-group > ul .entry-row {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
 /* hollow node per entry, centered on the spine */
 .day-group > ul .entry-card {
 	position: relative;
@@ -396,8 +571,13 @@ main {
 	color: var(--color-text);
 }
 
+.entry-card .entry-meta {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+}
+
 .entry-card time {
-	display: block;
 	font-size: 0.78rem;
 	font-weight: 600;
 	letter-spacing: -0.005em;
@@ -407,6 +587,19 @@ main {
 
 .entry-card:hover time {
 	color: var(--color-accent);
+}
+
+.entry-card .duration {
+	font-size: 0.72rem;
+	font-weight: 500;
+	color: var(--color-text-muted);
+	opacity: 0.75;
+}
+
+.entry-card .duration::before {
+	content: '·';
+	margin-right: 0.5rem;
+	opacity: 0.7;
 }
 
 .entry-card .card-title {
@@ -483,7 +676,7 @@ main {
 }
 
 .composer .meta-toggle .chevron {
-	transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+	transition: transform 0.42s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .composer .meta-toggle[aria-expanded='true'] {
@@ -519,10 +712,41 @@ main {
 	color: var(--color-text-muted);
 }
 
+/* jank-free accordion: grid rows 0fr→1fr settles to auto natively, so there's
+   no inline-height removal reflow (and nothing for JS/Lenis to fight over) */
+.composer .details-collapse {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	/* cancel the composer flex gap above so a closed panel doesn't add a
+	   second gap between the Context row and the textarea */
+	margin-top: -1.1rem;
+	transition:
+		grid-template-rows 0.42s cubic-bezier(0.45, 0, 0.55, 1),
+		opacity 0.3s ease;
+}
+
+.composer .details-collapse.open {
+	grid-template-rows: 1fr;
+	opacity: 1;
+}
+
+.composer .details-collapse > .details-panel {
+	overflow: hidden;
+	min-height: 0;
+	padding-top: 0.75rem;
+}
+
 .composer .details-panel {
 	display: flex;
 	flex-direction: column;
 	gap: 0.4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.composer .details-collapse {
+		transition: none;
+	}
 }
 
 .composer .title-row {
@@ -606,12 +830,19 @@ main {
 	color: var(--color-accent);
 }
 
+.composer.readonly .writing textarea,
+.composer.readonly .title-input,
+.composer.readonly .tags-input {
+	cursor: default;
+}
+
 .composer .writing textarea {
 	width: 100%;
 	min-height: 64vh;
 	border: none;
 	outline: none;
 	resize: none;
+	overflow: hidden; /* auto-grown via JS; page scrolls, not the textarea */
 	background: transparent;
 	color: var(--color-text);
 	font-family: var(--font-sans);
