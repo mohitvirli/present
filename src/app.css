@@ -900,6 +900,10 @@ main {
 	cursor: default;
 }
 
+.composer .writing {
+	position: relative; /* origin for the custom smooth caret */
+}
+
 .composer .writing textarea {
 	width: 100%;
 	min-height: 64vh;
@@ -915,6 +919,11 @@ main {
 	line-height: 1.75;
 	letter-spacing: -0.003em;
 	padding: 0;
+}
+
+/* hide native caret while editing — replaced by the custom smooth caret */
+.composer .writing textarea.hide-caret {
+	caret-color: transparent;
 }
 
 /* ---------- Metadata panel ---------- */

@@ -6,6 +6,7 @@
 	import { replaceState, goto } from '$app/navigation';
 	import { addEntry, updateEntry, deleteEntry, getEntry, type EntryMetadata } from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
+	import SmoothCaret from '$lib/components/SmoothCaret.svelte';
 
 	let content = $state('');
 	let meta = $state<EntryMetadata>({});
@@ -19,7 +20,7 @@
 	let ready = $state(false); // gate autosave until initial load done
 	let dockDelay = $state(0.45); // status dock entrance delay (sequenced)
 	let ctxBtnDelay = $state(0.45); // Context toggle entrance delay (sequenced)
-	let textarea: HTMLTextAreaElement;
+	let textarea = $state<HTMLTextAreaElement>();
 	let writingEl: HTMLElement;
 
 	onMount(async () => {
@@ -241,7 +242,11 @@
 			bind:value={content}
 			placeholder="Be present. Write what's here now."
 			readonly={readonly}
+			class:hide-caret={!readonly}
 		></textarea>
+		{#if !readonly}
+			<SmoothCaret el={textarea} active={!readonly} />
+		{/if}
 	</section>
 </div>
 
