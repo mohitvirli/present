@@ -1,6 +1,11 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import type { JSONContent } from '@tiptap/core';
+import { wordCount } from './tiptap';
 
 export type Mood = 'great' | 'good' | 'neutral' | 'low' | 'bad';
+
+// TipTap ProseMirror JSON doc (string = legacy markdown/plain entries)
+export type EntryContent = JSONContent | string;
 
 export interface EntryMetadata {
 	title?: string;
@@ -16,7 +21,7 @@ export interface EntryMetadata {
 
 export interface Entry {
 	id: string; // crypto.randomUUID()
-	content: string; // markdown body
+	content: EntryContent; // TipTap JSON doc
 	metadata: EntryMetadata;
 	createdAt: number; // Date.now()
 	updatedAt: number;
@@ -44,10 +49,6 @@ function getDB() {
 	return dbPromise;
 }
 
-function countWords(s: string): number {
-	return s.trim().split(/\s+/).filter(Boolean).length;
-}
-
 // Svelte 5 $state deep-proxies objects/arrays; IndexedDB structured-clone
 // cannot clone a Proxy (DataCloneError). Strip proxies to plain JSON-safe
 // values before persisting. Also keeps this layer framework-agnostic for the
@@ -56,13 +57,16 @@ function plain<T>(value: T): T {
 	return JSON.parse(JSON.stringify(value));
 }
 
-export async function addEntry(content: string, metadata: EntryMetadata = {}): Promise<Entry> {
+export async function addEntry(
+	content: EntryContent,
+	metadata: EntryMetadata = {}
+): Promise<Entry> {
 	const db = await getDB();
 	const now = Date.now();
 	const entry: Entry = {
 		id: crypto.randomUUID(),
-		content,
-		metadata: { ...plain(metadata), wordCount: countWords(content) },
+		content: plain(content),
+		metadata: { ...plain(metadata), wordCount: wordCount(content) },
 		createdAt: now,
 		updatedAt: now
 	};
@@ -80,11 +84,12 @@ export async function updateEntry(
 	const merged: Entry = {
 		...existing,
 		...patch,
+		content: patch.content !== undefined ? plain(patch.content) : existing.content,
 		metadata: { ...existing.metadata, ...plain(patch.metadata ?? {}) },
 		updatedAt: Date.now()
 	};
 	if (patch.content !== undefined) {
-		merged.metadata.wordCount = countWords(patch.content);
+		merged.metadata.wordCount = wordCount(patch.content);
 	}
 	await db.put('entries', merged);
 	return merged;

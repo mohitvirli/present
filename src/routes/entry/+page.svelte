@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
 	import gsap from 'gsap';
+	import type { Editor as TiptapEditor, JSONContent } from '@tiptap/core';
 	import { page } from '$app/state';
 	import { gIn, gOut, gFade } from '$lib/transitions';
 	import { replaceState, goto } from '$app/navigation';
 	import { addEntry, updateEntry, deleteEntry, getEntry, type EntryMetadata } from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
-	import SmoothCaret from '$lib/components/SmoothCaret.svelte';
+	import { extractText } from '$lib/tiptap';
+	import Editor from '$lib/components/Editor.svelte';
 
-	let content = $state('');
+	let content = $state<JSONContent | string | null>(null);
+	let text = $state(''); // plain text mirror for counts/gating
 	let meta = $state<EntryMetadata>({});
 	let tagsInput = $state('');
 	let entryId = $state<string | null>(null);
@@ -17,16 +20,18 @@
 	let createdAt = $state<number | null>(null);
 	let showMeta = $state(false);
 	let readonly = $state(false); // viewing an existing entry
-	let ready = $state(false); // gate autosave until initial load done
-	let dockDelay = $state(0.45); // status dock entrance delay (sequenced)
-	let ctxBtnDelay = $state(0.45); // Context toggle entrance delay (sequenced)
-	let textarea = $state<HTMLTextAreaElement>();
+	let ready = $state(false); // gate editor creation + autosave until load done
+	let dockDelay = $state(0.45);
+	let ctxBtnDelay = $state(0.45);
+	let editor = $state<TiptapEditor>();
 	let writingEl: HTMLElement;
+
+	function focusEditor() {
+		editor?.commands.focus('end');
+	}
 
 	onMount(async () => {
 		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		// hide the writing area up-front so the async content load doesn't flash
-		// an empty editor before the entrance animation
 		if (writingEl && !reduce) gsap.set(writingEl, { opacity: 0, y: 8 });
 
 		let openContext = false;
@@ -34,7 +39,8 @@
 		if (id) {
 			const e = await getEntry(id);
 			if (e) {
-				content = e.content;
+				content = e.content as JSONContent | string;
+				text = extractText(content);
 				meta = { ...e.metadata };
 				tagsInput = (e.metadata.tags ?? []).join(', ');
 				entryId = e.id;
@@ -46,10 +52,7 @@
 		}
 		ready = true;
 		await tick();
-		autosize();
 
-		// when Context has metadata to show, sequence it first → then content →
-		// then the status dock (time). Otherwise content leads.
 		const contentDelay = openContext ? 0.55 : 0.1;
 		ctxBtnDelay = openContext ? 0.1 : 0.45;
 		dockDelay = openContext ? 0.85 : 0.45;
@@ -62,34 +65,23 @@
 				delay: contentDelay,
 				ease: 'power3.out',
 				onComplete: () => {
-					if (!readonly) textarea?.focus();
+					if (!readonly) focusEditor();
 				}
 			});
 		} else if (!readonly) {
-			textarea?.focus();
+			focusEditor();
 		}
 
 		if (openContext) {
-			if (reduce) {
-				showMeta = true;
-			} else {
-				// flip after first paint so the grid-rows transition animates open
-				requestAnimationFrame(() => requestAnimationFrame(() => (showMeta = true)));
-			}
+			if (reduce) showMeta = true;
+			else requestAnimationFrame(() => requestAnimationFrame(() => (showMeta = true)));
 		}
 	});
 
-	function autosize() {
-		if (!textarea) return;
-		textarea.style.height = 'auto';
-		textarea.style.height = `${textarea.scrollHeight}px`;
+	function onEditorChange(doc: JSONContent, txt: string) {
+		content = doc;
+		text = txt;
 	}
-
-	// grow textarea to fit content so the page (not the textarea) scrolls
-	$effect(() => {
-		void content;
-		autosize();
-	});
 
 	$effect(() => {
 		meta.tags = tagsInput
@@ -101,7 +93,7 @@
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 	async function doSave() {
-		if (!content.trim()) return;
+		if (!text.trim() || content == null) return;
 		saving = true;
 		try {
 			if (!entryId) {
@@ -126,7 +118,6 @@
 		saveTimer = setTimeout(doSave, 600);
 	});
 
-	// expose entry state + actions to the layout header
 	$effect(() => {
 		composer.entryId = entryId;
 		composer.readonly = readonly;
@@ -135,7 +126,7 @@
 
 	function startEditing() {
 		readonly = false;
-		tick().then(() => textarea?.focus());
+		tick().then(focusEditor);
 	}
 
 	async function removeEntry() {
@@ -144,7 +135,8 @@
 		saveTimer = null;
 		const id = entryId;
 		entryId = null;
-		content = '';
+		content = null;
+		text = '';
 		await deleteEntry(id);
 		await goto('/');
 	}
@@ -154,7 +146,7 @@
 
 	onDestroy(() => {
 		if (saveTimer) clearTimeout(saveTimer);
-		if (!readonly && content.trim() && entryId) {
+		if (!readonly && text.trim() && entryId && content != null) {
 			updateEntry(entryId, { content, metadata: meta });
 		}
 		composer.entryId = null;
@@ -164,15 +156,13 @@
 		composer.edit = null;
 	});
 
-	let hasContent = $derived(content.trim().length > 0);
+	let hasContent = $derived(text.trim().length > 0);
 	let hasMeta = $derived(
 		!!(meta.title?.trim() || (meta.tags && meta.tags.length) || meta.mood || meta.location?.trim())
 	);
 	let showContext = $derived(hasContent || hasMeta);
-	// while viewing (readonly) only show Context if the entry actually has
-	// metadata; editing/creating shows it once there's something to attach
 	let showContextBtn = $derived(readonly ? hasMeta : showContext);
-	let wordCount = $derived(content.trim().split(/\s+/).filter(Boolean).length);
+	let wordCount = $derived(text.trim().split(/\s+/).filter(Boolean).length);
 
 	$effect(() => {
 		if (!showContextBtn) showMeta = false;
@@ -215,17 +205,10 @@
 		{/if}
 	</div>
 
-	<!-- always rendered (collapsed) so it doesn't mount on first keystroke and
-	     shift the layout; opens only when showMeta -->
 	<div id="details-panel" class="details-collapse" class:open={showMeta}>
 		<div class="details-panel">
 			<div class="title-row">
-				<input
-					class="title-input"
-					bind:value={meta.title}
-					placeholder="Untitled"
-					readonly={readonly}
-				/>
+				<input class="title-input" bind:value={meta.title} placeholder="Untitled" readonly={readonly} />
 			</div>
 			<input
 				class="tags-input"
@@ -237,15 +220,14 @@
 	</div>
 
 	<section class="writing" bind:this={writingEl}>
-		<textarea
-			bind:this={textarea}
-			bind:value={content}
-			placeholder="Be present. Write what's here now."
-			readonly={readonly}
-			class:hide-caret={!readonly}
-		></textarea>
-		{#if !readonly}
-			<SmoothCaret el={textarea} active={!readonly} />
+		{#if ready}
+			<Editor
+				bind:editor
+				{content}
+				editable={!readonly}
+				placeholder="Be present. Write what's here now."
+				onChange={onEditorChange}
+			/>
 		{/if}
 	</section>
 </div>
