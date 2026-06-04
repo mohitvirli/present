@@ -6,7 +6,7 @@
 	import gsap from 'gsap';
 	import Lenis from 'lenis';
 	import favicon from '$lib/assets/favicon.svg';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import Settings from '$lib/components/Settings.svelte';
 	import Clock from '$lib/components/Clock.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import { composer } from '$lib/composer.svelte';
@@ -120,7 +120,7 @@
 			{/if}
 			{#if !isNew}
 				<nav in:gIn={{ x: 12, duration: 0.35, delay: 0.1 }}>
-					<ThemeToggle />
+					<Settings />
 				</nav>
 			{:else}
 				<div class="header-actions">

@@ -7,8 +7,9 @@
 		<script>
 			(function () {
 				try {
+					var ids = ['light', 'sage', 'sky', 'dark', 'deep', 'sage-dark'];
 					var t = localStorage.getItem('present:theme');
-					if (t !== 'light' && t !== 'dark') {
+					if (ids.indexOf(t) === -1) {
 						t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 					}
 					document.documentElement.setAttribute('data-theme', t);
