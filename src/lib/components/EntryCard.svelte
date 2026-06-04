@@ -3,14 +3,6 @@
 
 	let { entry }: { entry: Entry } = $props();
 
-	const moodGlyphs: Record<string, string> = {
-		great: '◎',
-		good: '○',
-		neutral: '–',
-		low: '◌',
-		bad: '●'
-	};
-
 	function time(ts: number): string {
 		return new Date(ts).toLocaleTimeString(undefined, {
 			hour: '2-digit',
@@ -55,12 +47,7 @@
 </script>
 
 <a class="entry-card" href="/entry/{entry.id}">
-	<div class="card-top">
-		{#if entry.metadata.mood}
-			<span class="mood-dot mood-{entry.metadata.mood}" title={entry.metadata.mood}></span>
-		{/if}
-		<time>{time(entry.createdAt)}</time>
-	</div>
+	<time>{time(entry.createdAt)}</time>
 
 	{#if displayTitle}
 		<h3 class="card-title">{displayTitle}</h3>
@@ -70,16 +57,11 @@
 		<p class="preview">{preview}</p>
 	{/if}
 
-	<div class="card-bottom">
-		{#if entry.metadata.tags?.length}
-			<ul class="tags">
-				{#each entry.metadata.tags as t (t)}
-					<li>#{t}</li>
-				{/each}
-			</ul>
-		{/if}
-		{#if entry.metadata.wordCount}
-			<span class="word-count">{entry.metadata.wordCount} words</span>
-		{/if}
-	</div>
+	{#if entry.metadata.tags?.length}
+		<ul class="tags">
+			{#each entry.metadata.tags as t (t)}
+				<li>#{t}</li>
+			{/each}
+		</ul>
+	{/if}
 </a>

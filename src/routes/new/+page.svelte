@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { slide, fly } from 'svelte/transition';
+	import { slide, fly, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { replaceState } from '$app/navigation';
 	import { addEntry, updateEntry, type EntryMetadata } from '$lib/db';
@@ -62,6 +62,7 @@
 	});
 
 	let hasContent = $derived(content.trim().length > 0);
+	let wordCount = $derived(content.trim().split(/\s+/).filter(Boolean).length);
 
 	$effect(() => {
 		if (!hasContent) showMeta = false;
@@ -134,8 +135,16 @@
 	</section>
 </div>
 
-{#if saving || savedAt}
-	<span class="save-status" aria-live="polite">
-		{#if saving}Saving…{:else if savedAt}Saved {fmtTime(savedAt)}{/if}
-	</span>
+{#if hasContent}
+	<div
+		class="status-dock"
+		aria-live="polite"
+		in:fly={{ y: 8, duration: 600, delay: 450, easing: cubicOut }}
+		out:fade={{ duration: 160 }}
+	>
+		<span class="word-count">{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
+		{#if saving || savedAt}
+			<span class="save-line">{saving ? 'Saving…' : `Saved ${fmtTime(savedAt!)}`}</span>
+		{/if}
+	</div>
 {/if}

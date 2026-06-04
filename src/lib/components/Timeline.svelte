@@ -14,9 +14,8 @@
 		if (key === today) return 'Today';
 		if (key === yest) return 'Yesterday';
 		return new Date(key).toLocaleDateString(undefined, {
-			day: '2-digit',
 			month: 'short',
-			year: 'numeric'
+			day: 'numeric'
 		});
 	}
 
