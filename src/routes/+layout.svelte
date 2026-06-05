@@ -15,6 +15,22 @@
 
 	let isNew = $derived(page.url.pathname === '/entry');
 
+	// single source of truth for the tab title: a saved entry shows its
+	// date + time, everything else shows the app name
+	let docTitle = $derived.by(() => {
+		if (page.url.pathname === '/entry' && composer.readonly && composer.createdAt != null) {
+			const d = new Date(composer.createdAt);
+			const date = d.toLocaleDateString(undefined, {
+				month: 'short',
+				day: 'numeric',
+				year: 'numeric'
+			});
+			const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+			return `${date} · ${time}`;
+		}
+		return 'be present.';
+	});
+
 	// reveal header icons only on a deliberate hover, not when the cursor
 	// merely happens to sit over the header right after a route change
 	let headerHovered = $state(false);
@@ -95,7 +111,40 @@
 </script>
 
 <svelte:head>
+	<title>{docTitle}</title>
+	<meta
+		name="description"
+		content="A calm, private journaling space. Be present and write what's here now — your entries stay on your device."
+	/>
 	<link rel="icon" href={favicon} />
+
+	<!-- theme-color follows the page background per color scheme -->
+	<meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)" />
+	<meta name="theme-color" content="#262624" media="(prefers-color-scheme: dark)" />
+
+	<!-- Open Graph -->
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="present" />
+	<meta property="og:title" content="be present." />
+	<meta
+		property="og:description"
+		content="A calm, private journaling space. Be present and write what's here now."
+	/>
+	<meta property="og:image" content="/og.jpg" />
+	<meta property="og:image:type" content="image/jpeg" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="800" />
+	<meta property="og:image:alt" content="be present. — a mindful journal for everyday moments" />
+
+	<!-- Twitter -->
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="be present." />
+	<meta
+		name="twitter:description"
+		content="A calm, private journaling space. Be present and write what's here now."
+	/>
+	<meta name="twitter:image" content="/og.jpg" />
+	<meta name="twitter:image:alt" content="be present. — a mindful journal for everyday moments" />
 </svelte:head>
 
 <Scrollbar />

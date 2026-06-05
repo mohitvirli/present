@@ -92,20 +92,20 @@
 	--bg-blur: rgba(244, 245, 240, 0.8);
 }
 
-/* Sky (light) */
+/* Sky (light) — palette pulled from the app icon (sky blue + cloud shadow) */
 [data-theme='sky'] {
-	--color-bg: #f2f6fa;
+	--color-bg: #f9fcff; /* lightened, near-white */
 	--color-surface: #ffffff;
-	--color-surface-2: #e6eef5;
+	--color-surface-2: #eaf4fb;
 	--color-text: #1c2530;
 	--color-text-muted: #5a6675;
-	--color-border: #dde7f0;
-	--color-border-strong: #cbd9e6;
-	--color-accent: #4f86b3;
-	--color-accent-soft: #e0ecf5;
+	--color-border: #e1edf6;
+	--color-border-strong: #cbdded;
+	--color-accent: #2e86c8; /* deeper sky-photo blue */
+	--color-accent-soft: #e2f0fb;
 	--color-accent-text: #ffffff;
 	--color-danger: #bc4b3c;
-	--bg-blur: rgba(242, 246, 250, 0.8);
+	--bg-blur: rgba(249, 252, 255, 0.8);
 }
 
 /* Deep Blue (dark) */
@@ -117,9 +117,9 @@
 	--color-text-muted: #8b94a1;
 	--color-border: #2a2f38;
 	--color-border-strong: #3a414c;
-	--color-accent: #6c93c4;
-	--color-accent-soft: #232b36;
-	--color-accent-text: #0e1115;
+	--color-accent: #2e86c8; /* shared sky-photo blue */
+	--color-accent-soft: #1b2c3c;
+	--color-accent-text: #ffffff;
 	--color-danger: #e0705f;
 
 	--mood-great: #6fb588;
@@ -627,6 +627,15 @@ a {
 	outline-offset: 2px;
 }
 
+/* touch / small screens have no hover — show home/edit/delete at all times */
+@media (hover: none), (max-width: 640px) {
+	.header-action,
+	.header-action.home {
+		opacity: 1;
+		transform: translate(0, 0);
+	}
+}
+
 /* primary CTA — replaces the brand on non-composer pages */
 .topbar .cta {
 	display: inline-flex;
@@ -811,10 +820,11 @@ main {
 	margin-bottom: 0;
 }
 
-/* date chip — stacked above entries by default (narrow screens) */
+/* date chip — stacked above entries by default (narrow screens), indented
+   to line up with the entry content column (list padding) */
 .day-label {
 	width: fit-content;
-	margin: 0 0 1rem;
+	margin: 0 0 1rem 36px;
 	font-size: 0.7rem;
 	font-weight: 700;
 	text-transform: uppercase;
@@ -1318,9 +1328,21 @@ main {
 	opacity: 0.6;
 }
 
-.composer.readonly .title-input,
 .composer.readonly .tags-input {
 	cursor: default;
+}
+
+/* readonly title is a heading, not an input — wraps instead of overflowing */
+.composer .title-static {
+	margin: 0;
+	line-height: 1.2;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.composer .title-static.untitled {
+	color: var(--color-text-muted);
+	opacity: 0.55;
 }
 
 .composer .writing {
@@ -1419,7 +1441,7 @@ main {
 	font-family: var(--font-sans);
 	font-size: 1.2rem;
 	font-weight: 400;
-	line-height: 1.75;
+	line-height: 1.4;
 	letter-spacing: -0.003em;
 }
 
@@ -1452,12 +1474,18 @@ main {
 
 .composer .writing .tiptap ul,
 .composer .writing .tiptap ol {
-	padding-left: 1.4em;
+	padding-left: 1.7em;
 	margin: 0 0 1em;
 }
 
 .composer .writing .tiptap li {
 	margin: 0.2em 0;
+}
+
+/* list items wrap their content in <p>; cancel the global paragraph
+   bottom margin so bullets aren't spaced like separate paragraphs */
+.composer .writing .tiptap li > p {
+	margin: 0;
 }
 
 .composer .writing .tiptap blockquote {

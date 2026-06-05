@@ -271,7 +271,13 @@
 	<div id="details-panel" class="details-collapse" class:open={showMeta}>
 		<div class="details-panel">
 			<div class="title-row">
-				<input class="title-input" bind:value={meta.title} placeholder="Untitled" readonly={readonly} />
+				{#if readonly}
+					<h1 class="title-input title-static" class:untitled={!meta.title?.trim()}>
+						{meta.title?.trim() || 'Untitled'}
+					</h1>
+				{:else}
+					<input class="title-input" bind:value={meta.title} placeholder="Untitled" />
+				{/if}
 			</div>
 			<input
 				class="tags-input"
