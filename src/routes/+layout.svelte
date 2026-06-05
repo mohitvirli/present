@@ -127,7 +127,12 @@
 	>
 		<div class="topbar-inner" bind:this={topbarInner}>
 			{#if isNew}
-				<a class="brand" href="/" aria-label="present — home" in:gFade={{ duration: 1.1, delay: 0.7 }}>
+				<a
+					class="brand"
+					href="/"
+					aria-label="present — home"
+					in:gFade={{ duration: 1.1, delay: 0.7 }}
+				>
 					<Clock at={composer.createdAt} />
 				</a>
 			{:else}
@@ -158,11 +163,7 @@
 						</svg>
 					</a>
 					{#if composer.readonly}
-						<button
-							class="header-action"
-							onclick={() => composer.edit?.()}
-							aria-label="Edit entry"
-						>
+						<button class="header-action" onclick={() => composer.edit?.()} aria-label="Edit entry">
 							<svg
 								width="18"
 								height="18"

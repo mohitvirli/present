@@ -21,7 +21,12 @@
 	);
 </script>
 
-<span class="clock" class:static={at != null} aria-label={at != null ? 'entry time' : 'current time'} role="timer">
+<span
+	class="clock"
+	class:static={at != null}
+	aria-label={at != null ? 'entry time' : 'current time'}
+	role="timer"
+>
 	<span class="time">
 		<span class="digits">{hh}</span><span class="colon">:</span><span class="digits">{mm}</span>
 	</span>

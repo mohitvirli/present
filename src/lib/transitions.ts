@@ -34,7 +34,10 @@ export function gOut(node: Element, params: FlyParams = {}): TransitionConfig {
 	};
 }
 
-export function gFade(node: Element, params: { duration?: number; delay?: number } = {}): TransitionConfig {
+export function gFade(
+	node: Element,
+	params: { duration?: number; delay?: number } = {}
+): TransitionConfig {
 	const { duration = 0.3, delay = 0 } = params;
 	const tween = gsap.from(node, { autoAlpha: 0, duration, ease: 'power2.out', paused: true });
 	return { delay: delay * 1000, duration: duration * 1000, tick: (t) => tween.progress(t) };

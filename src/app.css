@@ -415,7 +415,9 @@ html::-webkit-scrollbar {
 	border: 1px solid var(--color-border);
 	position: relative;
 	cursor: pointer;
-	transition: background 0.16s ease, border-color 0.16s ease;
+	transition:
+		background 0.16s ease,
+		border-color 0.16s ease;
 }
 
 .switch::after {
@@ -427,7 +429,9 @@ html::-webkit-scrollbar {
 	height: 17px;
 	border-radius: 50%;
 	background: var(--color-text-muted);
-	transition: transform 0.16s ease, background 0.16s ease;
+	transition:
+		transform 0.16s ease,
+		background 0.16s ease;
 }
 
 .switch:checked {
@@ -1179,7 +1183,8 @@ main {
 	border-radius: 50%;
 	flex: none;
 	background: var(--mood-color, var(--color-text-muted));
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--mood-color, var(--color-text-muted)) 22%, transparent);
+	box-shadow: 0 0 0 3px
+		color-mix(in srgb, var(--mood-color, var(--color-text-muted)) 22%, transparent);
 }
 
 .composer .ai-mood[data-tone='positive'] {
@@ -1536,4 +1541,3 @@ main {
 	height: 0;
 	pointer-events: none;
 }
-

@@ -8,7 +8,9 @@ import { z } from 'zod';
 export const prerender = false;
 
 const schema = z.object({
-	title: z.string().describe('A short, evocative title, max 6 words. No quotes, no trailing period.'),
+	title: z
+		.string()
+		.describe('A short, evocative title, max 6 words. No quotes, no trailing period.'),
 	tags: z.array(z.string()).max(4).describe('2 to 4 lowercase single-word or short topical tags.'),
 	summary: z.string().describe('One calm sentence capturing the essence of the entry.'),
 	emotion: z
@@ -16,7 +18,9 @@ const schema = z.object({
 		.describe(
 			'A single evocative, lowercase word for the DOMINANT emotion in the entry (e.g. calm, wistful, hopeful, anxious, content, restless).'
 		),
-	tone: z.enum(['positive', 'neutral', 'negative']).describe('Overall valence of the dominant emotion.'),
+	tone: z
+		.enum(['positive', 'neutral', 'negative'])
+		.describe('Overall valence of the dominant emotion.'),
 	secondaryEmotion: z
 		.string()
 		.nullable()

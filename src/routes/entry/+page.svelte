@@ -283,13 +283,18 @@
 				class="tags-input"
 				bind:value={tagsInput}
 				placeholder="Add tags, comma separated"
-				readonly={readonly}
+				{readonly}
 			/>
 
 			{#if !readonly}
 				{#if aiSettings.enabled}
 					<div class="ai-row">
-						<button type="button" class="ai-suggest" onclick={suggest} disabled={aiBusy || !hasContent}>
+						<button
+							type="button"
+							class="ai-suggest"
+							onclick={suggest}
+							disabled={aiBusy || !hasContent}
+						>
 							{#if aiBusy}Thinking…{:else}✦ Suggest{/if}
 						</button>
 						{#if aiError}<span class="ai-error">{aiError}</span>{/if}
@@ -306,8 +311,8 @@
 											type="button"
 											class="mood-remove"
 											onclick={() => removeEmotion('primary')}
-											aria-label="Remove {meta.aiEmotion} mood"
-										>✕</button>
+											aria-label="Remove {meta.aiEmotion} mood">✕</button
+										>
 									</span>
 									{#if meta.aiEmotion2}
 										<span class="ai-mood secondary">
@@ -316,8 +321,8 @@
 												type="button"
 												class="mood-remove"
 												onclick={() => removeEmotion('secondary')}
-												aria-label="Remove {meta.aiEmotion2} mood"
-											>✕</button>
+												aria-label="Remove {meta.aiEmotion2} mood">✕</button
+											>
 										</span>
 									{/if}
 								</div>
