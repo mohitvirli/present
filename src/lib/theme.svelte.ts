@@ -23,10 +23,10 @@ const IDS = THEMES.map((t) => t.id);
 const KEY = 'present:theme';
 
 function initial(): ThemeId {
-	if (!browser) return 'light';
+	if (!browser) return 'sky';
 	const saved = localStorage.getItem(KEY) as ThemeId | null;
 	if (saved && IDS.includes(saved)) return saved;
-	return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+	return 'sky';
 }
 
 export const theme = $state<{ value: ThemeId }>({ value: initial() });

@@ -36,7 +36,7 @@
 					var ids = ['light', 'sage', 'sky', 'dark', 'deep', 'sage-dark'];
 					var t = localStorage.getItem('present:theme');
 					if (ids.indexOf(t) === -1) {
-						t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+						t = 'sky';
 					}
 					document.documentElement.setAttribute('data-theme', t);
 				} catch (e) {}
