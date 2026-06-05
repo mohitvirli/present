@@ -112,39 +112,7 @@
 
 <svelte:head>
 	<title>{docTitle}</title>
-	<meta
-		name="description"
-		content="A calm, private journaling space. Be present and write what's here now — your entries stay on your device."
-	/>
 	<link rel="icon" href={favicon} />
-
-	<!-- theme-color follows the page background per color scheme -->
-	<meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)" />
-	<meta name="theme-color" content="#262624" media="(prefers-color-scheme: dark)" />
-
-	<!-- Open Graph -->
-	<meta property="og:type" content="website" />
-	<meta property="og:site_name" content="present" />
-	<meta property="og:title" content="be present." />
-	<meta
-		property="og:description"
-		content="A calm, private journaling space. Be present and write what's here now."
-	/>
-	<meta property="og:image" content="/og.jpg" />
-	<meta property="og:image:type" content="image/jpeg" />
-	<meta property="og:image:width" content="1200" />
-	<meta property="og:image:height" content="800" />
-	<meta property="og:image:alt" content="be present. — a mindful journal for everyday moments" />
-
-	<!-- Twitter -->
-	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:title" content="be present." />
-	<meta
-		name="twitter:description"
-		content="A calm, private journaling space. Be present and write what's here now."
-	/>
-	<meta name="twitter:image" content="/og.jpg" />
-	<meta name="twitter:image:alt" content="be present. — a mindful journal for everyday moments" />
 </svelte:head>
 
 <Scrollbar />
