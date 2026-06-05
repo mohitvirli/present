@@ -366,6 +366,80 @@ html::-webkit-scrollbar {
 	color: var(--color-text);
 }
 
+.settings-subhead {
+	margin: 0 0 0.6rem;
+	font-size: 0.7rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.09em;
+	color: var(--color-text-muted);
+}
+
+.settings-subhead:not(:first-of-type) {
+	margin-top: 1.4rem;
+}
+
+.ai-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	cursor: pointer;
+}
+
+.ai-toggle-text {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+}
+
+.ai-toggle-title {
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--color-text);
+}
+
+.ai-toggle-sub {
+	font-size: 0.76rem;
+	color: var(--color-text-muted);
+}
+
+.switch {
+	appearance: none;
+	-webkit-appearance: none;
+	flex: none;
+	width: 40px;
+	height: 23px;
+	border-radius: 999px;
+	background: var(--color-surface-2);
+	border: 1px solid var(--color-border);
+	position: relative;
+	cursor: pointer;
+	transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.switch::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 17px;
+	height: 17px;
+	border-radius: 50%;
+	background: var(--color-text-muted);
+	transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.switch:checked {
+	background: var(--color-accent);
+	border-color: var(--color-accent);
+}
+
+.switch:checked::after {
+	transform: translateX(17px);
+	background: #fff;
+}
+
 .theme-grid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
@@ -978,6 +1052,222 @@ main {
 	display: flex;
 	flex-direction: column;
 	gap: 0.4rem;
+}
+
+/* ---------- AI suggestions ---------- */
+.composer .ai-row {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-top: 0.4rem;
+}
+
+.composer .ai-suggest {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	background: var(--color-accent-soft);
+	color: var(--color-accent);
+	border: none;
+	border-radius: 8px;
+	padding: 0.3rem 0.7rem;
+	font-family: var(--font-sans);
+	font-size: 0.78rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: filter 0.14s ease;
+}
+
+.composer .ai-suggest:hover:not(:disabled) {
+	filter: brightness(1.05);
+}
+
+.composer .ai-suggest:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.composer .ai-error {
+	font-size: 0.75rem;
+	color: var(--color-danger);
+}
+
+.composer .ai-suggestion {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	margin-top: 0.5rem;
+}
+
+.composer .ai-label {
+	font-size: 0.62rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--color-text-muted);
+}
+
+.composer .ai-moods {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.composer .ai-mood {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	align-self: flex-start;
+	background: var(--color-surface-2);
+	border: 1px solid var(--color-border);
+	border-radius: 999px;
+	padding: 0.28rem 0.7rem 0.28rem 0.6rem;
+	font-family: var(--font-sans);
+	font-size: 0.82rem;
+	text-transform: capitalize;
+}
+
+/* secondary mood: lighter, no colored dot — a nuance, not the headline */
+.composer .ai-mood.secondary {
+	padding: 0.28rem 0.55rem 0.28rem 0.7rem;
+	color: var(--color-text-muted);
+	font-size: 0.78rem;
+}
+
+.composer .mood-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 15px;
+	height: 15px;
+	margin-left: 0.1rem;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--color-text-muted);
+	font-size: 0.62rem;
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0.65;
+	transition:
+		background 0.14s ease,
+		color 0.14s ease,
+		opacity 0.14s ease;
+}
+
+.composer .mood-remove:hover {
+	background: var(--color-surface);
+	color: var(--color-text);
+	opacity: 1;
+}
+
+.composer .ai-mood .mood-dot {
+	width: 0.55rem;
+	height: 0.55rem;
+	border-radius: 50%;
+	flex: none;
+	background: var(--mood-color, var(--color-text-muted));
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--mood-color, var(--color-text-muted)) 22%, transparent);
+}
+
+.composer .ai-mood[data-tone='positive'] {
+	--mood-color: #3fae7a;
+}
+.composer .ai-mood[data-tone='neutral'] {
+	--mood-color: #8a8f98;
+}
+.composer .ai-mood[data-tone='negative'] {
+	--mood-color: #d08a6a;
+}
+
+/* AI summary: marked as the model's note, not page body copy */
+/* whole card is the toggle; click anywhere to hide */
+.composer .ai-summary {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	width: 100%;
+	margin: 0.35rem 0 0;
+	padding: 0.5rem 0.5rem 0.5rem 0.65rem;
+	border: none;
+	border-left: 2px solid var(--color-accent);
+	border-radius: 0 7px 7px 0;
+	background: var(--color-accent-soft);
+	font-family: var(--font-sans);
+	font-size: 0.83rem;
+	line-height: 1.55;
+	color: var(--color-text);
+	font-style: italic;
+	text-align: left;
+	cursor: pointer;
+	transition: background 0.14s ease;
+}
+
+.composer .ai-summary:hover {
+	background: color-mix(in srgb, var(--color-accent-soft) 70%, var(--color-accent) 14%);
+}
+
+.composer .ai-summary::before {
+	content: '✦';
+	flex: none;
+	line-height: 1.55; /* match first text line so the marker sits on it */
+	font-style: normal;
+	color: var(--color-accent);
+}
+
+.composer .ai-summary > span:not(.summary-remove) {
+	flex: 1;
+	min-width: 0;
+}
+
+/* x reveals on card hover, vertically centered on the first line */
+.composer .summary-remove {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 1.55em;
+	color: var(--color-accent);
+	font-size: 0.83rem;
+	font-style: normal;
+	line-height: 1;
+	opacity: 0;
+	transition:
+		opacity 0.14s ease,
+		transform 0.14s ease;
+}
+
+.composer .ai-summary:hover .summary-remove {
+	opacity: 0.75;
+	transform: scale(1.1);
+}
+
+.composer .ai-summary-show {
+	align-self: flex-start;
+	margin-top: 0.35rem;
+	padding: 0.28rem 0.6rem;
+	border: 1px dashed var(--color-border);
+	border-radius: 7px;
+	background: transparent;
+	color: var(--color-text-muted);
+	font-family: var(--font-sans);
+	font-size: 0.78rem;
+	cursor: pointer;
+	transition:
+		border-color 0.14s ease,
+		color 0.14s ease;
+}
+
+.composer .ai-summary-show:hover {
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+}
+
+.composer .ai-summary.readonly {
+	margin-top: 0.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

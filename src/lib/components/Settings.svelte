@@ -1,6 +1,7 @@
 <script lang="ts">
 	import gsap from 'gsap';
 	import { THEMES, theme, setTheme } from '$lib/theme.svelte';
+	import { aiSettings, setAiEnabled } from '$lib/settings.svelte';
 
 	let dialog = $state<HTMLDialogElement | null>(null);
 
@@ -61,10 +62,26 @@
 	}}
 >
 	<div class="settings-head">
-		<h2 id="settings-title">Theme</h2>
+		<h2 id="settings-title">Settings</h2>
 		<button class="settings-close" onclick={close} aria-label="Close">✕</button>
 	</div>
 
+	<h3 class="settings-subhead">AI</h3>
+	<label class="ai-toggle">
+		<span class="ai-toggle-text">
+			<span class="ai-toggle-title">Enable AI suggestions</span>
+			<span class="ai-toggle-sub">Analyze entries for title, tags, mood &amp; summary.</span>
+		</span>
+		<input
+			type="checkbox"
+			role="switch"
+			class="switch"
+			checked={aiSettings.enabled}
+			onchange={(e) => setAiEnabled(e.currentTarget.checked)}
+		/>
+	</label>
+
+	<h3 class="settings-subhead">Theme</h3>
 	<div class="theme-grid">
 		{#each THEMES as t (t.id)}
 			<button

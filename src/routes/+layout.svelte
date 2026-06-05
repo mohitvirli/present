@@ -1,16 +1,16 @@
 <script lang="ts">
-	import '../app.css';
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { gIn, gFade } from '$lib/transitions';
-	import gsap from 'gsap';
-	import Lenis from 'lenis';
 	import favicon from '$lib/assets/favicon.svg';
-	import Settings from '$lib/components/Settings.svelte';
 	import Clock from '$lib/components/Clock.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
+	import Settings from '$lib/components/Settings.svelte';
 	import { composer } from '$lib/composer.svelte';
 	import { scroll } from '$lib/scroll.svelte';
+	import { gFade, gIn } from '$lib/transitions';
+	import gsap from 'gsap';
+	import Lenis from 'lenis';
+	import { onMount } from 'svelte';
+	import '../app.css';
 	let { children } = $props();
 
 	let isNew = $derived(page.url.pathname === '/entry');
@@ -115,7 +115,7 @@
 				</a>
 			{:else}
 				<a class="cta" href="/entry" in:gFade={{ duration: 0.3 }}>
-					Be Present <span class="cta-plus" aria-hidden="true">+</span>
+					Be Present <span class="cta-plus" aria-hidden="true">→</span>
 				</a>
 			{/if}
 			{#if !isNew}

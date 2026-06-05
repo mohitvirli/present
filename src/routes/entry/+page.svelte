@@ -7,6 +7,7 @@
 	import { replaceState, goto } from '$app/navigation';
 	import { addEntry, updateEntry, deleteEntry, getEntry, type EntryMetadata } from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
+	import { aiSettings } from '$lib/settings.svelte';
 	import { extractText } from '$lib/tiptap';
 	import Editor from '$lib/components/Editor.svelte';
 
@@ -172,6 +173,68 @@
 		const d = new Date(ts);
 		return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 	}
+
+	// ----- AI suggestions (title / tags / summary) -----
+	type Tone = 'positive' | 'neutral' | 'negative';
+	type Suggestion = {
+		title: string;
+		tags: string[];
+		summary: string;
+		emotion: string;
+		tone: Tone;
+		secondaryEmotion: string | null;
+	};
+	let aiBusy = $state(false);
+	let aiError = $state('');
+
+	async function suggest() {
+		if (aiBusy || !text.trim()) return;
+		aiBusy = true;
+		aiError = '';
+		try {
+			const res = await fetch('/api/analyze', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text })
+			});
+			if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed');
+			const s = (await res.json()) as Suggestion;
+			// write suggestions straight into the fields
+			meta.title = s.title;
+			tagsInput = s.tags.join(', ');
+			// derived metadata (saved by autosave)
+			meta.aiSummary = s.summary;
+			meta.aiEmotion = s.emotion;
+			meta.aiTone = s.tone;
+			meta.aiEmotion2 = s.secondaryEmotion ?? undefined;
+			meta.aiTags = s.tags;
+		} catch (e) {
+			aiError = e instanceof Error ? e.message : 'Failed';
+		} finally {
+			aiBusy = false;
+		}
+	}
+
+	function removeEmotion(which: 'primary' | 'secondary') {
+		if (which === 'secondary') {
+			meta.aiEmotion2 = undefined;
+			return;
+		}
+		// removing the primary promotes the secondary (if any) to primary
+		if (meta.aiEmotion2) {
+			meta.aiEmotion = meta.aiEmotion2;
+			meta.aiEmotion2 = undefined;
+		} else {
+			meta.aiEmotion = undefined;
+		}
+		meta.aiTone = undefined;
+	}
+
+	function toggleSummary() {
+		meta.aiSummaryHidden = !meta.aiSummaryHidden;
+		// autosave only runs in edit mode; persist directly when viewing
+		if (readonly && entryId) void updateEntry(entryId, { metadata: meta });
+	}
 </script>
 
 <div class="composer" class:readonly>
@@ -216,6 +279,107 @@
 				placeholder="Add tags, comma separated"
 				readonly={readonly}
 			/>
+
+			{#if !readonly}
+				{#if aiSettings.enabled}
+					<div class="ai-row">
+						<button type="button" class="ai-suggest" onclick={suggest} disabled={aiBusy || !hasContent}>
+							{#if aiBusy}Thinking…{:else}✦ Suggest{/if}
+						</button>
+						{#if aiError}<span class="ai-error">{aiError}</span>{/if}
+					</div>
+
+					{#if meta.aiEmotion || meta.aiSummary}
+						<div class="ai-suggestion">
+							{#if meta.aiEmotion}
+								<div class="ai-moods">
+									<span class="ai-mood" data-tone={meta.aiTone ?? 'neutral'}>
+										<span class="mood-dot" aria-hidden="true"></span>
+										<span class="ai-label">mood</span>{meta.aiEmotion}
+										<button
+											type="button"
+											class="mood-remove"
+											onclick={() => removeEmotion('primary')}
+											aria-label="Remove {meta.aiEmotion} mood"
+										>✕</button>
+									</span>
+									{#if meta.aiEmotion2}
+										<span class="ai-mood secondary">
+											{meta.aiEmotion2}
+											<button
+												type="button"
+												class="mood-remove"
+												onclick={() => removeEmotion('secondary')}
+												aria-label="Remove {meta.aiEmotion2} mood"
+											>✕</button>
+										</span>
+									{/if}
+								</div>
+							{/if}
+							{#if meta.aiSummary}
+								{#if meta.aiSummaryHidden}
+									<button
+										type="button"
+										class="ai-summary-show"
+										onclick={toggleSummary}
+										in:gIn={{ y: -4, duration: 0.32 }}
+									>
+										✦ Show summary
+									</button>
+								{:else}
+									<button
+										type="button"
+										class="ai-summary"
+										onclick={toggleSummary}
+										title="Hide summary"
+										in:gIn={{ y: -4, duration: 0.32 }}
+									>
+										<span>{meta.aiSummary}</span>
+										<span class="summary-remove" aria-hidden="true">✕</span>
+									</button>
+								{/if}
+							{/if}
+						</div>
+					{/if}
+				{/if}
+			{:else if meta.aiEmotion || meta.aiSummary}
+				<div class="ai-suggestion">
+					{#if meta.aiEmotion}
+						<div class="ai-moods">
+							<span class="ai-mood" data-tone={meta.aiTone ?? 'neutral'}>
+								<span class="mood-dot" aria-hidden="true"></span>
+								<span class="ai-label">mood</span>{meta.aiEmotion}
+							</span>
+							{#if meta.aiEmotion2}
+								<span class="ai-mood secondary">{meta.aiEmotion2}</span>
+							{/if}
+						</div>
+					{/if}
+					{#if meta.aiSummary}
+						{#if meta.aiSummaryHidden}
+							<button
+								type="button"
+								class="ai-summary-show"
+								onclick={toggleSummary}
+								in:gIn={{ y: -4, duration: 0.32 }}
+							>
+								✦ Show summary
+							</button>
+						{:else}
+							<button
+								type="button"
+								class="ai-summary readonly"
+								onclick={toggleSummary}
+								title="Hide summary"
+								in:gIn={{ y: -4, duration: 0.32 }}
+							>
+								<span>{meta.aiSummary}</span>
+								<span class="summary-remove" aria-hidden="true">✕</span>
+							</button>
+						{/if}
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 

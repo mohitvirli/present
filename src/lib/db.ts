@@ -16,7 +16,10 @@ export interface EntryMetadata {
 	// reserved for future AI integration (Phase 7)
 	aiSummary?: string;
 	aiTags?: string[];
-	aiSentiment?: number; // -1..1
+	aiEmotion?: string; // dominant emotion, evocative single word, e.g. "calm"
+	aiTone?: 'positive' | 'neutral' | 'negative'; // valence of dominant, drives chip color
+	aiEmotion2?: string; // optional secondary emotion for mixed feelings
+	aiSummaryHidden?: boolean; // user collapsed the summary (kept, not deleted)
 }
 
 export interface Entry {
@@ -85,7 +88,10 @@ export async function updateEntry(
 		...existing,
 		...patch,
 		content: patch.content !== undefined ? plain(patch.content) : existing.content,
-		metadata: { ...existing.metadata, ...plain(patch.metadata ?? {}) },
+		// Replace metadata wholesale (callers pass the full object). Merging would
+		// resurrect keys the user explicitly cleared, since plain() drops the
+		// undefined values that mark a removal.
+		metadata: patch.metadata !== undefined ? plain(patch.metadata) : existing.metadata,
 		updatedAt: Date.now()
 	};
 	if (patch.content !== undefined) {
