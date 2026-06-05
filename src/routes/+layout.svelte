@@ -140,7 +140,7 @@
 					<Settings />
 				</nav>
 			{:else}
-				<div class="header-actions">
+				<div class="header-actions" in:gIn={{ x: 12, duration: 0.35, delay: 0.7 }}>
 					<a class="header-action home" href="/" aria-label="Back to timeline">
 						<svg
 							width="18"
