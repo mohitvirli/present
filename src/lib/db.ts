@@ -142,8 +142,8 @@ const CREATED_AT = new Date('2026-06-04T17:35:40+05:30').getTime();
 const TUTORIAL_SEEDS: Seed[] = [
 	{
 		offsetMs: 0,
-		content: doc('This is your space to think out loud. Tap the button above to make a new entry ↑'),
-		metadata: { title: 'Welcome to Present', tutorial: true }
+		content: doc('This is your space to think out loud. Tap the button at the top to add a new entry ↑'),
+		metadata: { title: 'Hey 👋 Welcome to Present', tutorial: true }
 	},
 	{
 		offsetMs: 60_000,
@@ -153,11 +153,11 @@ const TUTORIAL_SEEDS: Seed[] = [
 	{
 		offsetMs: DAY,
 		content: doc('Enable AI to suggest titles and tags. It also analyses the mood and makes a short summary too.'),
-		metadata: { title: 'Interesting features...', tags: ['ai'], tutorial: true }
+		metadata: { title: 'Interesting AI features...', tags: ['ai'], tutorial: true }
 	},
 	{
 		offsetMs: DAY + 60_000,
-		content: doc('Markdown supported + Voice dictation is available too. Crazy!'),
+		content: doc('Markdown is supported + Voice dictation is also there. Crazy no?'),
 		metadata: { tutorial: true }
 	},
 	{
