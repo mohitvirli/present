@@ -11,7 +11,11 @@
 	import { extractText } from '$lib/tiptap';
 	import { createDictation } from '$lib/dictation.svelte';
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
+	import { pickPlaceholder } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
+
+	// Picked once per entry (the page remounts on each new entry).
+	const placeholder = pickPlaceholder();
 
 	let content = $state<JSONContent | string | null>(null);
 	let text = $state(''); // plain text mirror for counts/gating
@@ -559,7 +563,7 @@
 				bind:editor
 				{content}
 				editable={!readonly}
-				placeholder="Be present. Write what's here now."
+				{placeholder}
 				onChange={onEditorChange}
 			/>
 		{/if}
