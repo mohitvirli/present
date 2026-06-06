@@ -3,11 +3,13 @@ import { defineConfig } from 'vite';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Pre-generated local cert (see README/.certs). Serving over HTTPS gives a
-// secure context so getUserMedia works on phones over the LAN. The cert is
+// Opt-in local HTTPS (set HTTPS=1, e.g. `npm run dev:https`). Serving over HTTPS
+// gives a secure context so getUserMedia works on phones over the LAN. Off by
+// default so the in-app http preview can still reach the dev server. The cert is
 // signed by a local mkcert CA that isn't system-trusted, so browsers show a
 // one-time warning to click through — no sudo, no plugin running at startup.
 function localHttps() {
+	if (!process.env.HTTPS) return undefined;
 	const key = resolve(process.cwd(), '.certs/key.pem');
 	const cert = resolve(process.cwd(), '.certs/cert.pem');
 	if (existsSync(key) && existsSync(cert)) {

@@ -1,19 +1,22 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { onNavigate, goto } from '$app/navigation';
+	import { onNavigate } from '$app/navigation';
 	import gsap from 'gsap';
-	import { listEntries, type Entry } from '$lib/db';
+	import { listEntries, seedTutorialEntries, type Entry } from '$lib/db';
+	import { hasOnboarded, markOnboarded } from '$lib/onboarding';
 	import Timeline from '$lib/components/Timeline.svelte';
 
 	let entries = $state<Entry[]>([]);
 	let loaded = $state(false);
 
 	onMount(async () => {
-		const list = await listEntries();
-		// nothing written yet → jump straight into the composer
-		if (list.length === 0) {
-			await goto('/entry', { replaceState: true });
-			return;
+		let list = await listEntries();
+		// first-ever visit → seed example entries so the journal teaches by
+		// example instead of dropping the user into an empty composer
+		if (list.length === 0 && !hasOnboarded()) {
+			await seedTutorialEntries();
+			markOnboarded();
+			list = await listEntries();
 		}
 		entries = list;
 		loaded = true;

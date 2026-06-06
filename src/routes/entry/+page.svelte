@@ -5,7 +5,14 @@
 	import { page } from '$app/state';
 	import { gIn, gOut, gFade } from '$lib/transitions';
 	import { replaceState, goto } from '$app/navigation';
-	import { addEntry, updateEntry, deleteEntry, getEntry, type EntryMetadata } from '$lib/db';
+	import {
+		addEntry,
+		updateEntry,
+		deleteEntry,
+		getEntry,
+		clearTutorialEntries,
+		type EntryMetadata
+	} from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
 	import { aiSettings, micSettings } from '$lib/settings.svelte';
 	import { extractText } from '$lib/tiptap';
@@ -268,6 +275,8 @@
 				const e = await addEntry(content, meta);
 				entryId = e.id;
 				replaceState(`/entry?id=${e.id}`, {});
+				// first real entry → clear the seeded tutorial examples
+				void clearTutorialEntries();
 			} else {
 				await updateEntry(entryId, { content, metadata: meta });
 			}
