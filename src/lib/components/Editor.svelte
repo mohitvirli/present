@@ -5,6 +5,7 @@
 	import Placeholder from '@tiptap/extension-placeholder';
 	import Typography from '@tiptap/extension-typography';
 	import { BubbleMenu } from '@tiptap/extension-bubble-menu';
+	import { DictationDecoration } from '$lib/tiptap-dictation';
 
 	let {
 		content = null,
@@ -42,6 +43,7 @@
 				StarterKit,
 				Placeholder.configure({ placeholder }),
 				Typography,
+				DictationDecoration,
 				BubbleMenu.configure({
 					element: bubbleEl,
 					appendTo: () => document.body,

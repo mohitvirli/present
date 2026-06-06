@@ -1033,6 +1033,172 @@ main {
 	color: var(--color-text-muted);
 }
 
+/* ---------- voice dictation ---------- */
+.dictation {
+	position: fixed;
+	left: max(2rem, calc((100vw - var(--composer-width)) / 2));
+	bottom: 1.5rem;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+}
+
+.dictation .mic {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.4rem;
+	height: 2.4rem;
+	border-radius: 50%;
+	border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+	background: var(--color-bg-blur, var(--bg-blur));
+	backdrop-filter: blur(8px);
+	color: var(--color-text-muted);
+	cursor: pointer;
+	transform: translateZ(0);
+	transition:
+		color 0.16s ease,
+		background 0.16s ease,
+		transform 0.16s ease;
+}
+
+.dictation .mic:hover:not(:disabled):not(.recording) {
+	color: var(--color-accent);
+}
+
+.dictation .mic:active:not(:disabled) {
+	transform: scale(0.92);
+}
+
+.dictation .mic:not(.recording):not(:disabled) {
+	animation: mic-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dictation .mic:not(.recording):not(:disabled) {
+		animation: none;
+	}
+}
+
+.dictation .mic:disabled {
+	cursor: default;
+	opacity: 0.7;
+}
+
+.dictation .mic.recording {
+	background: var(--color-accent);
+	color: #fff;
+	border-color: transparent;
+}
+
+/* Pulse lives on a pseudo-element ring (transform/opacity = GPU composited) so
+   the blurred button itself never repaints — animating box-shadow directly on a
+   backdrop-filter element causes visible shaking on iOS Safari. */
+.dictation .mic.recording::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 50%;
+	border: 2px solid var(--color-accent);
+	pointer-events: none;
+	will-change: transform, opacity;
+	animation: dictation-pulse 1.6s ease-out infinite;
+}
+
+@keyframes dictation-pulse {
+	0% {
+		transform: scale(1);
+		opacity: 0.6;
+	}
+	100% {
+		transform: scale(1.8);
+		opacity: 0;
+	}
+}
+
+@keyframes mic-pulse {
+	0%,
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	50% {
+		opacity: 0.85;
+		transform: translateY(-0.5px);
+	}
+}
+
+.dictation .spin {
+	animation: dictation-spin 0.8s linear infinite;
+}
+
+@keyframes dictation-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.dictation .dictation-meta {
+	font-size: 0.75rem;
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+	color: var(--color-text-muted);
+}
+
+.dictation .dictation-meta.error {
+	color: var(--color-danger);
+}
+
+.dictation .dictation-cancel {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.5rem;
+	height: 1.5rem;
+	border-radius: 50%;
+	border: none;
+	background: transparent;
+	color: var(--color-text-muted);
+	font-size: 0.7rem;
+	cursor: pointer;
+	transition: color 0.14s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dictation .mic.recording::after {
+		animation: none;
+		opacity: 0;
+	}
+}
+
+/* live dictation in-editor styling (ProseMirror decorations) */
+.dictation-interim {
+	color: var(--color-text-muted); /* tentative — not yet final */
+	transition: color 0.15s ease;
+}
+
+/* on commit, smoothly resolve muted → full text color */
+.dictation-settling {
+	animation: dictation-settle 0.45s ease-out;
+}
+
+@keyframes dictation-settle {
+	from {
+		color: var(--color-text-muted);
+	}
+	to {
+		color: var(--color-text);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dictation-settling {
+		animation: none;
+	}
+}
+
 /* jank-free accordion: grid rows 0fr→1fr settles to auto natively, so there's
    no inline-height removal reflow (and nothing for JS/Lenis to fight over) */
 .composer .details-collapse {

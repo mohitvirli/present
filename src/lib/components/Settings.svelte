@@ -1,8 +1,7 @@
 <script lang="ts">
 	import gsap from 'gsap';
 	import { THEMES, theme, setTheme } from '$lib/theme.svelte';
-	import { aiSettings, setAiEnabled } from '$lib/settings.svelte';
-
+	import { aiSettings, micSettings, setAiEnabled, setMicEnabled } from '$lib/settings.svelte';
 	let dialog = $state<HTMLDialogElement | null>(null);
 
 	function open() {
@@ -78,6 +77,21 @@
 			class="switch"
 			checked={aiSettings.enabled}
 			onchange={(e) => setAiEnabled(e.currentTarget.checked)}
+		/>
+	</label>
+
+	<h3 class="settings-subhead">Microphone</h3>
+	<label class="ai-toggle">
+		<span class="ai-toggle-text">
+			<span class="ai-toggle-title">Enable mic</span>
+			<span class="ai-toggle-sub">Show the live dictation mic button while editing.</span>
+		</span>
+		<input
+			type="checkbox"
+			role="switch"
+			class="switch"
+			checked={micSettings.enabled}
+			onchange={(e) => setMicEnabled(e.currentTarget.checked)}
 		/>
 	</label>
 

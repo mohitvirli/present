@@ -7,8 +7,10 @@
 	import { replaceState, goto } from '$app/navigation';
 	import { addEntry, updateEntry, deleteEntry, getEntry, type EntryMetadata } from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
-	import { aiSettings } from '$lib/settings.svelte';
+	import { aiSettings, micSettings } from '$lib/settings.svelte';
 	import { extractText } from '$lib/tiptap';
+	import { createDictation } from '$lib/dictation.svelte';
+	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import Editor from '$lib/components/Editor.svelte';
 
 	let content = $state<JSONContent | string | null>(null);
@@ -26,9 +28,166 @@
 	let ctxBtnDelay = $state(0.45);
 	let editor = $state<TiptapEditor>();
 	let writingEl: HTMLElement;
+	let lastFocusWasTitleOrTags = false;
 
 	function focusEditor() {
 		editor?.commands.focus('end');
+	}
+
+	// Voice dictation → streams words live into the editor. Interim results
+	// occupy a tracked region that gets replaced on each update; on a final
+	// result the region is committed (kept) and a fresh one starts after it.
+	let interimFrom: number | null = null;
+	let interimLen = 0;
+	// When the user is focused in the title or tags input, we track any
+	// interim text inserted there so subsequent interim updates replace the
+	// previous tentative fragment instead of appending repeatedly.
+	let inputInterimEl: HTMLInputElement | null = null;
+	let inputInterimRange: { start: number; len: number } | null = null;
+
+	function applyTranscript(text: string, isFinal: boolean) {
+		// If the user is focused in the title or tags input, write direct to
+		// that input instead of the editor so dictation follows the user's focus.
+		const activeEl = typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null;
+		const focusedIsInput = !!(
+			activeEl &&
+			(activeEl.classList.contains('title-input') || activeEl.classList.contains('tags-input'))
+		);
+
+		if (focusedIsInput) {
+			const input = activeEl as HTMLInputElement;
+			// Remove previous interim fragment if it was inserted into this same input
+			let base = input.value;
+			let insertPos = input.selectionStart ?? base.length;
+			if (inputInterimEl === input && inputInterimRange) {
+				base = base.slice(0, inputInterimRange.start) + base.slice(inputInterimRange.start + inputInterimRange.len);
+				insertPos = inputInterimRange.start;
+			}
+
+			const newVal = base.slice(0, insertPos) + text + base.slice(insertPos);
+			input.value = newVal;
+			const caret = insertPos + text.length;
+			input.setSelectionRange(caret, caret);
+
+			// update bound state so Svelte sees the change
+			if (input.classList.contains('title-input')) meta.title = input.value;
+			else if (input.classList.contains('tags-input')) tagsInput = input.value;
+
+			if (isFinal) {
+				inputInterimEl = null;
+				inputInterimRange = null;
+			} else {
+				inputInterimEl = input;
+				inputInterimRange = { start: insertPos, len: text.length };
+			}
+			return;
+		}
+
+		if (!editor) return;
+		const docSize = editor.state.doc.content.size;
+
+		// stale region (e.g. manual edit shifted things) → start fresh
+		if (interimFrom != null && interimFrom + interimLen > docSize) {
+			interimFrom = null;
+			interimLen = 0;
+		}
+
+		// establish the insertion point, adding a separating space if needed
+		if (interimFrom == null) {
+			let pos = editor.state.selection.to;
+			const prev = pos > 0 ? editor.state.doc.textBetween(pos - 1, pos, '\n', '\n') : '';
+			const needsSpace = pos > 0 && prev !== '' && !/\s/.test(prev);
+			if (needsSpace) {
+				editor.chain().focus().insertContentAt(pos, ' ').run();
+				pos += 1;
+			} else {
+				editor.commands.focus();
+			}
+			interimFrom = pos;
+			interimLen = 0;
+		}
+
+		const from = interimFrom;
+		const to = from + interimLen;
+		const chain = editor.chain();
+		if (interimLen > 0) chain.deleteRange({ from, to });
+		chain.insertContentAt(from, text).setTextSelection(from + text.length).run();
+		interimLen = text.length;
+		const end = from + text.length;
+
+		if (isFinal) {
+			// committed: drop tentative styling, run a one-shot settle over the
+			// finalized words, keep the live caret trailing at the end
+			setDeco({ interim: null, settling: { from, to: end } });
+			if (settleTimer) clearTimeout(settleTimer);
+			settleTimer = setTimeout(() => setDeco({ settling: null }), 400);
+			interimFrom = null;
+			interimLen = 0;
+		} else {
+			setDeco({ interim: { from, to: end }, settling: null });
+		}
+	}
+
+	let settleTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function setDeco(meta: Partial<DictationState>) {
+		if (!editor) return;
+		editor.view.dispatch(editor.state.tr.setMeta(dictationKey, meta));
+	}
+
+	const dictation = createDictation(applyTranscript);
+
+	// Open the Deepgram socket as soon as the entry is editable so the mic is
+	// instant. Idempotent — safe to re-run when 'edit' flips a view to editable.
+	$effect(() => {
+		if (ready && !readonly && dictation.supported && micSettings.enabled) {
+			dictation.mount();
+		} else {
+			dictation.unmount();
+		}
+	});
+
+	// Show the live caret the moment recording starts; clear all dictation
+	// decorations when it stops.
+	$effect(() => {
+		if (!editor) return;
+		if (dictation.status === 'recording') {
+			// Ensure the editor has focus when recording starts so incoming
+			// dictation text is inserted even if the user tapped elsewhere.
+			try {
+				const active = document.activeElement as HTMLElement | null;
+				const editorDom = (editor.view && (editor.view.dom as HTMLElement)) || null;
+				if (editorDom && active && !editorDom.contains(active)) {
+					// If the user was editing title or tags just before recording
+					// started, avoid stealing focus. We track the last focused element
+					// via `lastFocusWasTitleOrTags` because clicking the mic blurs the
+					// input before status flips to 'recording'.
+					if (!lastFocusWasTitleOrTags) editor.commands.focus();
+				}
+			} catch (e) {
+				// noop
+			}
+			// initial caret widget removed; no-op here.
+		} else {
+			setDeco({ interim: null, settling: null });
+			interimFrom = null;
+			interimLen = 0;
+		}
+	});
+
+	function fmtElapsed(s: number) {
+		const m = Math.floor(s / 60);
+		const sec = s % 60;
+		return `${m}:${sec.toString().padStart(2, '0')}`;
+	}
+
+	function onFocusIn(e: FocusEvent) {
+		try {
+			const t = e.target as HTMLElement | null;
+			lastFocusWasTitleOrTags = !!(t && (t.closest('.title-input') || t.closest('.tags-input')));
+		} catch (e) {
+			lastFocusWasTitleOrTags = false;
+		}
 	}
 
 	onMount(async () => {
@@ -77,7 +236,11 @@
 			if (reduce) showMeta = true;
 			else requestAnimationFrame(() => requestAnimationFrame(() => (showMeta = true)));
 		}
+
+		document.addEventListener('focusin', onFocusIn);
 	});
+
+	onDestroy(() => document.removeEventListener('focusin', onFocusIn));
 
 	function onEditorChange(doc: JSONContent, txt: string) {
 		content = doc;
@@ -146,6 +309,7 @@
 	composer.edit = startEditing;
 
 	onDestroy(() => {
+		dictation.unmount();
 		if (saveTimer) clearTimeout(saveTimer);
 		if (!readonly && text.trim() && entryId && content != null) {
 			updateEntry(entryId, { content, metadata: meta });
@@ -400,6 +564,40 @@
 			/>
 		{/if}
 	</section>
+
+	{#if ready && !readonly && dictation.supported && micSettings.enabled}
+		<div class="dictation" class:active={dictation.status === 'recording'} in:gFade={{ duration: 1.1, delay: 0.7 }}>
+			<button
+				type="button"
+				class="mic"
+				class:recording={dictation.status === 'recording'}
+				disabled={dictation.status === 'connecting'}
+				onpointerdown={() => dictation.prewarm()}
+				onclick={() => dictation.toggle()}
+				aria-label={dictation.status === 'recording' ? 'Stop dictation' : 'Start live dictation'}
+				title={dictation.status === 'recording' ? 'Stop dictation' : 'Live dictation'}
+			>
+				{#if dictation.status === 'connecting'}
+					<svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+						<path d="M21 12a9 9 0 1 1-6.2-8.6" />
+					</svg>
+				{:else}
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<rect x="9" y="2" width="6" height="12" rx="3" />
+						<path d="M5 10a7 7 0 0 0 14 0" />
+						<line x1="12" y1="19" x2="12" y2="22" />
+					</svg>
+				{/if}
+			</button>
+			{#if dictation.status === 'recording'}
+				<span class="dictation-meta" aria-live="polite" in:gIn={{ x: -18, duration: 0.28 }}>{fmtElapsed(dictation.elapsed)}</span>
+			{:else if dictation.status === 'connecting'}
+				<span class="dictation-meta">Connecting…</span>
+			{:else if dictation.status === 'error'}
+				<span class="dictation-meta error">{dictation.error}</span>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 {#if hasContent}
