@@ -16,7 +16,13 @@ export const POST: RequestHandler = async ({ cookies }) => {
 		rpID: env.WEBAUTHN_RP_ID,
 		userName: 'present',
 		attestationType: 'none',
-		authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' }
+		authenticatorSelection: {
+			residentKey: 'required',
+			userVerification: 'required',
+			// keep it on this device's biometrics (FaceID/fingerprint) rather than
+			// offering security keys / cross-device QR for the create step
+			authenticatorAttachment: 'platform'
+		}
 	});
 
 	await setChallenge(cookies, options.challenge);

@@ -2,7 +2,7 @@
 	import gsap from 'gsap';
 	import { THEMES, theme, setTheme } from '$lib/theme.svelte';
 	import { aiSettings, micSettings, setAiEnabled, setMicEnabled } from '$lib/settings.svelte';
-	import { syncState, syncSupported, enableSync, disableSync } from '$lib/sync.svelte';
+	import { syncState, syncSupported, enableSync, signInSync, disableSync } from '$lib/sync.svelte';
 	let dialog = $state<HTMLDialogElement | null>(null);
 
 	function open() {
@@ -118,6 +118,15 @@
 			</button>
 		{/if}
 	</div>
+	{#if !syncState.enabled && syncSupported}
+		<button
+			class="sync-signin"
+			onclick={() => signInSync()}
+			disabled={syncState.status === 'connecting'}
+		>
+			Already syncing on another device? Sign in
+		</button>
+	{/if}
 	{#if syncState.status === 'error'}
 		<p class="sync-status error">{syncState.error}</p>
 	{:else if syncState.enabled}

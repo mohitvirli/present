@@ -72,31 +72,45 @@ async function authenticate(): Promise<boolean> {
 
 // ----- public controls -----
 
+function notSupported(): boolean {
+	if (syncSupported) return false;
+	syncState.status = 'error';
+	syncState.error = 'Passkeys need HTTPS on this device.';
+	return true;
+}
+
+// Enable = create a new passkey (and user) with this device's biometrics.
+// Use when there's no passkey yet.
 export async function enableSync(): Promise<void> {
-	if (!syncSupported) {
-		syncState.status = 'error';
-		syncState.error = 'Passkeys need HTTPS on this device.';
-		return;
-	}
+	if (notSupported()) return;
 	syncState.status = 'connecting';
 	syncState.error = '';
 	try {
-		// reuse a passkey already on this device, else create one
-		let ok = false;
-		try {
-			ok = await authenticate();
-		} catch {
-			ok = false; // user cancelled the sign-in sheet, try registering
-		}
-		if (!ok) ok = await register();
+		const ok = await register();
 		if (!ok) throw new Error('Passkey setup was cancelled.');
-
 		setEnabledFlag(true);
 		syncState.enabled = true;
 		await fullSync();
 	} catch (e) {
 		syncState.status = 'error';
 		syncState.error = e instanceof Error ? e.message : 'Could not enable sync.';
+	}
+}
+
+// Sign in = use an existing passkey (existing user), e.g. on another device.
+export async function signInSync(): Promise<void> {
+	if (notSupported()) return;
+	syncState.status = 'connecting';
+	syncState.error = '';
+	try {
+		const ok = await authenticate();
+		if (!ok) throw new Error('No passkey found for this account on this device.');
+		setEnabledFlag(true);
+		syncState.enabled = true;
+		await fullSync();
+	} catch (e) {
+		syncState.status = 'error';
+		syncState.error = e instanceof Error ? e.message : 'Could not sign in.';
 	}
 }
 

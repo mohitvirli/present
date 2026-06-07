@@ -14,7 +14,7 @@ export const POST: RequestHandler = async ({ cookies }) => {
 	const options = await generateAuthenticationOptions({
 		rpID: env.WEBAUTHN_RP_ID,
 		allowCredentials: [],
-		userVerification: 'preferred'
+		userVerification: 'required'
 	});
 
 	await setChallenge(cookies, options.challenge);
