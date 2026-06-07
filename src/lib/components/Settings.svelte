@@ -131,7 +131,7 @@
 		<p class="sync-status error">{syncState.error}</p>
 	{:else if syncState.enabled}
 		<p class="sync-status">
-			{#if syncState.status === 'syncing'}Syncing…{:else if syncState.status === 'synced'}✓ Synced{:else}On{/if}
+			{#if syncState.status === 'syncing'}Syncing…{:else if syncState.status === 'synced'}✓ Synced{#if syncState.encrypted} · end-to-end encrypted{/if}{:else}On{/if}
 		</p>
 	{/if}
 

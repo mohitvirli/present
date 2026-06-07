@@ -1,6 +1,14 @@
 import { browser } from '$app/environment';
 import { listForSync, putRemote, getEntry, clearTutorialEntries, type Entry } from './db';
 import { markOnboarded } from './onboarding';
+import {
+	PRF_SALT,
+	deriveKey,
+	encryptJSON,
+	decryptJSON,
+	isEnvelope,
+	type Envelope
+} from './crypto';
 
 // Private Sync — passkey identity + server-proxied Supabase sync.
 // Phase 1–3: plaintext. Phase 4 will wrap content in encrypt/decrypt.
@@ -15,12 +23,38 @@ export const syncState = $state<{
 	status: Status;
 	error: string;
 	rev: number; // bumped when a pull mutates local data, so views can refresh
+	encrypted: boolean; // PRF-derived key is active → entries sync end-to-end encrypted
 }>({
 	enabled: browser ? localStorage.getItem(ENABLED_KEY) === '1' : false,
 	status: 'idle',
 	error: '',
-	rev: 0
+	rev: 0,
+	encrypted: false
 });
+
+// AES-GCM key derived from the passkey PRF — memory only, never persisted.
+let aesKey: CryptoKey | null = null;
+
+// Read the PRF result off a ceremony response and derive the key (if present).
+async function deriveKeyFrom(clientExtensionResults: unknown): Promise<void> {
+	const prf = (clientExtensionResults as { prf?: { results?: { first?: ArrayBuffer | string } } })
+		?.prf;
+	const first = prf?.results?.first;
+	if (!first) return;
+	aesKey = await deriveKey(first);
+	syncState.encrypted = true;
+}
+
+// Re-derive the key via a passkey ceremony when it's missing (after reload).
+async function ensureKey(): Promise<boolean> {
+	if (aesKey) return true;
+	try {
+		await authenticate(); // derives aesKey as a side effect on success
+	} catch {
+		/* cancelled */
+	}
+	return !!aesKey;
+}
 
 export const syncSupported =
 	browser && typeof PublicKeyCredential !== 'undefined' && window.isSecureContext;
@@ -52,10 +86,16 @@ async function register(): Promise<boolean> {
 	const optRes = await jsonPost('/api/sync/register/options');
 	if (!optRes.ok) throw new Error('Could not start passkey setup.');
 	const optionsJSON = await optRes.json();
+	// inject the PRF eval salt as raw bytes client-side (the SDK forwards
+	// extensions but won't convert a base64url salt to a BufferSource)
+	optionsJSON.extensions = { ...(optionsJSON.extensions ?? {}), prf: { eval: { first: PRF_SALT } } };
 	const { startRegistration } = await loadSdk();
 	const attResp = await startRegistration({ optionsJSON });
 	const verifyRes = await jsonPost('/api/sync/register/verify', attResp);
-	return verifyRes.ok;
+	if (!verifyRes.ok) return false;
+	// some platforms return PRF output already at creation
+	await deriveKeyFrom(attResp.clientExtensionResults);
+	return true;
 }
 
 // Returns false when no passkey is registered for this RP (404), so the caller
@@ -64,11 +104,15 @@ async function authenticate(): Promise<boolean> {
 	const optRes = await jsonPost('/api/sync/auth/options');
 	if (!optRes.ok) throw new Error('Could not start passkey sign-in.');
 	const optionsJSON = await optRes.json();
+	optionsJSON.extensions = { ...(optionsJSON.extensions ?? {}), prf: { eval: { first: PRF_SALT } } };
 	const { startAuthentication } = await loadSdk();
 	const authResp = await startAuthentication({ optionsJSON });
 	const verifyRes = await jsonPost('/api/sync/auth/verify', authResp);
 	if (verifyRes.status === 404) return false;
-	return verifyRes.ok;
+	if (!verifyRes.ok) return false;
+	// derive the encryption key from this ceremony's PRF output
+	await deriveKeyFrom(authResp.clientExtensionResults);
+	return true;
 }
 
 // ----- public controls -----
@@ -87,6 +131,10 @@ async function startSyncing(): Promise<void> {
 	syncState.enabled = true;
 	await clearTutorialEntries();
 	markOnboarded();
+	// make sure the encryption key is ready before the first push (registration
+	// may not have returned PRF output; ensureKey runs a quick auth to get it).
+	// If PRF is unsupported, we fall back to plaintext sync.
+	if (!aesKey) await ensureKey();
 	await fullSync();
 }
 
@@ -131,6 +179,8 @@ export async function disableSync(): Promise<void> {
 	syncState.enabled = false;
 	syncState.status = 'idle';
 	syncState.error = '';
+	aesKey = null;
+	syncState.encrypted = false;
 }
 
 // Called on app start: if the user had sync on, confirm the session is still
@@ -177,7 +227,20 @@ function handle401() {
 async function push(): Promise<void> {
 	const all = await listForSync();
 	if (!all.length) return;
-	const res = await jsonPost('/api/sync/push', { entries: all });
+
+	// When a key is available, encrypt {content, metadata} into the content
+	// envelope and blank the server-visible metadata (E2E). Else push plaintext.
+	const wire = aesKey
+		? await Promise.all(
+				all.map(async (e) => ({
+					...e,
+					content: await encryptJSON(aesKey!, { content: e.content, metadata: e.metadata }),
+					metadata: {}
+				}))
+			)
+		: all;
+
+	const res = await jsonPost('/api/sync/push', { entries: wire });
 	if (res.status === 401) handle401();
 	if (!res.ok) throw new Error('Could not push entries.');
 }
@@ -190,10 +253,20 @@ async function pull(): Promise<void> {
 
 	let changed = false;
 	for (const remote of entries) {
-		const local = await getEntry(remote.id);
+		let entry = remote;
+		// decrypt the envelope back into the real content + metadata
+		if (isEnvelope(remote.content as unknown)) {
+			if (!(await ensureKey())) throw new Error('Passkey needed to decrypt synced entries.');
+			const dec = await decryptJSON<{ content: Entry['content']; metadata: Entry['metadata'] }>(
+				aesKey!,
+				remote.content as unknown as Envelope
+			);
+			entry = { ...remote, content: dec.content, metadata: dec.metadata };
+		}
+		const local = await getEntry(entry.id);
 		// last-write-wins by updatedAt
-		if (!local || remote.updatedAt > local.updatedAt) {
-			await putRemote(remote);
+		if (!local || entry.updatedAt > local.updatedAt) {
+			await putRemote(entry);
 			changed = true;
 		}
 	}
