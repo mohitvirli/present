@@ -169,18 +169,45 @@ export async function signInSync(): Promise<void> {
 	}
 }
 
-export async function disableSync(): Promise<void> {
-	try {
-		await fetch('/api/sync/session', { method: 'DELETE' });
-	} catch {
-		/* ignore */
-	}
+function resetLocalSyncState(): void {
 	setEnabledFlag(false);
 	syncState.enabled = false;
 	syncState.status = 'idle';
 	syncState.error = '';
 	aesKey = null;
 	syncState.encrypted = false;
+}
+
+// Sign this device out of sync. Server data stays — the user can sign back in
+// from this or another device with their passkey. Local entries are kept too.
+export async function disableSync(): Promise<void> {
+	try {
+		await fetch('/api/sync/session', { method: 'DELETE' });
+	} catch {
+		/* ignore */
+	}
+	resetLocalSyncState();
+}
+
+// Permanently delete the sync account: all server-side entries, all registered
+// passkeys, and the session. Local entries are left untouched so the user still
+// has their journal on this device.
+export async function deleteSyncAccount(): Promise<boolean> {
+	try {
+		const res = await fetch('/api/sync/account', { method: 'DELETE' });
+		if (!res.ok && res.status !== 401) {
+			const body = (await res.json().catch(() => ({}))) as { message?: string };
+			syncState.status = 'error';
+			syncState.error = body.message || 'Could not delete sync account.';
+			return false;
+		}
+	} catch {
+		syncState.status = 'error';
+		syncState.error = 'Could not reach the sync server.';
+		return false;
+	}
+	resetLocalSyncState();
+	return true;
 }
 
 // Called on app start: if the user had sync on, confirm the session is still
