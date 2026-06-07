@@ -257,6 +257,16 @@
 	function onEditorChange(doc: JSONContent, txt: string) {
 		content = doc;
 		text = txt;
+		// toggling a todo while viewing (read-only) bypasses the editable autosave,
+		// so persist the change here too
+		if (readonly && entryId) {
+			if (saveTimer) clearTimeout(saveTimer);
+			saveTimer = setTimeout(async () => {
+				if (!entryId) return;
+				await updateEntry(entryId, { content: doc, metadata: meta });
+				savedAt = Date.now();
+			}, 400);
+		}
 	}
 
 	$effect(() => {
