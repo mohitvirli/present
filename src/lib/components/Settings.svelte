@@ -2,6 +2,7 @@
 	import gsap from 'gsap';
 	import { THEMES, theme, setTheme } from '$lib/theme.svelte';
 	import { aiSettings, micSettings, setAiEnabled, setMicEnabled } from '$lib/settings.svelte';
+	import { syncState, syncSupported, enableSync, disableSync } from '$lib/sync.svelte';
 	let dialog = $state<HTMLDialogElement | null>(null);
 
 	function open() {
@@ -94,6 +95,36 @@
 			onchange={(e) => setMicEnabled(e.currentTarget.checked)}
 		/>
 	</label>
+
+	<h3 class="settings-subhead">Sync</h3>
+	<div class="ai-toggle">
+		<span class="ai-toggle-text">
+			<span class="ai-toggle-title">Private Sync</span>
+			<span class="ai-toggle-sub">
+				Keep journals available across your devices using FaceID / fingerprints.
+			</span>
+		</span>
+		{#if !syncSupported}
+			<span class="sync-hint">Requires HTTPS</span>
+		{:else if syncState.enabled}
+			<button class="sync-btn" onclick={() => disableSync()}>Turn off</button>
+		{:else}
+			<button
+				class="sync-btn primary"
+				onclick={() => enableSync()}
+				disabled={syncState.status === 'connecting'}
+			>
+				{syncState.status === 'connecting' ? 'Connecting…' : 'Enable'}
+			</button>
+		{/if}
+	</div>
+	{#if syncState.status === 'error'}
+		<p class="sync-status error">{syncState.error}</p>
+	{:else if syncState.enabled}
+		<p class="sync-status">
+			{#if syncState.status === 'syncing'}Syncing…{:else if syncState.status === 'synced'}✓ Synced{:else}On{/if}
+		</p>
+	{/if}
 
 	<h3 class="settings-subhead">Theme</h3>
 	<div class="theme-grid">

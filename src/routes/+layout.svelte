@@ -11,8 +11,19 @@
 	import Lenis from 'lenis';
 	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
+	import { initSync, fullSync, syncState } from '$lib/sync.svelte';
 	import '../app.css';
 	let { children } = $props();
+
+	// kick off sync on load (if enabled) and whenever the tab regains focus
+	onMount(() => {
+		void initSync();
+		const onVisible = () => {
+			if (document.visibilityState === 'visible' && syncState.enabled) void fullSync();
+		};
+		document.addEventListener('visibilitychange', onVisible);
+		return () => document.removeEventListener('visibilitychange', onVisible);
+	});
 
 	// Lenis keeps its own scroll position across client navigations, so opening
 	// an entry can land mid-page. Reset to the top after every navigation.

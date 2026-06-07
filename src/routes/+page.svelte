@@ -4,6 +4,7 @@
 	import gsap from 'gsap';
 	import { listEntries, seedTutorialEntries, type Entry } from '$lib/db';
 	import { hasOnboarded, markOnboarded } from '$lib/onboarding';
+	import { syncState } from '$lib/sync.svelte';
 	import Timeline from '$lib/components/Timeline.svelte';
 
 	let entries = $state<Entry[]>([]);
@@ -20,6 +21,12 @@
 		}
 		entries = list;
 		loaded = true;
+	});
+
+	// when a sync pull applies remote changes, re-read the timeline
+	$effect(() => {
+		void syncState.rev;
+		if (loaded) listEntries().then((l) => (entries = l));
 	});
 
 	// exit animation when leaving the timeline (SvelteKit awaits this promise

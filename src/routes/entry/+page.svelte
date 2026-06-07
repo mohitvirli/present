@@ -19,6 +19,7 @@
 	import { createDictation } from '$lib/dictation.svelte';
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { suggestionKey } from '$lib/tiptap-suggestion';
+	import { queueSync } from '$lib/sync.svelte';
 	import { pickPlaceholder } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
 	import RollingNumber from '$lib/components/RollingNumber.svelte';
@@ -295,6 +296,7 @@
 				await updateEntry(entryId, { content, metadata: meta });
 			}
 			savedAt = Date.now();
+			queueSync();
 		} finally {
 			saving = false;
 		}
@@ -380,6 +382,7 @@
 		content = null;
 		text = '';
 		await deleteEntry(id);
+		queueSync();
 		await goto('/');
 	}
 
