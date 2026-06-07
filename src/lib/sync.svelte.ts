@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
-import { listForSync, putRemote, getEntry, type Entry } from './db';
+import { listForSync, putRemote, getEntry, clearTutorialEntries, type Entry } from './db';
+import { markOnboarded } from './onboarding';
 
 // Private Sync — passkey identity + server-proxied Supabase sync.
 // Phase 1–3: plaintext. Phase 4 will wrap content in encrypt/decrypt.
@@ -79,6 +80,16 @@ function notSupported(): boolean {
 	return true;
 }
 
+// Mark synced + do the first sync. Clears the first-run tutorial examples first
+// so they never get pushed to (and spread across) the user's real account.
+async function startSyncing(): Promise<void> {
+	setEnabledFlag(true);
+	syncState.enabled = true;
+	await clearTutorialEntries();
+	markOnboarded();
+	await fullSync();
+}
+
 // Enable = create a new passkey (and user) with this device's biometrics.
 // Use when there's no passkey yet.
 export async function enableSync(): Promise<void> {
@@ -88,9 +99,7 @@ export async function enableSync(): Promise<void> {
 	try {
 		const ok = await register();
 		if (!ok) throw new Error('Passkey setup was cancelled.');
-		setEnabledFlag(true);
-		syncState.enabled = true;
-		await fullSync();
+		await startSyncing();
 	} catch (e) {
 		syncState.status = 'error';
 		syncState.error = e instanceof Error ? e.message : 'Could not enable sync.';
@@ -105,9 +114,7 @@ export async function signInSync(): Promise<void> {
 	try {
 		const ok = await authenticate();
 		if (!ok) throw new Error('No passkey found for this account on this device.');
-		setEnabledFlag(true);
-		syncState.enabled = true;
-		await fullSync();
+		await startSyncing();
 	} catch (e) {
 		syncState.status = 'error';
 		syncState.error = e instanceof Error ? e.message : 'Could not sign in.';
