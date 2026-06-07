@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Entry } from '$lib/db';
-	import { extractText, firstHeading } from '$lib/tiptap';
+	import { firstHeading } from '$lib/tiptap';
+	import { renderEntryHTML } from '$lib/tiptap-render';
 
 	let { entry }: { entry: Entry } = $props();
 
@@ -25,15 +26,11 @@
 	const heading = $derived(firstHeading(entry.content));
 	const displayTitle = $derived(entry.metadata.title || heading);
 
-	const preview = $derived.by(() => {
-		let body = extractText(entry.content);
-		// drop a leading heading line if it was promoted to the title
-		if (!entry.metadata.title && heading && body.startsWith(heading)) {
-			body = body.slice(heading.length).trim();
-		}
-		body = body.replace(/\s+/g, ' ').trim();
-		return body.length > 140 ? body.slice(0, 140).trimEnd() + '…' : body;
-	});
+	// rich preview — render the entry exactly as written (clipped via CSS). Drop a
+	// leading heading when it was promoted to the card title to avoid repetition.
+	const previewHTML = $derived(
+		renderEntryHTML(entry.content, { dropLeadingHeading: !entry.metadata.title && !!heading })
+	);
 </script>
 
 <a class="entry-card" href="/entry?id={entry.id}">
@@ -46,8 +43,9 @@
 		<h3 class="card-title">{displayTitle}</h3>
 	{/if}
 
-	{#if preview}
-		<p class="preview">{preview}</p>
+	{#if previewHTML}
+		<!-- user's own local content; rendered read-only, pointer-events disabled -->
+		<div class="preview preview-rich" aria-hidden="true">{@html previewHTML}</div>
 	{/if}
 
 	{#if entry.metadata.tags?.length}

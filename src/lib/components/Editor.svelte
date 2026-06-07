@@ -6,6 +6,7 @@
 	import Typography from '@tiptap/extension-typography';
 	import { BubbleMenu } from '@tiptap/extension-bubble-menu';
 	import { DictationDecoration } from '$lib/tiptap-dictation';
+	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
 
 	let {
 		content = null,
@@ -43,6 +44,8 @@
 				StarterKit,
 				Placeholder.configure({ placeholder }),
 				Typography,
+				TaskList,
+				TaskItemBracket.configure({ nested: true }),
 				DictationDecoration,
 				BubbleMenu.configure({
 					element: bubbleEl,

@@ -20,6 +20,7 @@
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { pickPlaceholder } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
+	import RollingNumber from '$lib/components/RollingNumber.svelte';
 
 	// Picked once per entry (the page remounts on each new entry).
 	const placeholder = pickPlaceholder();
@@ -620,7 +621,10 @@
 		in:gIn={{ y: 8, duration: 0.6, delay: dockDelay }}
 		out:gFade={{ duration: 0.16 }}
 	>
-		<span class="word-count">{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
+		<span class="word-count">
+			<span class="sr-only">{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
+			<span aria-hidden="true"><RollingNumber value={wordCount} /> {wordCount === 1 ? 'word' : 'words'}</span>
+		</span>
 		{#if saving || savedAt}
 			<span class="save-line">{saving ? 'Saving…' : `Saved ${fmtTime(savedAt!)}`}</span>
 		{/if}
