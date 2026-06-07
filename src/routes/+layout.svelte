@@ -10,8 +10,16 @@
 	import gsap from 'gsap';
 	import Lenis from 'lenis';
 	import { onMount } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import '../app.css';
 	let { children } = $props();
+
+	// Lenis keeps its own scroll position across client navigations, so opening
+	// an entry can land mid-page. Reset to the top after every navigation.
+	afterNavigate(() => {
+		if (scroll.lenis) scroll.lenis.scrollTo(0, { immediate: true });
+		else window.scrollTo(0, 0);
+	});
 
 	let isNew = $derived(page.url.pathname === '/entry');
 
