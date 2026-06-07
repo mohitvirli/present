@@ -18,6 +18,7 @@
 	import { extractText } from '$lib/tiptap';
 	import { createDictation } from '$lib/dictation.svelte';
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
+	import { suggestionKey } from '$lib/tiptap-suggestion';
 	import { pickPlaceholder } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
 	import RollingNumber from '$lib/components/RollingNumber.svelte';
@@ -257,6 +258,8 @@
 	function onEditorChange(doc: JSONContent, txt: string) {
 		content = doc;
 		text = txt;
+		// reflection mode: re-arm the ghost-question fetch on each pause in typing
+		if (!readonly) scheduleReflect();
 		// toggling a todo while viewing (read-only) bypasses the editable autosave,
 		// so persist the change here too
 		if (readonly && entryId) {
@@ -310,6 +313,57 @@
 		composer.entryId = entryId;
 		composer.readonly = readonly;
 		composer.createdAt = createdAt;
+		// offer the reflection toggle only while writing a new/editable entry with AI on
+		composer.canReflect = ready && !readonly && aiSettings.enabled;
+	});
+
+	// ----- Reflection mode: ghost follow-up question at the caret -----
+	let reflectTimer: ReturnType<typeof setTimeout> | null = null;
+	let reflectBusy = false;
+
+	function clearGhost() {
+		if (editor) editor.view.dispatch(editor.state.tr.setMeta(suggestionKey, null));
+	}
+
+	function scheduleReflect() {
+		if (reflectTimer) clearTimeout(reflectTimer);
+		if (!composer.reflection || readonly || !editor) return;
+		reflectTimer = setTimeout(runReflect, 2500);
+	}
+
+	async function runReflect() {
+		if (!editor || !composer.reflection || readonly || reflectBusy) return;
+		if (text.trim().split(/\s+/).filter(Boolean).length < 15) return;
+		const sel = editor.state.selection;
+		if (!sel.empty) return; // only when idle at a caret
+		// only when the caret sits at the end of its block (a natural pause point)
+		if (sel.$to.parentOffset !== sel.$to.parent.content.size) return;
+		reflectBusy = true;
+		try {
+			const res = await fetch('/api/reflect', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text })
+			});
+			if (!res.ok) return;
+			const { question } = (await res.json()) as { question: string };
+			if (!question || !composer.reflection || !editor) return;
+			const pos = editor.state.selection.to;
+			editor.view.dispatch(editor.state.tr.setMeta(suggestionKey, { pos, text: '  ' + question }));
+		} catch {
+			/* network/AI hiccup — silently skip */
+		} finally {
+			reflectBusy = false;
+		}
+	}
+
+	// re-arm on toggle: schedule when turned on, clear the ghost when turned off
+	$effect(() => {
+		if (composer.reflection) scheduleReflect();
+		else {
+			if (reflectTimer) clearTimeout(reflectTimer);
+			clearGhost();
+		}
 	});
 
 	function startEditing() {
@@ -335,6 +389,7 @@
 	onDestroy(() => {
 		dictation.unmount();
 		if (saveTimer) clearTimeout(saveTimer);
+		if (reflectTimer) clearTimeout(reflectTimer);
 		if (!readonly && text.trim() && entryId && content != null) {
 			updateEntry(entryId, { content, metadata: meta });
 		}
@@ -343,6 +398,8 @@
 		composer.createdAt = null;
 		composer.delete = null;
 		composer.edit = null;
+		composer.reflection = false;
+		composer.canReflect = false;
 	});
 
 	let hasContent = $derived(text.trim().length > 0);

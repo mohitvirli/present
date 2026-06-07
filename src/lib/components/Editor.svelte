@@ -7,6 +7,7 @@
 	import { BubbleMenu } from '@tiptap/extension-bubble-menu';
 	import { DictationDecoration } from '$lib/tiptap-dictation';
 	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
+	import { SuggestionDecoration } from '$lib/tiptap-suggestion';
 
 	let {
 		content = null,
@@ -47,6 +48,7 @@
 				TaskList,
 				TaskItemBracket.configure({ nested: true }),
 				DictationDecoration,
+				SuggestionDecoration,
 				BubbleMenu.configure({
 					element: bubbleEl,
 					appendTo: () => document.body,

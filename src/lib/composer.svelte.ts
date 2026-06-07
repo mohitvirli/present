@@ -6,10 +6,14 @@ export const composer = $state<{
 	createdAt: number | null; // existing entry's created time (header clock)
 	delete: (() => void) | null;
 	edit: (() => void) | null;
+	reflection: boolean; // AI "reflection mode" — ghost follow-up questions at the caret
+	canReflect: boolean; // whether the header should offer the reflection toggle
 }>({
 	entryId: null,
 	readonly: false,
 	createdAt: null,
 	delete: null,
-	edit: null
+	edit: null,
+	reflection: false,
+	canReflect: false
 });

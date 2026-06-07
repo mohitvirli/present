@@ -165,6 +165,27 @@
 							<path d="M5 9.5V21h14V9.5" />
 						</svg>
 					</a>
+					{#if composer.canReflect}
+						<button
+							class="header-action"
+							class:active={composer.reflection}
+							onclick={() => (composer.reflection = !composer.reflection)}
+							aria-pressed={composer.reflection}
+							aria-label="Reflection mode"
+							title="Reflection mode — gentle AI follow-up questions as you write"
+						>
+							<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+								<!-- light half = page bg, dark half = currentColor, dots inverted -->
+								<circle cx="12" cy="12" r="11" fill="var(--color-bg)" stroke="currentColor" stroke-width="1.5" />
+								<path
+									fill="currentColor"
+									d="M12 1a11 11 0 0 1 0 22 5.5 5.5 0 0 1 0-11 5.5 5.5 0 0 0 0-11z"
+								/>
+								<circle cx="12" cy="6.5" r="2" fill="currentColor" />
+								<circle cx="12" cy="17.5" r="2" fill="var(--color-bg)" />
+							</svg>
+						</button>
+					{/if}
 					{#if composer.readonly}
 						<button
 							class="header-action"

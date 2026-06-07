@@ -619,6 +619,29 @@ a {
 	color: var(--color-danger);
 }
 
+/* active toggle (reflection mode on) — stays lit even when the header isn't hovered */
+.header-action.active {
+	opacity: 1;
+	transform: translate(0, 0);
+	background: var(--color-accent-soft);
+	color: var(--color-accent);
+}
+
+.header-action.active:hover {
+	background: var(--color-accent-soft);
+	color: var(--color-accent);
+}
+
+/* inline ghost follow-up question at the caret (reflection mode) */
+.reflect-ghost {
+	color: var(--color-text-muted);
+	font-style: italic;
+	opacity: 0.7;
+	pointer-events: none;
+	user-select: none;
+	white-space: pre-wrap;
+}
+
 /* keyboard focus should always reveal the control */
 .header-action:focus-visible {
 	opacity: 1;
