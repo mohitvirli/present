@@ -206,7 +206,7 @@
 						onclick={handleEnableSync}
 						disabled={syncState.status === 'connecting'}
 					>
-						{syncState.status === 'connecting' ? 'Connecting…' : 'Enable on this device'}
+						{syncState.status === 'connecting' ? 'Connecting…' : 'Enable'}
 					</button>
 					<button
 						class="sync-btn ghost"
