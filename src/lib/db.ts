@@ -29,6 +29,7 @@ export interface Entry {
 	metadata: EntryMetadata;
 	createdAt: number; // Date.now()
 	updatedAt: number;
+	deleted?: boolean; // tombstone — kept so deletes propagate via sync
 }
 
 interface PresentDB extends DBSchema {
@@ -110,12 +111,30 @@ export async function getEntry(id: string): Promise<Entry | undefined> {
 export async function listEntries(): Promise<Entry[]> {
 	const db = await getDB();
 	const all = await db.getAllFromIndex('entries', 'by-created');
-	return all.reverse(); // newest first
+	return all.filter((e) => !e.deleted).reverse(); // newest first, hide tombstones
 }
 
 export async function deleteEntry(id: string): Promise<void> {
 	const db = await getDB();
-	await db.delete('entries', id);
+	const existing = await db.get('entries', id);
+	if (!existing) return;
+	// soft-delete (tombstone) so the deletion can sync to other devices
+	await db.put('entries', { ...existing, deleted: true, updatedAt: Date.now() });
+}
+
+// --- sync helpers ---
+
+// Every entry incl. tombstones — the sync engine pushes these up.
+export async function listForSync(): Promise<Entry[]> {
+	const db = await getDB();
+	return db.getAll('entries');
+}
+
+// Apply a remote entry verbatim into the local store (pull/merge owns the
+// decision of whether the remote copy wins).
+export async function putRemote(entry: Entry): Promise<void> {
+	const db = await getDB();
+	await db.put('entries', plain(entry));
 }
 
 // --- first-run tutorial -------------------------------------------------------
