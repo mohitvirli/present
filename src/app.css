@@ -869,20 +869,48 @@ main {
 .day-group > ul .entry-card::before {
 	content: '';
 	position: absolute;
-	left: -36px;
-	top: 0.55rem;
-	transform: translate(-50%, -50%);
+	/* rail sits at the ul's left edge (-36px) and is 2px wide, so its centre is
+	   +1px — offset the node to match, otherwise it hugs the rail's left edge */
+	left: -35px;
+	top: 0.27rem; /* fixed top edge of the dot; only height grows on hover */
+	transform: translateX(-50%);
 	width: 9px;
 	height: 9px;
 	border-radius: 50%;
 	background: var(--color-bg);
 	border: 2px solid var(--color-border-strong);
 	box-shadow: 0 0 0 3px var(--color-bg);
-	transition: border-color 0.14s ease;
+	transition:
+		height 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+		width 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+		/* on collapse, restore round corners only after it has shrunk back to a
+		   dot, so the grow/shrink never passes through an ellipse */
+		border-radius 0.12s ease 0.3s,
+		background 0.3s ease,
+		border-color 0.3s ease;
 }
 
+/* hover: grow the dot straight down into a thin full-height bar — top stays put */
 .day-group > ul .entry-card:hover::before {
+	height: calc(100% - 0.27rem);
+	width: 2px;
+	border-radius: 0;
+	background: var(--color-accent);
 	border-color: var(--color-accent);
+	box-shadow: none;
+	/* square it almost immediately so the growth reads as a bar, not an ellipse */
+	transition:
+		height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+		width 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+		border-radius 0.1s ease,
+		background 0.2s ease,
+		border-color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.day-group > ul .entry-card::before {
+		transition: background 0.16s ease, border-color 0.16s ease;
+	}
 }
 
 /* ---------- Entry (flat, no card) ---------- */
