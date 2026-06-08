@@ -276,7 +276,14 @@ export async function fullSync(): Promise<void> {
 	syncState.status = 'syncing';
 	syncState.error = '';
 	try {
-		await push();
+		try {
+			await push();
+		} catch (e) {
+			// a 401 disables sync (handle401) and must stop the cycle; any other
+			// push failure shouldn't block pulling remote changes — a reload must
+			// always pull, even if the local push had a transient hiccup.
+			if (!syncState.enabled) throw e;
+		}
 		await pull();
 		syncState.status = 'synced';
 	} catch (e) {

@@ -37,6 +37,7 @@
 	let createdAt = $state<number | null>(null);
 	let showMeta = $state(false);
 	let readonly = $state(false); // viewing an existing entry
+	let loadedContentStr = ''; // JSON of the loaded doc, to detect real edits in view mode
 	let ready = $state(false); // gate editor creation + autosave until load done
 	let dockDelay = $state(0.45);
 	let ctxBtnDelay = $state(0.45);
@@ -214,6 +215,7 @@
 			const e = await getEntry(id);
 			if (e) {
 				content = e.content as JSONContent | string;
+				loadedContentStr = JSON.stringify(e.content);
 				text = extractText(content);
 				meta = { ...e.metadata };
 				tagsInput = (e.metadata.tags ?? []).join(', ');
@@ -262,13 +264,19 @@
 		// reflection mode: re-arm the ghost-question fetch on each pause in typing
 		if (!readonly) scheduleReflect();
 		// toggling a todo while viewing (read-only) bypasses the editable autosave,
-		// so persist the change here too
+		// so persist the change here too — but ONLY when the doc actually changed.
+		// TipTap fires onUpdate while loading content, which would otherwise bump
+		// updatedAt on every open (inflating the timeline's writing-duration).
 		if (readonly && entryId) {
+			const docStr = JSON.stringify(doc);
+			if (docStr === loadedContentStr) return; // no real edit, e.g. initial load
 			if (saveTimer) clearTimeout(saveTimer);
 			saveTimer = setTimeout(async () => {
 				if (!entryId) return;
 				await updateEntry(entryId, { content: doc, metadata: meta });
+				loadedContentStr = docStr;
 				savedAt = Date.now();
+				queueSync();
 			}, 400);
 		}
 	}
