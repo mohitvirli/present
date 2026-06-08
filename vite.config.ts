@@ -37,10 +37,17 @@ function restoreBlankEnvFromFiles(mode: string) {
 	}
 }
 
+const pkg = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as {
+	version: string;
+};
+
 export default defineConfig(({ mode }) => {
 	restoreBlankEnvFromFiles(mode);
 
 	return {
+		define: {
+			__APP_VERSION__: JSON.stringify(pkg.version)
+		},
 		plugins: [sveltekit()],
 		// host:true binds 0.0.0.0 so the LAN (phone) can reach it; https from the
 		// local cert when present.

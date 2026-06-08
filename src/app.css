@@ -379,6 +379,35 @@ html::-webkit-scrollbar {
 	margin-top: 1.4rem;
 }
 
+.settings-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 1.6rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--color-border);
+	font-size: 0.78rem;
+	color: var(--color-text-muted);
+}
+
+.settings-repo {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	color: var(--color-text-muted);
+	text-decoration: none;
+	transition: color 0.15s ease;
+}
+
+.settings-repo:hover {
+	color: var(--color-text);
+}
+
+.settings-version {
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.02em;
+}
+
 .ai-toggle {
 	display: flex;
 	align-items: center;
