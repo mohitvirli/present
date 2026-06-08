@@ -1,5 +1,5 @@
-import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { JSONContent } from '@tiptap/core';
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { wordCount } from './tiptap';
 
 export type Mood = 'great' | 'good' | 'neutral' | 'low' | 'bad';
@@ -150,6 +150,14 @@ function doc(...paragraphs: string[]): JSONContent {
 	};
 }
 
+// A single bullet-list item wrapping one paragraph of text.
+function bullet(text: string): JSONContent {
+	return {
+		type: 'listItem',
+		content: [{ type: 'paragraph', content: [{ type: 'text', text }] }]
+	};
+}
+
 // at = absolute timestamp; offsetMs = how far before "now". One of the two sets
 // the entry's date, which drives timeline order (newest first) and day grouping.
 type Seed = { content: JSONContent; metadata: EntryMetadata; offsetMs?: number; at?: number };
@@ -161,18 +169,54 @@ const CREATED_AT = new Date('2026-06-04T17:35:40+05:30').getTime();
 const TUTORIAL_SEEDS: Seed[] = [
 	{
 		offsetMs: 0,
-		content: doc('This is your space to think out loud. Tap the button at the top to add a new entry ↑'),
+		content: doc('This is your space to think out loud.'),
 		metadata: { title: 'Hey 👋 Welcome to Present', tutorial: true }
 	},
 	{
 		offsetMs: 60_000,
-		content: doc('Also, everything saves on its own as you go.'),
+		content: {
+			type: 'doc',
+			content: [
+				{
+					type: 'paragraph',
+					content: [
+						{ type: 'text', text: 'Tap the ' },
+						{ type: 'text', marks: [{ type: 'bold' }], text: 'Be Present' },
+						{ type: 'text', text: ' button to add a new entry ↑' }
+					]
+				},
+				{
+					type: 'paragraph',
+					content: [
+						{ type: 'text', marks: [{ type: 'italic' }], text: 'Everything saves on its own as you go.' }
+					]
+				}
+			]
+		},
 		metadata: { tutorial: true }
 	},
 	{
 		offsetMs: DAY,
-		content: doc('Enable AI to suggest titles and tags. It also analyses the mood and makes a short summary too.'),
+		content: {
+			type: 'doc',
+			content: [
+				{
+					type: 'bulletList',
+					content: [
+						bullet('Title & tag suggestions, mood analysis + a short summary.'),
+						bullet('Reflection mode - tap the ☯ icon to get gentle nudges to think more.')
+					]
+				}
+			]
+		},
 		metadata: { title: 'Interesting AI features...', tags: ['ai'], tutorial: true }
+	},
+	{
+		offsetMs: DAY + 30_000,
+		content: doc(
+			'A feature I am proud of. Sync across all your devices using just FaceID / fingerprint — no account, no password, fully encrypted.',
+		),
+		metadata: { title: 'Sync', tags: ['sync'], tutorial: true }
 	},
 	{
 		offsetMs: DAY + 60_000,

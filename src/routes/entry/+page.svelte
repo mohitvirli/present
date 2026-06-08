@@ -20,12 +20,15 @@
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { suggestionKey } from '$lib/tiptap-suggestion';
 	import { queueSync } from '$lib/sync.svelte';
-	import { pickPlaceholder } from '$lib/placeholders';
+	import { hasWrittenEntry, markEntryWritten } from '$lib/onboarding';
+	import { pickPlaceholder, FIRST_RUN_PLACEHOLDER } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
 	import RollingNumber from '$lib/components/RollingNumber.svelte';
 
-	// Picked once per entry (the page remounts on each new entry).
-	const placeholder = pickPlaceholder();
+	// Picked once per entry (the page remounts on each new entry). A brand-new
+	// user writing their first entry gets a dedicated welcoming placeholder.
+	const isNewEntry = !page.url.searchParams.get('id');
+	const placeholder = isNewEntry && !hasWrittenEntry() ? FIRST_RUN_PLACEHOLDER : pickPlaceholder();
 
 	let content = $state<JSONContent | string | null>(null);
 	let text = $state(''); // plain text mirror for counts/gating
@@ -298,6 +301,7 @@
 				const e = await addEntry(content, meta);
 				entryId = e.id;
 				replaceState(`/entry?id=${e.id}`, {});
+				markEntryWritten(); // first-run placeholder won't show again
 				// first real entry → clear the seeded tutorial examples
 				void clearTutorialEntries();
 			} else {

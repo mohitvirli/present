@@ -31,6 +31,24 @@
 	const previewHTML = $derived(
 		renderEntryHTML(entry.content, { dropLeadingHeading: !entry.metadata.title && !!heading })
 	);
+
+	// the bottom fade should only show when the preview is actually clipped —
+	// measure overflow against the max-height and toggle the mask via a class
+	let previewEl = $state<HTMLElement | null>(null);
+	let clipped = $state(false);
+	$effect(() => {
+		void previewHTML; // re-measure when content changes
+		const el = previewEl;
+		if (!el) return;
+		const measure = () => (clipped = el.scrollHeight > el.clientHeight + 1);
+		const raf = requestAnimationFrame(measure);
+		const ro = new ResizeObserver(measure); // re-check on width changes
+		ro.observe(el);
+		return () => {
+			cancelAnimationFrame(raf);
+			ro.disconnect();
+		};
+	});
 </script>
 
 <a class="entry-card" href="/entry?id={entry.id}">
@@ -45,7 +63,7 @@
 
 	{#if previewHTML}
 		<!-- user's own local content; rendered read-only, pointer-events disabled -->
-		<div class="preview preview-rich" aria-hidden="true">{@html previewHTML}</div>
+		<div class="preview preview-rich" class:clipped bind:this={previewEl} aria-hidden="true">{@html previewHTML}</div>
 	{/if}
 
 	{#if entry.metadata.tags?.length}

@@ -1250,6 +1250,10 @@ main {
 	font-size: 1.02rem;
 	line-height: 1.55;
 	pointer-events: none;
+}
+
+/* soft bottom fade only when the content is actually clipped (set by EntryCard) */
+.entry-card .preview-rich.clipped {
 	-webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
 	mask-image: linear-gradient(to bottom, #000 72%, transparent);
 }
@@ -1279,6 +1283,15 @@ main {
 .entry-card .preview-rich ul,
 .entry-card .preview-rich ol {
 	padding-left: 1.3em;
+}
+
+/* the timeline nests entries inside <ol>/<ul>, so a preview's own list would
+   inherit the UA nested-list marker (square) — pin it to match the editor (disc) */
+.entry-card .preview-rich ul {
+	list-style-type: disc;
+}
+.entry-card .preview-rich ol {
+	list-style-type: decimal;
 }
 
 .entry-card .preview-rich li {

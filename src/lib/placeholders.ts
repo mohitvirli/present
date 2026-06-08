@@ -3,6 +3,10 @@
 
 const ANCHOR = "Be present. Write what's here now.";
 
+// Shown the very first time someone opens the composer, before they've written
+// their own first entry.
+export const FIRST_RUN_PLACEHOLDER = 'Welcome! Write something to feel present…';
+
 const BUCKETS: Record<string, string[]> = {
 	// 0–4
 	late: [
