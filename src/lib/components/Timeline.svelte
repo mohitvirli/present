@@ -150,6 +150,36 @@
 		const onClick = (e: MouseEvent) => {
 			const hit = (e.target as HTMLElement | null)?.closest('a, button');
 			if (!hit || hit.closest('.day-toggle') || hit.closest('dialog') || bursting) return;
+			// Be Present → drop the original dot down to the composer input line
+			// before the page navigates away. Freeze the rAF loop so it doesn't
+			// fight the tween, then slide curY down and fade.
+			if (hit.closest('.cta') && el.classList.contains('visible')) {
+				bursting = true; // stop frame() from overwriting the transform
+				// morph into the actual editor caret: ~2px wide, one line-box tall
+				gsap.to(el, {
+					width: 1,
+					height: 27,
+					borderRadius: 1,
+					duration: 0.3,
+					ease: 'power3.inOut'
+				});
+				const proxy = { y: curY };
+				gsap.to(proxy, {
+					// land on the composer's first editor line. The rail column and the
+					// composer share the same centred axis, so X already matches; this is
+					// the caret's Y (paragraph top ~159 + half a line), a layout constant
+					// that doesn't move with viewport width.
+					y: 180,
+					duration: 0.4,
+					ease: 'power3.inOut',
+					onUpdate: () => {
+						el.style.transform = `translate(-50%, calc(${proxy.y}px - 50%))`;
+					},
+					// fade only once it has finished sliding down
+					onComplete: () => gsap.to(el, { autoAlpha: 0, duration: 0.25, ease: 'power1.in' })
+				});
+				return;
+			}
 			bursting = true;
 			el.classList.add('visible', 'burst');
 			// animationend normally clears it, but if a dialog opens the rail gets

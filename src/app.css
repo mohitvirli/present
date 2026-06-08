@@ -2113,6 +2113,7 @@ body:has(dialog[open]) .cursor-rail {
 	min-height: 64vh;
 	outline: none;
 	color: var(--color-text);
+	caret-color: var(--color-accent);
 	font-family: var(--font-sans);
 	font-size: 1.2rem;
 	font-weight: 400;
