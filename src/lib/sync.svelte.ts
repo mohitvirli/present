@@ -9,6 +9,7 @@ import {
 	isEnvelope,
 	type Envelope
 } from './crypto';
+import { saveAesKey, loadAesKey, clearAesKey } from './keystore';
 
 // Private Sync — passkey identity + server-proxied Supabase sync.
 // Phase 1–3: plaintext. Phase 4 will wrap content in encrypt/decrypt.
@@ -43,11 +44,33 @@ async function deriveKeyFrom(clientExtensionResults: unknown): Promise<void> {
 	if (!first) return;
 	aesKey = await deriveKey(first);
 	syncState.encrypted = true;
+	// persist so reloads don't need another passkey ceremony to decrypt
+	try {
+		await saveAesKey(aesKey);
+	} catch {
+		/* non-fatal — falls back to re-deriving via ceremony */
+	}
 }
 
-// Re-derive the key via a passkey ceremony when it's missing (after reload).
-async function ensureKey(): Promise<boolean> {
+// Load the persisted (non-extractable) key into memory without prompting.
+async function loadKey(): Promise<boolean> {
 	if (aesKey) return true;
+	try {
+		const stored = await loadAesKey();
+		if (stored) {
+			aesKey = stored;
+			syncState.encrypted = true;
+			return true;
+		}
+	} catch {
+		/* ignore */
+	}
+	return false;
+}
+
+// Get the key: persisted copy first (silent), else a passkey ceremony.
+async function ensureKey(): Promise<boolean> {
+	if (await loadKey()) return true;
 	try {
 		await authenticate(); // derives aesKey as a side effect on success
 	} catch {
@@ -80,6 +103,22 @@ const jsonPost = (url: string, body?: unknown) =>
 		body: body === undefined ? undefined : JSON.stringify(body)
 	});
 
+// Some platforms (esp. a freshly-set-up device) throw a transient
+// "operation failed for an operation-specific reason" on the first WebAuthn
+// call, then succeed on retry. Retry once after a short delay.
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+	try {
+		return await fn();
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : '';
+		if (/operation-specific|operation failed/i.test(msg)) {
+			await new Promise((r) => setTimeout(r, 600));
+			return await fn();
+		}
+		throw e;
+	}
+}
+
 // ----- passkey ceremonies -----
 
 async function register(): Promise<boolean> {
@@ -90,7 +129,7 @@ async function register(): Promise<boolean> {
 	// extensions but won't convert a base64url salt to a BufferSource)
 	optionsJSON.extensions = { ...(optionsJSON.extensions ?? {}), prf: { eval: { first: PRF_SALT } } };
 	const { startRegistration } = await loadSdk();
-	const attResp = await startRegistration({ optionsJSON });
+	const attResp = await withRetry(() => startRegistration({ optionsJSON }));
 	const verifyRes = await jsonPost('/api/sync/register/verify', attResp);
 	if (!verifyRes.ok) return false;
 	// some platforms return PRF output already at creation
@@ -106,7 +145,7 @@ async function authenticate(): Promise<boolean> {
 	const optionsJSON = await optRes.json();
 	optionsJSON.extensions = { ...(optionsJSON.extensions ?? {}), prf: { eval: { first: PRF_SALT } } };
 	const { startAuthentication } = await loadSdk();
-	const authResp = await startAuthentication({ optionsJSON });
+	const authResp = await withRetry(() => startAuthentication({ optionsJSON }));
 	const verifyRes = await jsonPost('/api/sync/auth/verify', authResp);
 	if (verifyRes.status === 404) return false;
 	if (!verifyRes.ok) return false;
@@ -176,6 +215,7 @@ function resetLocalSyncState(): void {
 	syncState.error = '';
 	aesKey = null;
 	syncState.encrypted = false;
+	void clearAesKey();
 }
 
 // Sign this device out of sync. Server data stays — the user can sign back in
@@ -217,8 +257,10 @@ export async function initSync(): Promise<void> {
 	try {
 		const res = await fetch('/api/sync/session');
 		const { signedIn } = (await res.json()) as { signedIn: boolean };
-		if (signedIn) await fullSync();
-		else syncState.status = 'idle'; // session expired → re-enable re-auths
+		if (signedIn) {
+			await loadKey(); // silent — avoids a passkey ceremony on every open
+			await fullSync();
+		} else syncState.status = 'idle'; // session expired → re-enable re-auths
 	} catch {
 		/* offline — try again on focus */
 	}
