@@ -4,9 +4,9 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2026-06-08
+## [1.0.0] - 2026-06-08
 
-First tagged release. Local-first journaling with opt-in private sync and AI.
+First stable release. Local-first journaling with opt-in private sync and AI.
 
 ### Added
 
@@ -41,4 +41,4 @@ First tagged release. Local-first journaling with opt-in private sync and AI.
 - The preview bottom-fade gradient only shows when content is actually clipped.
 - Collapsing a day group animates smoothly without clipping the rail dots.
 
-[0.1.0]: https://github.com/mohitvirli/present/releases/tag/v0.1.0
+[1.0.0]: https://github.com/mohitvirli/present/releases/tag/v1.0.0
