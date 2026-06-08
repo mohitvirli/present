@@ -1,7 +1,11 @@
 <script lang="ts">
+	import type { Entry } from '$lib/db';
+	import { gFade, gScaleY } from '$lib/transitions';
+	import gsap from 'gsap';
 	import { tick } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { SvelteSet } from 'svelte/reactivity';
+	import EntryCard from './EntryCard.svelte';
 
 	// height + opacity collapse: fading as it shrinks keeps the rail dots from
 	// looking clipped when the list height animates to zero
@@ -17,10 +21,6 @@
 				`overflow:hidden;opacity:${t};height:${t * h}px;padding-top:${t * pt}px;padding-bottom:${t * pb}px;`
 		};
 	}
-	import gsap from 'gsap';
-	import EntryCard from './EntryCard.svelte';
-	import { gFade, gScaleY } from '$lib/transitions';
-	import type { Entry } from '$lib/db';
 
 	let { entries, loaded }: { entries: Entry[]; loaded: boolean } = $props();
 
@@ -32,6 +32,7 @@
 	}
 
 	let timelineEl = $state<HTMLElement | null>(null);
+	let cursorEl = $state<HTMLElement | null>(null);
 	let animated = false;
 
 	function dayKey(ts: number): string {
@@ -86,6 +87,109 @@
 			});
 		});
 	});
+
+	// Magnetic rail cursor: a dot pinned to the timeline spine that trails the
+	// pointer's Y and snaps onto the nearest entry node when close — so it reads
+	// as part of the rail, not a free-floating dot. Driven by rAF and written
+	// straight to the DOM (no per-move reactive churn), lerped for a smooth trail.
+	$effect(() => {
+		const el = cursorEl;
+		if (!el || !timelineEl) return;
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		// touch devices: no trailing pointer, so skip the rAF loop + listeners
+		if (window.matchMedia('(pointer: coarse)').matches) return;
+
+		const SNAP = 30; // px: within this of a node, magnetize onto it
+		let targetY = 0;
+		let curY = 0;
+		let active = false;
+		let primed = false;
+		let bursting = false;
+		let raf = 0;
+
+		// the node dot is a ::before at top:0.27rem, height 9px — measure its
+		// real centre offset once (don't hardcode px: it scales with root font-size)
+		let nodeOffset = 9;
+		const probe = timelineEl.querySelector('.entry-card');
+		if (probe) {
+			const b = getComputedStyle(probe, '::before');
+			const t = parseFloat(b.top);
+			const h = parseFloat(b.height);
+			if (!Number.isNaN(t) && !Number.isNaN(h)) nodeOffset = t + h / 2;
+		}
+
+		const nodeYs = () =>
+			[...timelineEl!.querySelectorAll<HTMLElement>('.entry-card')].map(
+				(c) => c.getBoundingClientRect().top + nodeOffset
+			);
+
+		const onMove = (e: PointerEvent) => {
+			targetY = e.clientY;
+			if (!primed) {
+				curY = targetY;
+				primed = true;
+			}
+			if (!active) {
+				active = true;
+				el.classList.add('visible');
+			}
+		};
+		const onLeave = () => {
+			active = false;
+			el.classList.remove('visible', 'magnet');
+		};
+
+		// clicking anything actionable (Be Present, settings, an entry) bursts the
+		// cursor — except the day collapse toggle (keeps us on the timeline) and
+		// clicks inside a dialog (open/close/cancel/backdrop must never burst)
+		const endBurst = () => {
+			el.classList.remove('burst', 'visible', 'magnet');
+			bursting = false;
+			active = false; // reappears on the next pointer move
+		};
+		const onClick = (e: MouseEvent) => {
+			const hit = (e.target as HTMLElement | null)?.closest('a, button');
+			if (!hit || hit.closest('.day-toggle') || hit.closest('dialog') || bursting) return;
+			bursting = true;
+			el.classList.add('visible', 'burst');
+			// animationend normally clears it, but if a dialog opens the rail gets
+			// display:none'd mid-burst (animationend never fires) — so a timeout
+			// fallback guarantees cleanup and stops it replaying when the rail returns
+			el.addEventListener('animationend', endBurst, { once: true });
+			setTimeout(endBurst, 600);
+		};
+
+		const frame = () => {
+			raf = requestAnimationFrame(frame);
+			if (!active || bursting) return;
+			let goal = targetY;
+			let nearest = Infinity;
+			for (const y of nodeYs()) {
+				const d = Math.abs(y - targetY);
+				if (d < nearest) {
+					nearest = d;
+					if (d < SNAP) goal = y;
+				}
+			}
+			curY += (goal - curY) * 0.25;
+			// -50% on both axes keeps the element centred on (rail x, curY)
+			// regardless of whether it's the tall bar or the snapped dot
+			el.style.transform = `translate(-50%, calc(${curY}px - 50%))`;
+			el.classList.toggle('magnet', nearest < SNAP);
+		};
+
+		window.addEventListener('pointermove', onMove);
+		document.addEventListener('pointerleave', onLeave);
+		document.addEventListener('click', onClick, true);
+		raf = requestAnimationFrame(frame);
+
+		return () => {
+			cancelAnimationFrame(raf);
+			window.removeEventListener('pointermove', onMove);
+			document.removeEventListener('pointerleave', onLeave);
+			document.removeEventListener('click', onClick, true);
+		};
+	});
 </script>
 
 {#if !loaded}
@@ -96,6 +200,7 @@
 		<a class="empty-cta" href="/entry">Write your first entry</a>
 	</div>
 {:else}
+	<div class="cursor-rail" bind:this={cursorEl} aria-hidden="true"></div>
 	<ol class="timeline" bind:this={timelineEl}>
 		<li class="rail" aria-hidden="true" in:gScaleY={{ duration: 0.8 }}></li>
 		{#each groups as [day, items] (day)}
