@@ -17,7 +17,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	if (!entries.length) return json({ ok: true, pushed: 0 });
 
 	const rows = entries.map((e) => ({
-		user_id: userId,
 		id: e.id,
 		content: e.content,
 		metadata: e.metadata ?? {},
@@ -26,9 +25,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		deleted: !!e.deleted
 	}));
 
-	const { error: dbErr } = await supabaseAdmin()
-		.from('entries')
-		.upsert(rows, { onConflict: 'user_id,id' });
+	// Guarded upsert (server-side last-write-wins): a row is only written when its
+	// updated_at is newer than what's stored, so a stale device can't resurrect an
+	// entry another device tombstoned. See sync_push_entries in supabase/schema.sql.
+	const { error: dbErr } = await supabaseAdmin().rpc('sync_push_entries', {
+		p_user_id: userId,
+		p_entries: rows
+	});
 	if (dbErr) {
 		console.error('sync push failed', dbErr);
 		throw error(502, 'Could not push entries.');
