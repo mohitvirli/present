@@ -27,7 +27,10 @@
 
 	// Lenis keeps its own scroll position across client navigations, so opening
 	// an entry can land mid-page. Reset to the top after every navigation.
-	afterNavigate(() => {
+	afterNavigate(({ to }) => {
+		// the timeline restores its own saved position once entries render; only
+		// reset to top for other destinations (e.g. opening an entry).
+		if (to?.url.pathname === '/') return;
 		if (scroll.lenis) scroll.lenis.scrollTo(0, { immediate: true });
 		else window.scrollTo(0, 0);
 	});

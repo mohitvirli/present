@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { onNavigate } from '$app/navigation';
 	import gsap from 'gsap';
 	import { listEntries, seedTutorialEntries, type Entry } from '$lib/db';
 	import { hasOnboarded, markOnboarded } from '$lib/onboarding';
 	import { syncState } from '$lib/sync.svelte';
+	import { scroll } from '$lib/scroll.svelte';
 	import Timeline from '$lib/components/Timeline.svelte';
 
 	let entries = $state<Entry[]>([]);
@@ -21,6 +22,24 @@
 		}
 		entries = list;
 		loaded = true;
+		// restore the scroll position the user left from, once rows are in the DOM.
+		// rows animate/measure in over a few frames and Lenis caches page height,
+		// so resize + re-assert the target across several frames until it sticks.
+		const y = scroll.timelineY;
+		if (y) {
+			await tick();
+			let n = 0;
+			const restore = () => {
+				if (scroll.lenis) {
+					scroll.lenis.resize();
+					scroll.lenis.scrollTo(y, { immediate: true, force: true });
+				} else {
+					window.scrollTo(0, y);
+				}
+				if (++n < 8) requestAnimationFrame(restore);
+			};
+			requestAnimationFrame(restore);
+		}
 	});
 
 	// when a sync pull applies remote changes, re-read the timeline
@@ -32,6 +51,8 @@
 	// exit animation when leaving the timeline (SvelteKit awaits this promise
 	// before tearing the page down, so GSAP can play before unmount)
 	onNavigate(() => {
+		// remember where the timeline was so we can return here after viewing an entry
+		scroll.timelineY = scroll.lenis?.scroll ?? window.scrollY;
 		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 		const rows = Array.from(document.querySelectorAll('.entry-row'));
 		const labels = Array.from(document.querySelectorAll('.day-label'));
