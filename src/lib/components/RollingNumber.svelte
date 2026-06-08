@@ -2,9 +2,11 @@
 	// Odometer-style number. Each digit is a column of 0–9 clipped to one
 	// digit's height; translateY rolls the column so the old digit slides up and
 	// the next enters from below. Only digits that change animate.
-	let { value = 0, duration = 450 }: { value?: number; duration?: number } = $props();
+	// pad → minimum digit count, zero-filled (e.g. a clock wants pad=2 so 04:09).
+	let { value = 0, duration = 450, pad = 0 }: { value?: number; duration?: number; pad?: number } =
+		$props();
 
-	const digits = $derived(String(Math.max(0, Math.floor(value))).split(''));
+	const digits = $derived(String(Math.max(0, Math.floor(value))).padStart(pad, '0').split(''));
 	const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 </script>
 

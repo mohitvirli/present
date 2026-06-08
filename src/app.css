@@ -1006,7 +1006,9 @@ main {
 /* date chip — stacked above entries by default (narrow screens), indented
    to line up with the entry content column (list padding) */
 .day-label {
-	width: fit-content;
+	display: flex;
+	align-items: center;
+	gap: 0.7rem;
 	margin: 0 0 1rem 36px;
 	font-size: 0.7rem;
 	font-weight: 700;
@@ -1016,6 +1018,59 @@ main {
 	background: transparent;
 	border: none;
 	padding: 0.3rem 0;
+	white-space: nowrap;
+}
+
+/* narrow screens: trail a wavy rule out from the date to the column edge.
+   drawn as an SVG wave used as a mask so it inherits the theme border color */
+.day-label::after {
+	content: '';
+	flex: 1;
+	height: 8px;
+	background: var(--color-border-strong);
+	opacity: 0.7;
+	-webkit-mask: var(--wave-mask);
+	mask: var(--wave-mask);
+	--wave-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='8' viewBox='0 0 20 8'%3E%3Cpath d='M0 4 Q5 0 10 4 T20 4' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E")
+		repeat-x left center / 20px 8px;
+	order: 2;
+}
+
+/* collapse toggle + entry count, laid out: [chevron] DATE  ~~~~  N entries */
+.day-toggle {
+	order: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	margin: 0;
+	background: none;
+	border: none;
+	color: inherit;
+	cursor: pointer;
+	line-height: 0;
+}
+.day-toggle svg {
+	transition: transform 0.2s ease;
+	transform: rotate(90deg); /* expanded → chevron points down */
+}
+.day-group.collapsed .day-toggle svg {
+	transform: rotate(0deg); /* collapsed → chevron points right */
+}
+.day-date {
+	order: 1;
+}
+/* mobile: count text trails the wave at the row's right edge, always shown */
+.day-count-inline {
+	order: 3;
+	text-transform: none;
+	font-weight: 500;
+	letter-spacing: 0;
+	opacity: 0.7;
+}
+/* desktop-only badge, hidden on mobile */
+.day-count-rail {
+	display: none;
 }
 
 /* wide screens: float the chip out into the left gutter, beyond the column */
@@ -1024,15 +1079,53 @@ main {
 		position: absolute;
 		top: 0;
 		right: calc(100% + 32px);
+		display: inline-flex;
+		width: fit-content;
+		gap: 0.4rem;
 		margin: 0;
+		flex-direction: row-reverse; /* chevron sits after the date on desktop */
+	}
+	.day-label::after {
+		display: none;
+	}
+	/* the date floats out of flow, so a collapsed day has no in-flow content and
+	   would otherwise stack onto the next group — reserve the label's height */
+	.day-group.collapsed {
+		min-height: 1.5rem;
+	}
+	/* swap the inline count for a compact number parked right of the rail spine,
+	   only while the day is collapsed */
+	.day-count-inline {
+		display: none;
+	}
+	.day-count-rail {
+		display: block;
+		position: absolute;
+		left: 36px; /* align with the entry content column */
+		top: 0.32rem;
+		font-size: 0.7rem;
+		font-weight: 600;
+		text-transform: none;
+		letter-spacing: 0;
+		color: var(--color-text-muted);
 		white-space: nowrap;
+		opacity: 0; /* fade in/out with collapse instead of popping via display */
+		transition: opacity 0.22s ease 0.06s;
+		pointer-events: none;
+	}
+	.day-group.collapsed .day-count-rail {
+		opacity: 0.7;
 	}
 }
 
 .day-group > ul {
 	list-style: none;
-	margin: 0;
-	padding: 0 0 0 36px;
+	/* extend the box ~10px further left than the content so the rail dots (which
+	   sit at the entry's left edge) fall fully inside it — otherwise overflow:hidden
+	   during the collapse animation clips their left half. Negative margin keeps the
+	   entry content at the same x. */
+	margin: 0 0 0 -10px;
+	padding: 0 0 0 46px;
 	display: flex;
 	flex-direction: column;
 	gap: 1.75rem;

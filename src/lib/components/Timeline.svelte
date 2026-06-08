@@ -1,11 +1,35 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { cubicOut } from 'svelte/easing';
+	import { SvelteSet } from 'svelte/reactivity';
+
+	// height + opacity collapse: fading as it shrinks keeps the rail dots from
+	// looking clipped when the list height animates to zero
+	function collapse(node: HTMLElement, { duration = 280 } = {}) {
+		const s = getComputedStyle(node);
+		const h = node.scrollHeight;
+		const pt = parseFloat(s.paddingTop);
+		const pb = parseFloat(s.paddingBottom);
+		return {
+			duration,
+			easing: cubicOut,
+			css: (t: number) =>
+				`overflow:hidden;opacity:${t};height:${t * h}px;padding-top:${t * pt}px;padding-bottom:${t * pb}px;`
+		};
+	}
 	import gsap from 'gsap';
 	import EntryCard from './EntryCard.svelte';
 	import { gFade, gScaleY } from '$lib/transitions';
 	import type { Entry } from '$lib/db';
 
 	let { entries, loaded }: { entries: Entry[]; loaded: boolean } = $props();
+
+	// days the user has collapsed (keyed by dayKey)
+	let collapsed = $state(new SvelteSet<string>());
+	function toggle(day: string) {
+		if (collapsed.has(day)) collapsed.delete(day);
+		else collapsed.add(day);
+	}
 
 	let timelineEl = $state<HTMLElement | null>(null);
 	let animated = false;
@@ -75,15 +99,42 @@
 	<ol class="timeline" bind:this={timelineEl}>
 		<li class="rail" aria-hidden="true" in:gScaleY={{ duration: 0.8 }}></li>
 		{#each groups as [day, items] (day)}
-			<li class="day-group">
-				<h2 class="day-label">{dayLabel(day)}</h2>
-				<ul>
-					{#each items as entry (entry.id)}
-						<li class="entry-row">
-							<EntryCard {entry} />
-						</li>
-					{/each}
-				</ul>
+			<li class="day-group" class:collapsed={collapsed.has(day)}>
+				<h2 class="day-label">
+					<button
+						class="day-toggle"
+						onclick={() => toggle(day)}
+						aria-expanded={!collapsed.has(day)}
+						aria-label={collapsed.has(day) ? `Expand ${dayLabel(day)}` : `Collapse ${dayLabel(day)}`}
+					>
+						<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+							<path
+								d="M6 4l4 4-4 4"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+						</svg>
+					</button>
+					<span class="day-date">{dayLabel(day)}</span>
+					<span class="day-count-inline"
+						>{items.length} {items.length === 1 ? 'entry' : 'entries'}</span
+					>
+				</h2>
+				<span class="day-count-rail"
+					>{items.length} {items.length === 1 ? 'entry' : 'entries'}</span
+				>
+				{#if !collapsed.has(day)}
+					<ul transition:collapse>
+						{#each items as entry (entry.id)}
+							<li class="entry-row">
+								<EntryCard {entry} />
+							</li>
+						{/each}
+					</ul>
+				{/if}
 			</li>
 		{/each}
 	</ol>
