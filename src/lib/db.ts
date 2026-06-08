@@ -188,7 +188,7 @@ const TUTORIAL_SEEDS: Seed[] = [
 				{
 					type: 'paragraph',
 					content: [
-						{ type: 'text', marks: [{ type: 'italic' }], text: 'Everything saves on its own as you go.' }
+						{ type: 'text', marks: [{ type: 'italic' }], text: 'Everything autosaves, locally.' }
 					]
 				}
 			]

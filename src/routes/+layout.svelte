@@ -22,7 +22,21 @@
 			if (document.visibilityState === 'visible' && syncState.enabled) void fullSync();
 		};
 		document.addEventListener('visibilitychange', onVisible);
-		return () => document.removeEventListener('visibilitychange', onVisible);
+
+		// ⌘J / Ctrl+J toggles reflection mode while writing
+		const onKeydown = (e: KeyboardEvent) => {
+			if (!composer.canReflect) return;
+			if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyJ') {
+				e.preventDefault();
+				composer.reflection = !composer.reflection;
+			}
+		};
+		window.addEventListener('keydown', onKeydown);
+
+		return () => {
+			document.removeEventListener('visibilitychange', onVisible);
+			window.removeEventListener('keydown', onKeydown);
+		};
 	});
 
 	// Lenis keeps its own scroll position across client navigations, so opening
@@ -186,7 +200,7 @@
 							onclick={() => (composer.reflection = !composer.reflection)}
 							aria-pressed={composer.reflection}
 							aria-label="Reflection mode"
-							title="Reflection mode — gentle AI follow-up questions as you write"
+							title="Reflection mode — gentle AI follow-up questions as you write (⌘J)"
 						>
 							<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
 								<!-- light half = page bg, dark half = currentColor, dots inverted -->
