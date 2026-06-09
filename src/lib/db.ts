@@ -114,6 +114,25 @@ export async function listEntries(): Promise<Entry[]> {
 	return all.filter((e) => !e.deleted).reverse(); // newest first, hide tombstones
 }
 
+// All distinct tags across live entries, most-used first. Powers tag
+// autocomplete in the composer so the vocabulary converges instead of
+// sprawling into near-duplicates (gym / Gym / workout).
+export async function getAllTags(): Promise<{ tag: string; count: number }[]> {
+	const entries = await listEntries();
+	const counts = new Map<string, { tag: string; count: number }>();
+	for (const e of entries) {
+		for (const raw of e.metadata.tags ?? []) {
+			const tag = raw.trim();
+			if (!tag) continue;
+			const key = tag.toLowerCase();
+			const hit = counts.get(key);
+			if (hit) hit.count++;
+			else counts.set(key, { tag, count: 1 });
+		}
+	}
+	return [...counts.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}
+
 export async function deleteEntry(id: string): Promise<void> {
 	const db = await getDB();
 	const existing = await db.get('entries', id);

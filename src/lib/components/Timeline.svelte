@@ -99,7 +99,7 @@
 		// touch devices: no trailing pointer, so skip the rAF loop + listeners
 		if (window.matchMedia('(pointer: coarse)').matches) return;
 
-		const SNAP = 30; // px: within this of a node, magnetize onto it
+		const SNAP = 40; // px: within this of a node, magnetize onto it
 		let targetY = 0;
 		let curY = 0;
 		let active = false;

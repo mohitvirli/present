@@ -11,6 +11,7 @@
 		deleteEntry,
 		getEntry,
 		clearTutorialEntries,
+		getAllTags,
 		type EntryMetadata
 	} from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
@@ -24,6 +25,7 @@
 	import { pickPlaceholder, FIRST_RUN_PLACEHOLDER } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
 	import RollingNumber from '$lib/components/RollingNumber.svelte';
+	import TagInput from '$lib/components/TagInput.svelte';
 
 	// Picked once per entry (the page remounts on each new entry). A brand-new
 	// user writing their first entry gets a dedicated welcoming placeholder.
@@ -33,7 +35,8 @@
 	let content = $state<JSONContent | string | null>(null);
 	let text = $state(''); // plain text mirror for counts/gating
 	let meta = $state<EntryMetadata>({});
-	let tagsInput = $state('');
+	let tags = $state<string[]>([]); // chip list, mirrored into meta.tags
+	let allTags = $state<{ tag: string; count: number }[]>([]); // autocomplete vocabulary
 	let entryId = $state<string | null>(null);
 	let saving = $state(false);
 	let savedAt = $state<number | null>(null);
@@ -89,7 +92,10 @@
 
 			// update bound state so Svelte sees the change
 			if (input.classList.contains('title-input')) meta.title = input.value;
-			else if (input.classList.contains('tags-input')) tagsInput = input.value;
+			// the tags field is its own component bound via an `input` event — fire
+			// one so its draft state picks up the dictated text
+			else if (input.classList.contains('tags-input'))
+				input.dispatchEvent(new Event('input', { bubbles: true }));
 
 			if (isFinal) {
 				inputInterimEl = null;
@@ -221,7 +227,7 @@
 				loadedContentStr = JSON.stringify(e.content);
 				text = extractText(content);
 				meta = { ...e.metadata };
-				tagsInput = (e.metadata.tags ?? []).join(', ');
+				tags = [...(e.metadata.tags ?? [])];
 				entryId = e.id;
 				savedAt = e.updatedAt;
 				createdAt = e.createdAt;
@@ -230,6 +236,7 @@
 			}
 		}
 		ready = true;
+		void getAllTags().then((t) => (allTags = t));
 		await tick();
 
 		const contentDelay = openContext ? 0.55 : 0.1;
@@ -284,11 +291,9 @@
 		}
 	}
 
+	// mirror the chip list into the saved metadata
 	$effect(() => {
-		meta.tags = tagsInput
-			.split(',')
-			.map((t) => t.trim())
-			.filter(Boolean);
+		meta.tags = [...tags];
 	});
 
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -461,7 +466,7 @@
 			const s = (await res.json()) as Suggestion;
 			// write suggestions straight into the fields
 			meta.title = s.title;
-			tagsInput = s.tags.join(', ');
+			tags = [...s.tags];
 			// derived metadata (saved by autosave)
 			meta.aiSummary = s.summary;
 			meta.aiEmotion = s.emotion;
@@ -539,12 +544,7 @@
 					<input class="title-input" bind:value={meta.title} placeholder="Untitled" />
 				{/if}
 			</div>
-			<input
-				class="tags-input"
-				bind:value={tagsInput}
-				placeholder="Add tags, comma separated"
-				readonly={readonly}
-			/>
+			<TagInput bind:tags suggestions={allTags} {readonly} placeholder="Add tags" />
 
 			{#if !readonly}
 				{#if aiSettings.enabled}

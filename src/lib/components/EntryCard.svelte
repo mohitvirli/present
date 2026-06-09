@@ -2,6 +2,7 @@
 	import type { Entry } from '$lib/db';
 	import { firstHeading } from '$lib/tiptap';
 	import { renderEntryHTML } from '$lib/tiptap-render';
+	import { tagStyle } from '$lib/tag-color';
 
 	let { entry }: { entry: Entry } = $props();
 
@@ -69,7 +70,7 @@
 	{#if entry.metadata.tags?.length}
 		<ul class="tags">
 			{#each entry.metadata.tags as t (t)}
-				<li>#{t}</li>
+				<li class="tag" style={tagStyle(t)}>{t}</li>
 			{/each}
 		</ul>
 	{/if}

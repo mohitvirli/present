@@ -46,6 +46,16 @@
 	--mood-low: #c99a4e;
 	--mood-bad: #c4604f;
 
+	/* Tag swatches drawn straight from the theme palette (accent + mood hues).
+	   Defined once here as token references, so every theme — current and
+	   future — colors tags with its own values automatically. */
+	--th-0: var(--color-accent);
+	--th-1: var(--mood-great);
+	--th-2: var(--mood-good);
+	--th-3: var(--mood-low);
+	--th-4: var(--mood-bad);
+	--th-5: var(--mood-neutral);
+
 	--shadow-sm: 0 1px 2px rgba(31, 30, 29, 0.04), 0 1px 3px rgba(31, 30, 29, 0.06);
 	--shadow-md: 0 4px 12px rgba(31, 30, 29, 0.06), 0 2px 4px rgba(31, 30, 29, 0.05);
 	--bg-blur: rgba(250, 249, 245, 0.8);
@@ -1450,13 +1460,18 @@ body:has(dialog[open]) .cursor-rail {
 	padding: 0;
 }
 
-.entry-card .tags li {
+.entry-card .tags .tag {
 	font-size: 0.72rem;
-	font-weight: 500;
-	color: var(--color-text-muted);
-	background: var(--color-surface-2);
+	font-weight: 550;
 	border-radius: 999px;
 	padding: 0.15rem 0.55rem;
+	/* per-tag swatch (--tag-c) is a theme palette color; tint it into surface/text */
+	color: var(--tag-fg);
+	background: var(--tag-bg);
+	box-shadow: inset 0 0 0 1px var(--tag-ring);
+	--tag-bg: color-mix(in oklab, var(--tag-c) 15%, var(--color-surface));
+	--tag-fg: color-mix(in oklab, var(--tag-c) 78%, var(--color-text));
+	--tag-ring: color-mix(in oklab, var(--tag-c) 26%, transparent);
 }
 
 /* ---------- Composer ---------- */
@@ -1733,6 +1748,12 @@ body:has(dialog[open]) .cursor-rail {
 	padding-top: 0.75rem;
 }
 
+/* once open, stop clipping so the tag autocomplete dropdown can overhang the
+   panel; overflow stays hidden only during the collapse height animation */
+.composer .details-collapse.open > .details-panel {
+	overflow: visible;
+}
+
 .composer .details-panel {
 	display: flex;
 	flex-direction: column;
@@ -1986,26 +2007,7 @@ body:has(dialog[open]) .cursor-rail {
 	font-weight: 700;
 }
 
-.composer .tags-input {
-	background: transparent;
-	border: none;
-	outline: none;
-	color: var(--color-text);
-	font-family: var(--font-sans);
-	font-size: 0.95rem;
-	font-weight: 500;
-	letter-spacing: -0.003em;
-	padding: 0.2rem 0;
-}
-
-.composer .tags-input::placeholder {
-	color: var(--color-text-muted);
-	opacity: 0.6;
-}
-
-.composer.readonly .tags-input {
-	cursor: default;
-}
+/* tags-input styling now lives in TagInput.svelte (chip field) */
 
 /* readonly title is a heading, not an input — wraps instead of overflowing */
 .composer .title-static {
