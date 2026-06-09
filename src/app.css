@@ -2017,11 +2017,6 @@ body:has(dialog[open]) .cursor-rail {
 	overflow-wrap: anywhere;
 }
 
-.composer .title-static.untitled {
-	color: var(--color-text-muted);
-	opacity: 0.55;
-}
-
 .composer .writing {
 	position: relative;
 }

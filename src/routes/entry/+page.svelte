@@ -535,16 +535,22 @@
 
 	<div id="details-panel" class="details-collapse" class:open={showMeta}>
 		<div class="details-panel">
-			<div class="title-row">
-				{#if readonly}
-					<h1 class="title-input title-static" class:untitled={!meta.title?.trim()}>
-						{meta.title?.trim() || 'Untitled'}
-					</h1>
-				{:else}
-					<input class="title-input" bind:value={meta.title} placeholder="Untitled" />
+			{#if readonly}
+				<!-- viewing: only surface fields that were actually filled in -->
+				{#if meta.title?.trim()}
+					<div class="title-row">
+						<h1 class="title-input title-static">{meta.title.trim()}</h1>
+					</div>
 				{/if}
-			</div>
-			<TagInput bind:tags suggestions={allTags} {readonly} placeholder="Add tags" />
+				{#if tags.length}
+					<TagInput bind:tags suggestions={allTags} readonly placeholder="Add tags" />
+				{/if}
+			{:else}
+				<div class="title-row">
+					<input class="title-input" bind:value={meta.title} placeholder="Untitled" />
+				</div>
+				<TagInput bind:tags suggestions={allTags} placeholder="Add tags" />
+			{/if}
 
 			{#if !readonly}
 				{#if aiSettings.enabled}
