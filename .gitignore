@@ -26,3 +26,7 @@ vite.config.ts.timestamp-*
 
 # planning docs
 plans/
+
+# local tooling
+.codegraph/
+.cursor/
