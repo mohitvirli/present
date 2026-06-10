@@ -123,6 +123,20 @@
 
 	let topbarInner = $state<HTMLElement | null>(null);
 
+	// On long entries the text scrolls under the sticky header clock. Expose
+	// scroll progress (0→1 over the first 140px) as --clock-p so desktop CSS
+	// can slide the clock into the left gutter in lockstep with the scroll.
+	let topbarEl = $state<HTMLElement | null>(null);
+	onMount(() => {
+		const onScroll = () => {
+			const p = Math.min(1, Math.max(0, (window.scrollY - 20) / 120));
+			topbarEl?.style.setProperty('--clock-p', String(p));
+		};
+		window.addEventListener('scroll', onScroll, { passive: true });
+		onScroll();
+		return () => window.removeEventListener('scroll', onScroll);
+	});
+
 	onMount(() => {
 		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -170,6 +184,7 @@
 	<header
 		class="topbar"
 		class:reveal-actions={headerHovered}
+		bind:this={topbarEl}
 		onpointerenter={(e) => {
 			// Mouse only: mutating a class on the topbar during a touch tap's
 			// hover phase makes iOS WebKit cancel the click (first tap reveals

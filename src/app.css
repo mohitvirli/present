@@ -904,6 +904,33 @@ a {
 	display: inline-grid;
 }
 
+/* Desktop, long page: once scrolling brings the entry text under the sticky
+   header, slide the clock out of the column into the left gutter so the two
+   never overlap. Only when the gutter is wide enough to hold it. */
+@media (min-width: 1080px) {
+	/* shift the clock, not .brand — gsap's header intro leaves an inline
+	   transform on .brand that would override this */
+	/* shrink-to-fit so translateX(-100%) below tracks each line's own width
+	   (column flex would otherwise stretch both to the clock's width) */
+	.topbar .brand .clock {
+		align-items: flex-start;
+	}
+
+	/* slide each line independently, driven by scroll progress (--clock-p,
+	   0→1, set from JS): -100% is relative to each line's own width, so at
+	   p=1 their right edges land aligned just left of the composer column */
+	.topbar .brand .clock .time,
+	.topbar .brand .clock .date {
+		transform: translateX(calc((-100% - 1.75rem) * var(--clock-p, 0)));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.topbar .brand .clock {
+			transition: none;
+		}
+	}
+}
+
 .clock {
 	font-variant-numeric: tabular-nums;
 	font-feature-settings: 'tnum';
