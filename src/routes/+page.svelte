@@ -64,6 +64,11 @@
 		// remember where the timeline was so we can return here after viewing an entry
 		scroll.timelineY = scroll.lenis?.scroll ?? window.scrollY;
 		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		// Touch devices: don't block navigation on the exit animation. Awaiting
+		// it adds ~0.3–0.5s before every tap on the timeline resolves, which
+		// reads as the page being unresponsive. The animation is a desktop
+		// nicety; on touch, navigate immediately.
+		if (window.matchMedia('(pointer: coarse)').matches) return;
 		const rows = Array.from(document.querySelectorAll('.entry-row'));
 		const labels = Array.from(document.querySelectorAll('.day-label'));
 		const rail = document.querySelector('.rail');

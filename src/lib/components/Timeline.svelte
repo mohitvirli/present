@@ -69,9 +69,13 @@
 			const root = timelineEl;
 			if (!root) return;
 			if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+			// opacity (not autoAlpha): autoAlpha sets visibility:hidden during the
+			// delay + stagger, which makes the rows non-clickable for up to a
+			// second after landing on the timeline. opacity:0 elements still
+			// receive pointer events, so the list stays interactive while it fades.
 			gsap.from(root.querySelectorAll('.day-label'), {
 				x: -8,
-				autoAlpha: 0,
+				opacity: 0,
 				duration: 0.5,
 				ease: 'power3.out',
 				delay: 0.15,
@@ -79,7 +83,7 @@
 			});
 			gsap.from(root.querySelectorAll('.entry-row'), {
 				y: 14,
-				autoAlpha: 0,
+				opacity: 0,
 				duration: 0.55,
 				ease: 'power3.out',
 				delay: 0.2,
