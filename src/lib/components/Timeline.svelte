@@ -239,13 +239,15 @@
 		<li class="rail" aria-hidden="true" in:gScaleY={{ duration: 0.8 }}></li>
 		{#each groups as [day, items] (day)}
 			<li class="day-group" class:collapsed={collapsed.has(day)}>
-				<h2 class="day-label">
-					<button
-						class="day-toggle"
-						onclick={() => toggle(day)}
-						aria-expanded={!collapsed.has(day)}
-						aria-label={collapsed.has(day) ? `Expand ${dayLabel(day)}` : `Collapse ${dayLabel(day)}`}
-					>
+				<h2
+					class="day-label"
+					onclick={() => toggle(day)}
+					role="button"
+					tabindex="0"
+					aria-expanded={!collapsed.has(day)}
+					aria-label={collapsed.has(day) ? `Expand ${dayLabel(day)}` : `Collapse ${dayLabel(day)}`}
+				>
+					<span class="day-toggle" aria-hidden="true">
 						<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
 							<path
 								d="M6 4l4 4-4 4"
@@ -256,7 +258,7 @@
 								stroke-linejoin="round"
 							/>
 						</svg>
-					</button>
+					</span>
 					<span class="day-date">{dayLabel(day)}</span>
 					<span class="day-count-inline"
 						>{items.length} {items.length === 1 ? 'entry' : 'entries'}</span

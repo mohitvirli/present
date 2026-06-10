@@ -1060,6 +1060,7 @@ main {
 	border: none;
 	padding: 0.3rem 0;
 	white-space: nowrap;
+	cursor: pointer;
 }
 
 /* narrow screens: trail a wavy rule out from the date to the column edge.
