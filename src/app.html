@@ -2,7 +2,10 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+		/>
 		<meta name="text-scale" content="scale" />
 		<title>be present.</title>
 		<meta
@@ -57,6 +60,37 @@
 						m.setAttribute('content', bg[t]);
 					}
 				} catch (e) {}
+			})();
+		</script>
+		<script>
+			// Disable pinch-to-zoom and double-tap-to-zoom on mobile.
+			(function () {
+				var stop = function (e) {
+					e.preventDefault();
+				};
+				// iOS Safari gesture events (ignore user-scalable=no).
+				document.addEventListener('gesturestart', stop, { passive: false });
+				document.addEventListener('gesturechange', stop, { passive: false });
+				document.addEventListener('gestureend', stop, { passive: false });
+				// Multi-touch pinch on touch-event browsers.
+				document.addEventListener(
+					'touchmove',
+					function (e) {
+						if (e.touches.length > 1) e.preventDefault();
+					},
+					{ passive: false }
+				);
+				// Double-tap zoom.
+				var lastTouch = 0;
+				document.addEventListener(
+					'touchend',
+					function (e) {
+						var now = Date.now();
+						if (now - lastTouch <= 300) e.preventDefault();
+						lastTouch = now;
+					},
+					{ passive: false }
+				);
 			})();
 		</script>
 		%sveltekit.head%
