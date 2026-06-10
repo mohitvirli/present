@@ -412,9 +412,30 @@
 		}
 	});
 
-	function startEditing() {
+	function startEditing(pos?: number) {
 		readonly = false;
-		tick().then(focusEditor);
+		tick().then(() => {
+			if (pos != null && editor) editor.commands.focus(pos);
+			else focusEditor();
+		});
+	}
+
+	// While viewing: press E to edit (caret at end), or double-click the text
+	// to edit with the caret where you clicked.
+	function onReadonlyKeydown(e: KeyboardEvent) {
+		if (!readonly || !ready) return;
+		if (e.key !== 'e' && e.key !== 'E') return;
+		if (e.metaKey || e.ctrlKey || e.altKey) return;
+		const t = e.target as HTMLElement | null;
+		if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+		e.preventDefault();
+		startEditing();
+	}
+
+	function onWritingDblClick(e: MouseEvent) {
+		if (!readonly || !editor) return;
+		const hit = editor.view.posAtCoords({ left: e.clientX, top: e.clientY });
+		startEditing(hit?.pos);
 	}
 
 	async function removeEntry() {
@@ -551,6 +572,8 @@
 		if (readonly && entryId) void updateEntry(entryId, { metadata: meta });
 	}
 </script>
+
+<svelte:window onkeydown={onReadonlyKeydown} />
 
 <div class="composer" class:readonly>
 	<div class="details-row">
@@ -705,7 +728,8 @@
 		</div>
 	</div>
 
-	<section class="writing" bind:this={writingEl}>
+	<!-- double-click to edit has a keyboard equivalent: the E shortcut -->
+	<section class="writing" bind:this={writingEl} ondblclick={onWritingDblClick}>
 		{#if ready}
 			<Editor
 				bind:editor

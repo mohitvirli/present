@@ -270,6 +270,7 @@
 							class="header-action"
 							onclick={() => composer.edit?.()}
 							aria-label="Edit entry"
+							title="Edit entry — press E or double-click the text"
 						>
 							<svg
 								width="18"
