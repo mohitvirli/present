@@ -21,6 +21,7 @@ export interface EntryMetadata {
 	aiEmotion2?: string; // optional secondary emotion for mixed feelings
 	aiSummaryHidden?: boolean; // user collapsed the summary (kept, not deleted)
 	tutorial?: boolean; // seeded example entry shown to first-time users
+	pinned?: boolean; // surfaced in the timeline's Pinned section
 }
 
 export interface Entry {

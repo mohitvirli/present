@@ -291,6 +291,31 @@
 						{/if}
 						</span>
 					{/if}
+					{#if composer.pin}
+						<button
+							class="header-action pin-btn"
+							class:active={composer.pinned}
+							onclick={() => composer.pin?.()}
+							aria-pressed={composer.pinned}
+							aria-label={composer.pinned ? 'Unpin entry' : 'Pin entry'}
+							title={composer.pinned ? 'Unpin entry' : 'Pin entry'}
+						>
+							<svg
+								width="18"
+								height="18"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path d="M12 17v5" />
+								<path d="M9 3h6v5l2 3v2H7v-2l2-3Z" />
+							</svg>
+						</button>
+					{/if}
 					{#if composer.canReflect}
 						<button
 							class="header-action"

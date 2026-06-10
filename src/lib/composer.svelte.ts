@@ -11,6 +11,8 @@ export const composer = $state<{
 	// after a clipboard copy the button flashes a check ('copied') then offers
 	// a download for a while ('download') before settling back to 'idle'
 	shareState: 'idle' | 'copied' | 'download';
+	pin: (() => void) | null; // toggles the entry's pinned flag (set for saved entries)
+	pinned: boolean; // entry's current pinned state — drives the header button
 	reflection: boolean; // AI "reflection mode" — ghost follow-up questions at the caret
 	canReflect: boolean; // whether the header should offer the reflection toggle
 	newEntryNonce: number; // bumped to force a fresh /entry mount even when already there
@@ -23,6 +25,8 @@ export const composer = $state<{
 	share: null,
 	sharing: false,
 	shareState: 'idle',
+	pin: null,
+	pinned: false,
 	reflection: false,
 	canReflect: false,
 	newEntryNonce: 0

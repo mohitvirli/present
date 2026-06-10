@@ -234,6 +234,8 @@
 				createdAt = e.createdAt;
 				readonly = true;
 				openContext = !!(e.metadata.title?.trim() || (e.metadata.tags && e.metadata.tags.length));
+				composer.pinned = !!meta.pinned;
+				composer.pin = togglePin;
 			}
 		}
 		ready = true;
@@ -483,6 +485,8 @@
 		composer.edit = null;
 		composer.share = null;
 		composer.sharing = false;
+		composer.pin = null;
+		composer.pinned = false;
 		if (shareStateTimer) clearTimeout(shareStateTimer);
 		composer.shareState = 'idle';
 		composer.reflection = false;
@@ -560,6 +564,14 @@
 			meta.aiEmotion = undefined;
 		}
 		meta.aiTone = undefined;
+	}
+
+	function togglePin() {
+		if (!entryId) return;
+		// undefined (not false) to unpin — plain() strips it, the repo's "key removed" convention
+		meta.pinned = meta.pinned ? undefined : true;
+		composer.pinned = !!meta.pinned;
+		void updateEntry(entryId, { metadata: meta });
 	}
 
 	function toggleSummary() {
