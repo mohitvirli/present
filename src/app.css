@@ -2029,6 +2029,42 @@ body:has(dialog[open]) .cursor-rail {
 .composer .writing .tiptap {
 	min-height: 64vh;
 	outline: none;
+}
+
+/* Mobile: editor fills the dynamic viewport (full-screen writing surface),
+   page scrolls only once content outgrows it. Flex chain gives an exact
+   fit so an empty editor never forces a scroll. Scoped to the composer
+   route via :has() so the timeline layout is untouched. */
+@media (max-width: 640px) {
+	.shell:has(.composer) {
+		display: flex;
+		flex-direction: column;
+		min-height: 100dvh;
+	}
+	main:has(.composer) {
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.composer {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+	.composer .writing,
+	.composer .writing .tiptap-host {
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.composer .writing .tiptap {
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+}
+
+.composer .writing .tiptap {
 	color: var(--color-text);
 	caret-color: var(--color-accent);
 	font-family: var(--font-sans);

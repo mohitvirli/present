@@ -7,6 +7,7 @@
 	import { DictationDecoration } from '$lib/tiptap-dictation';
 	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
 	import { SuggestionDecoration } from '$lib/tiptap-suggestion';
+	import { ScrollOnEnter } from '$lib/tiptap-scroll';
 
 	let {
 		content = null,
@@ -34,7 +35,8 @@
 				TaskList,
 				TaskItemBracket.configure({ nested: true }),
 				DictationDecoration,
-				SuggestionDecoration
+				SuggestionDecoration,
+				ScrollOnEnter
 			],
 			content: content ?? '',
 			editable,
