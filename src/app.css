@@ -1524,7 +1524,7 @@ body:has(dialog[open]) .cursor-rail {
 .status-dock {
 	position: fixed;
 	right: max(2rem, calc((100vw - var(--composer-width)) / 2));
-	bottom: 1.5rem;
+	bottom: calc(1.5rem + var(--kb-inset, 0px));
 	z-index: 20;
 	display: flex;
 	flex-direction: column;
@@ -1534,6 +1534,7 @@ body:has(dialog[open]) .cursor-rail {
 	font-weight: 500;
 	color: var(--color-text-muted);
 	pointer-events: none;
+	transition: bottom 0.18s ease;
 }
 
 .status-dock .word-count {
@@ -1561,11 +1562,12 @@ body:has(dialog[open]) .cursor-rail {
 .dictation {
 	position: fixed;
 	left: max(2rem, calc((100vw - var(--composer-width)) / 2));
-	bottom: 1.5rem;
+	bottom: calc(1.5rem + var(--kb-inset, 0px));
 	z-index: 20;
 	display: flex;
 	align-items: center;
 	gap: 0.55rem;
+	transition: bottom 0.18s ease;
 }
 
 .dictation .mic {

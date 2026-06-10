@@ -170,8 +170,16 @@
 	<header
 		class="topbar"
 		class:reveal-actions={headerHovered}
-		onpointerenter={() => (headerHovered = true)}
-		onpointerleave={() => (headerHovered = false)}
+		onpointerenter={(e) => {
+			// Mouse only: mutating a class on the topbar during a touch tap's
+			// hover phase makes iOS WebKit cancel the click (first tap reveals
+			// "hover", second tap activates). Touch already shows the actions via
+			// the (hover: none) CSS, so it needs no JS reveal.
+			if (e.pointerType === 'mouse') headerHovered = true;
+		}}
+		onpointerleave={(e) => {
+			if (e.pointerType === 'mouse') headerHovered = false;
+		}}
 	>
 		<div class="topbar-inner" bind:this={topbarInner}>
 			{#if isNew}
