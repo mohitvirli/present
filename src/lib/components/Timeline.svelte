@@ -79,7 +79,6 @@
 				duration: 0.5,
 				ease: 'power3.out',
 				delay: 0.15,
-				stagger: 0.045
 			});
 			gsap.from(root.querySelectorAll('.entry-row'), {
 				y: 14,
@@ -87,7 +86,6 @@
 				duration: 0.55,
 				ease: 'power3.out',
 				delay: 0.2,
-				stagger: 0.045
 			});
 		});
 	});
