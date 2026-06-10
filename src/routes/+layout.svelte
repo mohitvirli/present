@@ -6,7 +6,7 @@
 	import Settings from '$lib/components/Settings.svelte';
 	import { composer } from '$lib/composer.svelte';
 	import { scroll } from '$lib/scroll.svelte';
-	import { gFade, gIn } from '$lib/transitions';
+	import { gFade, gIn, gOut } from '$lib/transitions';
 	import gsap from 'gsap';
 	import Lenis from 'lenis';
 	import { onMount } from 'svelte';
@@ -229,8 +229,10 @@
 						</svg>
 					</a>
 					{#if composer.share}
+						<span class="share-wrap">
 						<button
 							class="header-action"
+							class:pinned={composer.shareState !== 'idle'}
 							onclick={() => composer.share?.()}
 							disabled={composer.sharing || composer.shareState === 'copied'}
 							aria-label={composer.shareState === 'download'
@@ -274,6 +276,19 @@
 								</svg>
 							{/if}
 						</button>
+						{#if composer.shareState !== 'idle'}
+							{#key composer.shareState}
+								<span
+									class="share-toast"
+									role="status"
+									in:gIn={{ y: -6, duration: 0.3 }}
+									out:gOut={{ y: -4, duration: 0.2 }}
+								>
+									{composer.shareState === 'copied' ? 'Copied to clipboard' : 'Click to download'}
+								</span>
+							{/key}
+						{/if}
+						</span>
 					{/if}
 					{#if composer.canReflect}
 						<button

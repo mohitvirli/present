@@ -7,7 +7,7 @@ function esc(s: string): string {
 	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-export type ShareResult = 'shared' | 'dismissed' | 'copied' | 'downloaded';
+export type ShareResult = 'copied' | 'downloaded';
 
 // The last rendered capture, kept so a follow-up "download" action can reuse
 // it without re-rendering the card.
@@ -32,9 +32,9 @@ export function downloadLastShareImage(): boolean {
 
 // Renders the entry into an offscreen "share card" — title + tags (when set),
 // full text at the composer's width, then a footer with the word count on the
-// left and the entry's time bottom-right — and rasterizes it to a PNG. Shares
-// via the native sheet when available, otherwise copies the image to the
-// clipboard (falling back to a download when neither is supported).
+// left and the entry's time bottom-right — and rasterizes it to a PNG. Copies
+// the image to the clipboard, falling back to a download when that's
+// unavailable or blocked.
 export async function shareEntryImage(opts: {
 	content: JSONContent | string;
 	wordCount: number;
@@ -95,22 +95,10 @@ export async function shareEntryImage(opts: {
 		if (!blob) throw new Error('Could not render image');
 
 		const name = `present-${d.toISOString().slice(0, 10)}.png`;
-		const file = new File([blob], name, { type: 'image/png' });
 		lastCapture = { blob, name };
 
-		if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-			try {
-				await navigator.share({ files: [file] });
-				return 'shared';
-			} catch (e) {
-				// user dismissed the sheet — not an error, and don't force a fallback
-				if (e instanceof DOMException && e.name === 'AbortError') return 'dismissed';
-				// real share failure → fall through to clipboard/download
-			}
-		}
-
-		// No native sheet (most desktop browsers) — copy the image so it can be
-		// pasted anywhere, and let the caller offer a download as a follow-up.
+		// Copy the image so it can be pasted anywhere, and let the caller offer
+		// a download as a follow-up.
 		if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
 			try {
 				await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);

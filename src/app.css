@@ -804,6 +804,28 @@ a {
 	transform: translateX(4px);
 }
 
+/* anchor for the small share toast under the header button */
+.share-wrap {
+	position: relative;
+	display: inline-flex;
+}
+
+.share-toast {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 50%;
+	transform: translateX(-50%);
+	white-space: nowrap;
+	font-size: 0.72rem;
+	line-height: 1;
+	padding: 0.35rem 0.55rem;
+	border-radius: 8px;
+	background: var(--color-surface-2);
+	color: var(--color-text-muted);
+	box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+	pointer-events: none;
+}
+
 .topbar.reveal-actions .header-action,
 .topbar:focus-within .header-action {
 	opacity: 1;
@@ -818,6 +840,12 @@ a {
 .header-action.danger:hover {
 	background: var(--color-accent-soft);
 	color: var(--color-danger);
+}
+
+/* share button stays visible while the copied/download toast is showing */
+.header-action.pinned {
+	opacity: 1;
+	transform: translate(0, 0);
 }
 
 /* active toggle (reflection mode on) — stays lit even when the header isn't hovered */

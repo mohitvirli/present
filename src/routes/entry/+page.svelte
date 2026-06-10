@@ -481,7 +481,7 @@
 			if (result === 'copied') {
 				// flash the check, then offer a download for a while
 				setShareState('copied');
-				shareStateTimer = setTimeout(() => setShareState('download', 8000), 1500);
+				shareStateTimer = setTimeout(() => setShareState('download', 4000), 1500);
 			}
 		} finally {
 			composer.sharing = false;
