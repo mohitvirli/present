@@ -213,6 +213,37 @@
 							<path d="M5 9.5V21h14V9.5" />
 						</svg>
 					</a>
+					{#if composer.share}
+						<button
+							class="header-action"
+							onclick={() => composer.share?.()}
+							disabled={composer.sharing}
+							aria-label="Share entry as image"
+							title="Share entry as image"
+						>
+							{#if composer.sharing}
+								<svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+									<path d="M21 12a9 9 0 1 1-6.2-8.6" />
+								</svg>
+							{:else}
+								<svg
+									width="18"
+									height="18"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M12 3v12" />
+									<path d="m8 7 4-4 4 4" />
+									<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+								</svg>
+							{/if}
+						</button>
+					{/if}
 					{#if composer.canReflect}
 						<button
 							class="header-action"

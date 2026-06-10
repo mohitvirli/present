@@ -21,6 +21,7 @@
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { suggestionKey } from '$lib/tiptap-suggestion';
 	import { queueSync } from '$lib/sync.svelte';
+	import { shareEntryImage } from '$lib/share';
 	import { hasWrittenEntry, markEntryWritten } from '$lib/onboarding';
 	import { pickPlaceholder, FIRST_RUN_PLACEHOLDER } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
@@ -432,6 +433,27 @@
 	composer.delete = removeEntry;
 	composer.edit = startEditing;
 
+	async function doShare() {
+		if (composer.sharing || content == null || !text.trim()) return;
+		composer.sharing = true;
+		try {
+			await shareEntryImage({
+				content,
+				wordCount,
+				at: createdAt ?? Date.now(),
+				title: meta.title,
+				tags
+			});
+		} finally {
+			composer.sharing = false;
+		}
+	}
+
+	// offer the header share button only once there's something to capture
+	$effect(() => {
+		composer.share = hasContent ? doShare : null;
+	});
+
 	onDestroy(() => {
 		dictation.unmount();
 		if (saveTimer) clearTimeout(saveTimer);
@@ -444,6 +466,8 @@
 		composer.createdAt = null;
 		composer.delete = null;
 		composer.edit = null;
+		composer.share = null;
+		composer.sharing = false;
 		composer.reflection = false;
 		composer.canReflect = false;
 	});

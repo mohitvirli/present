@@ -2191,3 +2191,109 @@ body:has(dialog[open]) .cursor-rail {
 	pointer-events: none;
 }
 
+
+/* ---------- Share card (offscreen, rasterized to an image) ---------- */
+/* Carries the `composer` class so the entry text inherits the exact editor
+   typography above. Parked offscreen while html-to-image captures it. */
+.share-card {
+	position: fixed;
+	left: -10000px;
+	top: 0;
+	width: var(--composer-width); /* fallback; inline width = live on-screen column */
+	max-width: none;
+	box-sizing: content-box; /* padding frames the column without shrinking it */
+	padding: 2.75rem 3rem 2.25rem;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	gap: 0;
+	z-index: -1;
+	pointer-events: none;
+}
+
+.share-card .share-title {
+	font-size: 1.45rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	line-height: 1.2;
+	margin: 0 0 0.6rem;
+}
+
+.share-card .share-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	list-style: none;
+	margin: 0 0 1.4rem;
+	padding: 0;
+}
+
+.share-card .share-tags .tag {
+	font-size: 0.72rem;
+	font-weight: 550;
+	border-radius: 999px;
+	padding: 0.15rem 0.55rem;
+	color: var(--tag-fg);
+	background: var(--tag-bg);
+	box-shadow: inset 0 0 0 1px var(--tag-ring);
+	--tag-bg: color-mix(in oklab, var(--tag-c) 15%, var(--color-surface));
+	--tag-fg: color-mix(in oklab, var(--tag-c) 78%, var(--color-text));
+	--tag-ring: color-mix(in oklab, var(--tag-c) 26%, transparent);
+}
+
+/* no tags below it → title carries the full gap down to the text */
+.share-card .share-title:has(+ .writing) {
+	margin-bottom: 1.2rem;
+}
+
+.share-card .share-clock {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin-bottom: 2rem;
+	line-height: 1.05;
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: 'tnum';
+}
+
+.share-card .share-time {
+	font-size: 1.2rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+
+.share-card .share-time .colon {
+	color: var(--color-accent);
+	margin: 0 0.04em;
+}
+
+.share-card .share-date {
+	font-size: 0.66rem;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	color: var(--color-text-muted);
+}
+
+/* the page stretches the editor to fill the viewport; the card hugs content */
+.share-card .writing .tiptap {
+	min-height: 0;
+}
+
+/* footer flows right after the content's height (not docked): word count
+   bottom-right */
+.share-card .share-foot {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 1.5rem;
+}
+
+.share-card .share-words {
+	font-size: 0.78rem;
+	font-weight: 500;
+	color: var(--color-text-muted);
+}
+
+/* busy spinner on the header share button */
+.header-action .spin {
+	animation: dictation-spin 0.8s linear infinite;
+}
