@@ -1336,6 +1336,53 @@ body:has(dialog[open]) .cursor-rail {
 	}
 }
 
+/* phones: on the entry route the header scrolls away with the page, and the
+   rail gutter narrows so the content column reclaims horizontal space */
+@media (max-width: 640px) {
+	.topbar.on-entry {
+		position: static;
+	}
+
+	.topbar .cta {
+		margin-left: 20px;
+	}
+
+	.day-label {
+		margin: 0 0 1rem 20px;
+	}
+
+	.day-group > ul {
+		padding-left: 30px;
+	}
+
+	/* center the spine in the gutter: text sits at 52px (2rem page padding +
+	   20px indent), so the rail centre moves to 26px — equal space either side
+	   of the node */
+	.timeline .rail {
+		left: 25px;
+	}
+
+	.cursor-rail {
+		left: 26px;
+	}
+
+	.day-group > ul .entry-card::before {
+		left: -26px;
+	}
+
+	/* composer page: the document is the only scroller and the composer is no
+	   taller than its content. The bottom padding reserves room for the fixed
+	   mic/word-count docks so the last lines of text never slide underneath
+	   them. */
+	body:has(.composer) main {
+		padding-bottom: 6rem;
+	}
+
+	body:has(.composer) .composer .writing .tiptap {
+		min-height: 0;
+	}
+}
+
 /* ---------- Entry (flat, no card) ---------- */
 .entry-card {
 	display: block;
@@ -1582,7 +1629,7 @@ body:has(dialog[open]) .cursor-rail {
 .status-dock {
 	position: fixed;
 	right: max(2rem, calc((100vw - var(--composer-width)) / 2));
-	bottom: calc(1.5rem + var(--kb-inset, 0px));
+	bottom: 1.5rem;
 	z-index: 20;
 	display: flex;
 	flex-direction: column;
@@ -1592,7 +1639,6 @@ body:has(dialog[open]) .cursor-rail {
 	font-weight: 500;
 	color: var(--color-text-muted);
 	pointer-events: none;
-	transition: bottom 0.18s ease;
 }
 
 .status-dock .word-count {
@@ -1620,12 +1666,11 @@ body:has(dialog[open]) .cursor-rail {
 .dictation {
 	position: fixed;
 	left: max(2rem, calc((100vw - var(--composer-width)) / 2));
-	bottom: calc(1.5rem + var(--kb-inset, 0px));
+	bottom: 1.5rem;
 	z-index: 20;
 	display: flex;
 	align-items: center;
 	gap: 0.55rem;
-	transition: bottom 0.18s ease;
 }
 
 .dictation .mic {

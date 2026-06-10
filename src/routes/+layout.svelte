@@ -184,6 +184,7 @@
 	<header
 		class="topbar"
 		class:reveal-actions={headerHovered}
+		class:on-entry={isNew}
 		bind:this={topbarEl}
 		onpointerenter={(e) => {
 			// Mouse only: mutating a class on the topbar during a touch tap's

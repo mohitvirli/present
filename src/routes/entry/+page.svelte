@@ -265,34 +265,10 @@
 		}
 
 		document.addEventListener('focusin', onFocusIn);
-
-		const vv = window.visualViewport;
-		if (vv) {
-			vv.addEventListener('resize', onKbResize);
-			vv.addEventListener('scroll', onKbResize);
-			onKbResize();
-		}
 	});
-
-	// Keep the dictation + status docks pinned just above the mobile keyboard.
-	// `position: fixed` anchors to the layout viewport, which the keyboard
-	// overlays — so docks vanish behind it. visualViewport gives the real
-	// visible region; the gap below it is the keyboard height.
-	function onKbResize() {
-		const vv = window.visualViewport;
-		if (!vv) return;
-		const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-		document.documentElement.style.setProperty('--kb-inset', `${kb}px`);
-	}
 
 	onDestroy(() => {
 		document.removeEventListener('focusin', onFocusIn);
-		const vv = window.visualViewport;
-		if (vv) {
-			vv.removeEventListener('resize', onKbResize);
-			vv.removeEventListener('scroll', onKbResize);
-		}
-		document.documentElement.style.removeProperty('--kb-inset');
 	});
 
 	function onEditorChange(doc: JSONContent, txt: string) {
