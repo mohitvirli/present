@@ -36,5 +36,8 @@ export function setTheme(id: ThemeId): void {
 	if (browser) {
 		localStorage.setItem(KEY, id);
 		document.documentElement.setAttribute('data-theme', id);
+		const bg = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim();
+		const meta = document.querySelector('meta[name="theme-color"]');
+		if (bg && meta) meta.setAttribute('content', bg);
 	}
 }

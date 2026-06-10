@@ -29,16 +29,33 @@
 		/>
 		<meta name="twitter:image" content="/og.jpg" />
 		<meta name="twitter:image:alt" content="be present. — a mindful journal for everyday moments" />
-		<link rel="apple-touch-icon" href="/icon.svg" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<meta name="theme-color" content="#f9fcff" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta name="apple-mobile-web-app-title" content="present" />
 		<script>
 			(function () {
 				try {
-					var ids = ['light', 'sage', 'sky', 'dark', 'deep', 'sage-dark'];
+					var bg = {
+						light: '#faf9f5',
+						dark: '#262624',
+						sage: '#f4f5f0',
+						sky: '#f9fcff',
+						deep: '#15181c',
+						'sage-dark': '#161816'
+					};
 					var t = localStorage.getItem('present:theme');
-					if (ids.indexOf(t) === -1) {
+					if (!bg[t]) {
 						t = 'sky';
 					}
 					document.documentElement.setAttribute('data-theme', t);
+					var m = document.querySelector('meta[name="theme-color"]');
+					if (m) {
+						m.setAttribute('content', bg[t]);
+					}
 				} catch (e) {}
 			})();
 		</script>

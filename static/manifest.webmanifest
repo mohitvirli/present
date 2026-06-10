@@ -1,0 +1,16 @@
+{
+	"name": "be present.",
+	"short_name": "present",
+	"description": "A calm, private journaling space. Be present and write what's here now — your entries stay on your device.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#f9fcff",
+	"theme_color": "#f9fcff",
+	"icons": [
+		{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+		{ "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+		{ "src": "/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+	]
+}

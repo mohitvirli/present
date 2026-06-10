@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { onNavigate } from '$app/navigation';
+	import { onNavigate, goto } from '$app/navigation';
 	import gsap from 'gsap';
 	import { listEntries, seedTutorialEntries, type Entry } from '$lib/db';
-	import { hasOnboarded, markOnboarded } from '$lib/onboarding';
+	import { hasOnboarded, markOnboarded, hasWrittenEntry } from '$lib/onboarding';
+	import { isStandalone, consumeLaunch } from '$lib/pwa';
 	import { syncState } from '$lib/sync.svelte';
 	import { scroll } from '$lib/scroll.svelte';
 	import Timeline from '$lib/components/Timeline.svelte';
@@ -12,6 +13,15 @@
 	let loaded = $state(false);
 
 	onMount(async () => {
+		// Installed PWA: on cold launch, returning users start in the composer
+		// instead of the timeline. Consume the launch token first (so navigating
+		// back to the timeline mid-session never re-triggers this), then redirect
+		// only when launched standalone and the user has written before.
+		if (consumeLaunch() && isStandalone() && hasWrittenEntry()) {
+			await goto('/entry', { replaceState: true });
+			return;
+		}
+
 		let list = await listEntries();
 		// first-ever visit → seed example entries so the journal teaches by
 		// example instead of dropping the user into an empty composer
