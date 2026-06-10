@@ -10,7 +10,7 @@
 	import gsap from 'gsap';
 	import Lenis from 'lenis';
 	import { onMount } from 'svelte';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { initSync, fullSync, syncState } from '$lib/sync.svelte';
 	import '../app.css';
 	let { children } = $props();
@@ -23,10 +23,22 @@
 		};
 		document.addEventListener('visibilitychange', onVisible);
 
-		// ⌘J / Ctrl+J toggles reflection mode while writing
 		const onKeydown = (e: KeyboardEvent) => {
-			if (!composer.canReflect) return;
-			if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyJ') {
+			const mod = e.metaKey || e.ctrlKey;
+			if (!mod || e.altKey) return;
+
+			// ⌘J / Ctrl+J always opens a fresh journal entry — from anywhere,
+			// including while already writing or viewing an older entry. The nonce
+			// forces a remount even when the URL is already /entry.
+			if (!e.shiftKey && e.code === 'KeyJ') {
+				e.preventDefault();
+				composer.newEntryNonce++;
+				void goto('/entry');
+				return;
+			}
+
+			// ⌘/ / Ctrl+/ toggles reflection mode while writing
+			if (!e.shiftKey && e.code === 'Slash' && composer.canReflect) {
 				e.preventDefault();
 				composer.reflection = !composer.reflection;
 			}
@@ -200,7 +212,7 @@
 							onclick={() => (composer.reflection = !composer.reflection)}
 							aria-pressed={composer.reflection}
 							aria-label="Reflection mode"
-							title="Reflection mode — gentle AI follow-up questions as you write (⌘J)"
+							title="Reflection mode — gentle AI follow-up questions as you write (⌘/)"
 						>
 							<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
 								<!-- light half = page bg, dark half = currentColor, dots inverted -->
@@ -264,7 +276,11 @@
 			{/if}
 		</div>
 	</header>
-	<main>{@render children()}</main>
+	<main>
+		{#key page.url.href + '|' + composer.newEntryNonce}
+			{@render children()}
+		{/key}
+	</main>
 </div>
 
 <dialog

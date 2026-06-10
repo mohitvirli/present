@@ -8,6 +8,7 @@ export const composer = $state<{
 	edit: (() => void) | null;
 	reflection: boolean; // AI "reflection mode" — ghost follow-up questions at the caret
 	canReflect: boolean; // whether the header should offer the reflection toggle
+	newEntryNonce: number; // bumped to force a fresh /entry mount even when already there
 }>({
 	entryId: null,
 	readonly: false,
@@ -15,5 +16,6 @@ export const composer = $state<{
 	delete: null,
 	edit: null,
 	reflection: false,
-	canReflect: false
+	canReflect: false,
+	newEntryNonce: 0
 });
