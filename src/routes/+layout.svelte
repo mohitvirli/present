@@ -232,13 +232,29 @@
 						<button
 							class="header-action"
 							onclick={() => composer.share?.()}
-							disabled={composer.sharing}
-							aria-label="Share entry as image"
-							title="Share entry as image"
+							disabled={composer.sharing || composer.shareState === 'copied'}
+							aria-label={composer.shareState === 'download'
+								? 'Download entry image'
+								: 'Share entry as image'}
+							title={composer.shareState === 'copied'
+								? 'Copied to clipboard'
+								: composer.shareState === 'download'
+									? 'Download entry image'
+									: 'Share entry as image'}
 						>
 							{#if composer.sharing}
 								<svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
 									<path d="M21 12a9 9 0 1 1-6.2-8.6" />
+								</svg>
+							{:else if composer.shareState === 'copied'}
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<path d="m4 12.5 5 5L20 6.5" />
+								</svg>
+							{:else if composer.shareState === 'download'}
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<path d="M12 15V3" />
+									<path d="m8 11 4 4 4-4" />
+									<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
 								</svg>
 							{:else}
 								<svg

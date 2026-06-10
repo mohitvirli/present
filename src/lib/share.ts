@@ -7,17 +7,41 @@ function esc(s: string): string {
 	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+export type ShareResult = 'shared' | 'dismissed' | 'copied' | 'downloaded';
+
+// The last rendered capture, kept so a follow-up "download" action can reuse
+// it without re-rendering the card.
+let lastCapture: { blob: Blob; name: string } | null = null;
+
+function downloadBlob(blob: Blob, name: string) {
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = name;
+	a.click();
+	URL.revokeObjectURL(url);
+}
+
+// Downloads the most recent capture (e.g. when the header button morphs into
+// a download affordance after a copy). Returns false if nothing is cached.
+export function downloadLastShareImage(): boolean {
+	if (!lastCapture) return false;
+	downloadBlob(lastCapture.blob, lastCapture.name);
+	return true;
+}
+
 // Renders the entry into an offscreen "share card" — title + tags (when set),
 // full text at the composer's width, then a footer with the word count on the
 // left and the entry's time bottom-right — and rasterizes it to a PNG. Shares
-// via the native sheet when available, otherwise downloads the file.
+// via the native sheet when available, otherwise copies the image to the
+// clipboard (falling back to a download when neither is supported).
 export async function shareEntryImage(opts: {
 	content: JSONContent | string;
 	wordCount: number;
 	at: number;
 	title?: string;
 	tags?: string[];
-}): Promise<void> {
+}): Promise<ShareResult> {
 	const d = new Date(opts.at);
 	const hh = d.getHours().toString().padStart(2, '0');
 	const mm = d.getMinutes().toString().padStart(2, '0');
@@ -72,24 +96,32 @@ export async function shareEntryImage(opts: {
 
 		const name = `present-${d.toISOString().slice(0, 10)}.png`;
 		const file = new File([blob], name, { type: 'image/png' });
+		lastCapture = { blob, name };
 
 		if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
 			try {
 				await navigator.share({ files: [file] });
-				return;
+				return 'shared';
 			} catch (e) {
-				// user dismissed the sheet — not an error, and don't force a download
-				if (e instanceof DOMException && e.name === 'AbortError') return;
-				// real share failure → fall through to download
+				// user dismissed the sheet — not an error, and don't force a fallback
+				if (e instanceof DOMException && e.name === 'AbortError') return 'dismissed';
+				// real share failure → fall through to clipboard/download
 			}
 		}
 
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = name;
-		a.click();
-		URL.revokeObjectURL(url);
+		// No native sheet (most desktop browsers) — copy the image so it can be
+		// pasted anywhere, and let the caller offer a download as a follow-up.
+		if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+			try {
+				await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+				return 'copied';
+			} catch {
+				// clipboard blocked (permissions/focus) → fall through to download
+			}
+		}
+
+		downloadBlob(blob, name);
+		return 'downloaded';
 	} finally {
 		card.remove();
 	}

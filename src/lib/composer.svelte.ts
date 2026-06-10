@@ -8,6 +8,9 @@ export const composer = $state<{
 	edit: (() => void) | null;
 	share: (() => void) | null; // captures the entry as an image (set while it has content)
 	sharing: boolean; // capture in progress — header button shows busy state
+	// after a clipboard copy the button flashes a check ('copied') then offers
+	// a download for a while ('download') before settling back to 'idle'
+	shareState: 'idle' | 'copied' | 'download';
 	reflection: boolean; // AI "reflection mode" — ghost follow-up questions at the caret
 	canReflect: boolean; // whether the header should offer the reflection toggle
 	newEntryNonce: number; // bumped to force a fresh /entry mount even when already there
@@ -19,6 +22,7 @@ export const composer = $state<{
 	edit: null,
 	share: null,
 	sharing: false,
+	shareState: 'idle',
 	reflection: false,
 	canReflect: false,
 	newEntryNonce: 0

@@ -21,7 +21,7 @@
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { suggestionKey } from '$lib/tiptap-suggestion';
 	import { queueSync } from '$lib/sync.svelte';
-	import { shareEntryImage } from '$lib/share';
+	import { shareEntryImage, downloadLastShareImage } from '$lib/share';
 	import { hasWrittenEntry, markEntryWritten } from '$lib/onboarding';
 	import { pickPlaceholder, FIRST_RUN_PLACEHOLDER } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
@@ -454,17 +454,35 @@
 	composer.delete = removeEntry;
 	composer.edit = startEditing;
 
+	let shareStateTimer: ReturnType<typeof setTimeout> | undefined;
+	function setShareState(state: typeof composer.shareState, ttl?: number) {
+		if (shareStateTimer) clearTimeout(shareStateTimer);
+		composer.shareState = state;
+		if (ttl) shareStateTimer = setTimeout(() => setShareState('idle'), ttl);
+	}
+
 	async function doShare() {
 		if (composer.sharing || content == null || !text.trim()) return;
+		// while the button shows the download affordance, clicking it downloads
+		// the already-rendered image instead of re-sharing
+		if (composer.shareState === 'download' && downloadLastShareImage()) {
+			setShareState('idle');
+			return;
+		}
 		composer.sharing = true;
 		try {
-			await shareEntryImage({
+			const result = await shareEntryImage({
 				content,
 				wordCount,
 				at: createdAt ?? Date.now(),
 				title: meta.title,
 				tags
 			});
+			if (result === 'copied') {
+				// flash the check, then offer a download for a while
+				setShareState('copied');
+				shareStateTimer = setTimeout(() => setShareState('download', 8000), 1500);
+			}
 		} finally {
 			composer.sharing = false;
 		}
@@ -489,6 +507,8 @@
 		composer.edit = null;
 		composer.share = null;
 		composer.sharing = false;
+		if (shareStateTimer) clearTimeout(shareStateTimer);
+		composer.shareState = 'idle';
 		composer.reflection = false;
 		composer.canReflect = false;
 	});
