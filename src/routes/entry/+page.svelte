@@ -232,7 +232,8 @@
 				entryId = e.id;
 				savedAt = e.updatedAt;
 				createdAt = e.createdAt;
-				readonly = true;
+				// pinned notes are living documents — open them straight into edit mode
+				readonly = !e.metadata.pinned;
 				openContext = !!(e.metadata.title?.trim() || (e.metadata.tags && e.metadata.tags.length));
 				composer.pinned = !!meta.pinned;
 				composer.pin = togglePin;
