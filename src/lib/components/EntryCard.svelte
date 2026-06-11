@@ -1,10 +1,20 @@
 <script lang="ts">
 	import type { Entry } from '$lib/db';
+	import { filterByTag } from '$lib/search.svelte';
 	import { firstHeading } from '$lib/tiptap';
 	import { renderEntryHTML } from '$lib/tiptap-render';
 	import { tagStyle } from '$lib/tag-color';
 
 	let { entry }: { entry: Entry } = $props();
+
+	// tag chip → filter the timeline by that tag instead of opening the entry.
+	// The chip lives inside the card's <a> (a nested button would be invalid
+	// HTML), so the click must not bubble into navigation.
+	function onTag(e: Event, tag: string) {
+		e.preventDefault();
+		e.stopPropagation();
+		filterByTag(tag);
+	}
 
 	function time(ts: number): string {
 		return new Date(ts).toLocaleTimeString(undefined, {
@@ -73,7 +83,20 @@
 	{#if entry.metadata.tags?.length}
 		<ul class="tags">
 			{#each entry.metadata.tags as t (t)}
-				<li class="tag" style={tagStyle(t)}>{t}</li>
+				<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+				<li
+					class="tag"
+					style={tagStyle(t)}
+					role="button"
+					tabindex="0"
+					aria-label="Show entries tagged {t}"
+					onclick={(e) => onTag(e, t)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') onTag(e, t);
+					}}
+				>
+					{t}
+				</li>
 			{/each}
 		</ul>
 	{/if}

@@ -1,3 +1,4 @@
+import { goto } from '$app/navigation';
 import { SvelteSet } from 'svelte/reactivity';
 
 // Valence of the AI-analyzed dominant emotion. Mirrors EntryMetadata.aiTone —
@@ -28,4 +29,17 @@ export function clearSearch() {
 	search.query = '';
 	search.tags.clear();
 	search.tone = null;
+}
+
+// Tag chips anywhere (timeline cards, entry view) jump to the timeline
+// filtered to that tag — replaces any in-flight search so the result is
+// unambiguous: "show me everything tagged X".
+export function filterByTag(tag: string) {
+	clearSearch();
+	search.tags.add(tag.trim().toLowerCase());
+	search.open = true;
+	// Already on the timeline → just filter in place. A same-URL goto() still
+	// runs the navigation lifecycle, and the timeline's onNavigate exit
+	// animation fades every row out — with no remount to bring them back.
+	if (window.location.pathname !== '/') void goto('/');
 }

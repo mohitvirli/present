@@ -183,6 +183,8 @@
 		const onClick = (e: MouseEvent) => {
 			const hit = (e.target as HTMLElement | null)?.closest('a, button');
 			if (!hit || bursting) return;
+			// tag chips filter the timeline in place — no navigation, no pop
+			if ((e.target as HTMLElement).closest('.tag')) return;
 			// Be Present → drop the original dot down to the composer input line
 			// before the page navigates away. Freeze the rAF loop so it doesn't
 			// fight the tween, then slide curY down and fade.

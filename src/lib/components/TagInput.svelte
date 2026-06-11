@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { filterByTag } from '$lib/search.svelte';
 	import { tagStyle } from '$lib/tag-color';
 
 	let {
@@ -90,8 +91,16 @@
 	<ul class="tag-chips" class:empty={!tags.length}>
 		{#each tags as t, i (t)}
 			<li class="tag" style={tagStyle(t)}>
-				<span class="tag-label">{t}</span>
-				{#if !readonly}
+				{#if readonly}
+					<!-- viewing: the chip jumps to the timeline filtered by this tag -->
+					<button
+						type="button"
+						class="tag-label tag-link"
+						aria-label="Show entries tagged {t}"
+						onclick={() => filterByTag(t)}>{t}</button
+					>
+				{:else}
+					<span class="tag-label">{t}</span>
 					<button
 						type="button"
 						class="tag-remove"
@@ -181,6 +190,21 @@
 		--tag-bg: color-mix(in oklab, var(--tag-c) 16%, var(--color-surface));
 		--tag-fg: color-mix(in oklab, var(--tag-c) 78%, var(--color-text));
 		--tag-ring: color-mix(in oklab, var(--tag-c) 28%, transparent);
+	}
+
+	.tag-link {
+		padding: 0;
+		border: none;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		line-height: inherit;
+		cursor: pointer;
+	}
+
+	.tag-link:hover {
+		text-decoration: underline;
+		text-underline-offset: 2px;
 	}
 
 	.tag-remove {

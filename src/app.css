@@ -1856,6 +1856,17 @@ body:has(dialog[open]) .cursor-rail {
 	--tag-bg: color-mix(in oklab, var(--tag-c) 15%, var(--color-surface));
 	--tag-fg: color-mix(in oklab, var(--tag-c) 78%, var(--color-text));
 	--tag-ring: color-mix(in oklab, var(--tag-c) 26%, transparent);
+	cursor: pointer;
+	transition:
+		background 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+/* clickable: chips filter the timeline by tag */
+.entry-card .tags .tag:hover,
+.entry-card .tags .tag:focus-visible {
+	--tag-bg: color-mix(in oklab, var(--tag-c) 26%, var(--color-surface));
+	--tag-ring: color-mix(in oklab, var(--tag-c) 45%, transparent);
 }
 
 /* ---------- Composer ---------- */
