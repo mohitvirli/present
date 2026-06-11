@@ -39,11 +39,21 @@
 	// reserved collapse key for the Pinned group — safe, real keys are ISO dates
 	const PINNED_KEY = '__pinned__';
 
-	// days the user has collapsed (keyed by dayKey)
-	let collapsed = $state(new SvelteSet<string>());
+	// days the user has collapsed (keyed by dayKey) — kept in sessionStorage so
+	// the choice survives reloads and route round-trips, but resets next session
+	const COLLAPSED_KEY = 'present:collapsed-days';
+	function readCollapsed(): string[] {
+		try {
+			return JSON.parse(sessionStorage.getItem(COLLAPSED_KEY) ?? '[]');
+		} catch {
+			return [];
+		}
+	}
+	let collapsed = $state(new SvelteSet<string>(readCollapsed()));
 	function toggle(day: string) {
 		if (collapsed.has(day)) collapsed.delete(day);
 		else collapsed.add(day);
+		sessionStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed]));
 	}
 
 	let timelineEl = $state<HTMLElement | null>(null);
