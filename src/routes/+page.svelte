@@ -7,10 +7,25 @@
 	import { isStandalone, consumeLaunch } from '$lib/pwa';
 	import { syncState } from '$lib/sync.svelte';
 	import { scroll } from '$lib/scroll.svelte';
+	import { search, searchActive } from '$lib/search.svelte';
+	import { buildIndex, runSearch } from '$lib/search';
 	import Timeline from '$lib/components/Timeline.svelte';
 
 	let entries = $state<Entry[]>([]);
 	let loaded = $state(false);
+
+	// fuse index rebuilds only when the entry set changes; the filtered list
+	// re-derives per keystroke/filter against it
+	const index = $derived(buildIndex(entries));
+	const filtered = $derived(runSearch(entries, index, search.query, search.tags, search.tone));
+	const searching = $derived(searchActive());
+
+	// filtering changes document height under Lenis's cached layout — re-measure
+	$effect(() => {
+		void filtered;
+		tick().then(() => scroll.lenis?.resize());
+	});
+
 
 	onMount(async () => {
 		// Installed PWA: on cold launch, returning users start in the composer
@@ -91,7 +106,8 @@
 			tl.to(header, { y: -8, autoAlpha: 0, duration: 0.26, stagger: 0.06 }, 0);
 			tl.to(rows, { y: -10, autoAlpha: 0, duration: 0.28, stagger: 0.015 }, 0);
 			tl.to(labels, { x: -8, autoAlpha: 0, duration: 0.24 }, 0);
-			if (rail) tl.to(rail, { scaleY: 0, autoAlpha: 0, transformOrigin: 'top center', duration: 0.32 }, 0);
+			if (rail)
+				tl.to(rail, { scaleY: 0, autoAlpha: 0, transformOrigin: 'top center', duration: 0.32 }, 0);
 			// safety: never block navigation longer than ~500ms
 			gsap.delayedCall(0.5, resolve);
 		});
@@ -99,5 +115,5 @@
 </script>
 
 <div class="home">
-	<Timeline {entries} {loaded} onTogglePin={togglePin} />
+	<Timeline entries={filtered} {loaded} {searching} onTogglePin={togglePin} />
 </div>

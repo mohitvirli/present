@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Entry } from '$lib/db';
+	import { clearSearch } from '$lib/search.svelte';
 	import { gFade, gScaleY } from '$lib/transitions';
 	import gsap from 'gsap';
 	import { tick } from 'svelte';
@@ -30,8 +31,14 @@
 	let {
 		entries,
 		loaded,
+		searching = false,
 		onTogglePin
-	}: { entries: Entry[]; loaded: boolean; onTogglePin: (entry: Entry) => void } = $props();
+	}: {
+		entries: Entry[];
+		loaded: boolean;
+		searching?: boolean; // a search/filter is active — changes the empty state
+		onTogglePin: (entry: Entry) => void;
+	} = $props();
 
 	// pinned entries surface in a dedicated group above the day groups (the
 	// entry also stays in its day group). listEntries order — no special sort.
@@ -103,14 +110,14 @@
 				opacity: 0,
 				duration: 0.5,
 				ease: 'power3.out',
-				delay: 0.15,
+				delay: 0.15
 			});
 			gsap.from(root.querySelectorAll('.entry-row'), {
 				y: 14,
 				opacity: 0,
 				duration: 0.55,
 				ease: 'power3.out',
-				delay: 0.2,
+				delay: 0.2
 			});
 		});
 	});
@@ -166,24 +173,16 @@
 			el.classList.remove('visible', 'magnet');
 		};
 
-		// clicking anything actionable (Be Present, settings, an entry) bursts the
-		// cursor — except the day collapse toggle (keeps us on the timeline) and
-		// clicks inside a dialog (open/close/cancel/backdrop must never burst)
-		const endBurst = () => {
-			el.classList.remove('burst', 'visible', 'magnet');
+		// clicking Be Present morphs the cursor into the composer caret; opening
+		// an entry pops the dot softly (scale + fade, no ring) as the page leaves
+		const endPop = () => {
+			el.classList.remove('pop', 'visible', 'magnet');
 			bursting = false;
 			active = false; // reappears on the next pointer move
 		};
 		const onClick = (e: MouseEvent) => {
 			const hit = (e.target as HTMLElement | null)?.closest('a, button');
-			if (
-				!hit ||
-				hit.closest('.day-toggle') ||
-				hit.closest('.pin-toggle') || // pin keeps us on the timeline, like day-toggle
-				hit.closest('dialog') ||
-				bursting
-			)
-				return;
+			if (!hit || bursting) return;
 			// Be Present → drop the original dot down to the composer input line
 			// before the page navigates away. Freeze the rAF loop so it doesn't
 			// fight the tween, then slide curY down and fade.
@@ -214,13 +213,15 @@
 				});
 				return;
 			}
-			bursting = true;
-			el.classList.add('visible', 'burst');
-			// animationend normally clears it, but if a dialog opens the rail gets
-			// display:none'd mid-burst (animationend never fires) — so a timeout
-			// fallback guarantees cleanup and stops it replaying when the rail returns
-			el.addEventListener('animationend', endBurst, { once: true });
-			setTimeout(endBurst, 600);
+			// entry card → quick soft pop where the dot sits
+			if (hit.closest('.entry-card') && el.classList.contains('visible')) {
+				bursting = true; // freeze frame() so the dot pops in place
+				el.classList.add('pop');
+				// animationend normally clears it, but the rail can be hidden
+				// mid-pop (route change) — timeout fallback guarantees cleanup
+				el.addEventListener('animationend', endPop, { once: true });
+				setTimeout(endPop, 500);
+			}
 		};
 
 		const frame = () => {
@@ -259,10 +260,17 @@
 {#if !loaded}
 	<p class="muted">Loading…</p>
 {:else if entries.length === 0}
-	<div class="timeline-empty" in:gFade={{ duration: 0.5, delay: 0.1 }}>
-		<p>Nothing here yet.</p>
-		<a class="empty-cta" href="/entry">Write your first entry</a>
-	</div>
+	{#if searching}
+		<div class="timeline-empty" in:gFade={{ duration: 0.3 }}>
+			<p>No entries match.</p>
+			<button type="button" class="empty-cta" onclick={clearSearch}>Clear search</button>
+		</div>
+	{:else}
+		<div class="timeline-empty" in:gFade={{ duration: 0.5, delay: 0.1 }}>
+			<p>Nothing here yet.</p>
+			<a class="empty-cta" href="/entry">Write your first entry</a>
+		</div>
+	{/if}
 {:else}
 	{#snippet pinToggle(entry: Entry)}
 		<!-- sibling of the card's <a>, overlaid on its top-right — a button
@@ -319,9 +327,7 @@
 							/>
 						</svg>
 					</span>
-					<span class="day-date pinned-label">
-						Pinned
-					</span>
+					<span class="day-date pinned-label"> Pinned </span>
 					<span class="day-count-inline"
 						>{pinned.length} {pinned.length === 1 ? 'entry' : 'entries'}</span
 					>
@@ -374,8 +380,7 @@
 						>{items.length} {items.length === 1 ? 'entry' : 'entries'}</span
 					>
 				</h2>
-				<span class="day-count-rail"
-					>{items.length} {items.length === 1 ? 'entry' : 'entries'}</span
+				<span class="day-count-rail">{items.length} {items.length === 1 ? 'entry' : 'entries'}</span
 				>
 				{#if !collapsed.has(day)}
 					<ul transition:collapse>

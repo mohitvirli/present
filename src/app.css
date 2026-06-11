@@ -1022,6 +1022,201 @@ a {
 	gap: 0.6rem;
 }
 
+/* ---------- Entry search (topbar) ---------- */
+.search-toggle.active {
+	color: var(--color-accent);
+	border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+	background: var(--color-accent-soft);
+}
+
+/* Accordion mechanics: the wrap is ALWAYS rendered and animates
+   grid-template-rows 0fr↔1fr — the browser interpolates the row track, so the
+   reveal is a single compositor-friendly transition with no mount-frame snap.
+   The wrap also centers on the composer column; the panel then indents to the
+   content edge (matching .cta margin-left and the entry text column). */
+.search-wrap {
+	max-width: var(--composer-width, 760px);
+	margin: 0 auto;
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.search-wrap.open {
+	grid-template-rows: 1fr;
+}
+
+/* min-height:0 lets the row actually shrink below the content's min size */
+.search-clip {
+	overflow: hidden;
+	min-height: 0;
+}
+
+.search-panel {
+	/* top gap lives here, inside the clipped box, so it collapses with it */
+	margin: 0.75rem 0 0 36px;
+	padding: 0.7rem 0.9rem;
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: 14px;
+	box-shadow: var(--shadow-sm);
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	/* fade with the slide; opacity trails slightly so content resolves as the
+	   row finishes opening */
+	opacity: 0;
+	transform: translateY(-4px);
+	transition:
+		opacity 0.3s ease,
+		transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.search-wrap.open .search-panel {
+	opacity: 1;
+	transform: none;
+	transition:
+		opacity 0.35s ease 0.1s,
+		transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* phones: content column indents 20px (see .topbar .cta / .day-group rules) */
+@media (max-width: 640px) {
+	.search-panel {
+		margin-left: 20px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.search-wrap,
+	.search-panel {
+		transition: none;
+	}
+}
+
+.search-row {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+}
+
+.search-row-icon {
+	flex: none;
+	color: var(--color-text-muted);
+}
+
+.search-input {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	background: transparent;
+	color: var(--color-text);
+	font: inherit;
+	font-size: 0.95rem;
+	padding: 0.15rem 0;
+	outline: none;
+}
+
+.search-input::placeholder {
+	color: var(--color-text-muted);
+}
+
+/* native WebKit clear button — the panel has its own Clear */
+.search-input::-webkit-search-cancel-button {
+	display: none;
+}
+
+.search-clear {
+	flex: none;
+	border: none;
+	background: transparent;
+	color: var(--color-text-muted);
+	font-size: 0.78rem;
+	padding: 0.25rem 0.45rem;
+	border-radius: 8px;
+	cursor: pointer;
+}
+
+.search-clear:hover {
+	color: var(--color-text);
+	background: var(--color-surface-2);
+}
+
+.search-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.filter-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.32rem;
+	border: 1px solid var(--color-border);
+	background: transparent;
+	color: var(--color-text-muted);
+	font-size: 0.74rem;
+	line-height: 1;
+	padding: 0.34rem 0.62rem;
+	border-radius: 999px;
+	cursor: pointer;
+	transition:
+		color 0.15s ease,
+		background 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.filter-chip:hover {
+	color: var(--color-text);
+	border-color: var(--color-border-strong);
+}
+
+/* tag chips reuse the entry tag swatch (tagStyle sets --tag-c) */
+.tag-chip.on {
+	color: var(--color-text);
+	border-color: color-mix(in srgb, var(--tag-c) 55%, transparent);
+	background: color-mix(in srgb, var(--tag-c) 16%, transparent);
+}
+
+/* tone chips: same hues as the composer's AI mood chip */
+.tone-chip[data-tone='positive'] {
+	--tone-c: #3fae7a;
+}
+.tone-chip[data-tone='neutral'] {
+	--tone-c: #8a8f98;
+}
+.tone-chip[data-tone='negative'] {
+	--tone-c: #d08a6a;
+}
+
+.tone-chip .tone-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--tone-c);
+	opacity: 0.55;
+	transition: opacity 0.15s ease;
+}
+
+.tone-chip.on {
+	color: var(--color-text);
+	border-color: color-mix(in srgb, var(--tone-c) 55%, transparent);
+	background: color-mix(in srgb, var(--tone-c) 14%, transparent);
+}
+
+.tone-chip.on .tone-dot {
+	opacity: 1;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone-c) 22%, transparent);
+}
+
+.filter-sep {
+	width: 1px;
+	height: 16px;
+	margin: 0 0.25rem;
+	background: var(--color-border);
+}
+
 main {
 	max-width: 1080px;
 	margin: 0 auto;
@@ -1240,25 +1435,23 @@ main {
 .cursor-rail.visible {
 	opacity: 1;
 }
-/* burst: snap to a dot and shockwave-ring outward, then fade. Only opacity /
-   size / box-shadow animate — transform stays JS-owned so it bursts in place. */
-.cursor-rail.burst {
-	animation: rail-burst 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* opening an entry: soft pop — the dot swells a touch and fades, no ring.
+   Only size / opacity animate; transform stays JS-owned so it pops in place. */
+.cursor-rail.pop {
+	animation: rail-pop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-@keyframes rail-burst {
+@keyframes rail-pop {
 	0% {
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
 		opacity: 1;
-		box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent);
 	}
 	100% {
-		width: 8px;
-		height: 8px;
+		width: 14px;
+		height: 14px;
 		border-radius: 50%;
 		opacity: 0;
-		box-shadow: 0 0 0 22px color-mix(in srgb, var(--color-accent) 0%, transparent);
 	}
 }
 /* snapped onto an entry node: collapse the bar into a haloed dot */

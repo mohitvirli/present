@@ -6,10 +6,13 @@
 	import Settings from '$lib/components/Settings.svelte';
 	import { composer } from '$lib/composer.svelte';
 	import { scroll } from '$lib/scroll.svelte';
+	import { search, searchActive, clearSearch, type Tone } from '$lib/search.svelte';
+	import { getAllTags } from '$lib/db';
+	import { tagStyle } from '$lib/tag-color';
 	import { gFade, gIn, gOut } from '$lib/transitions';
 	import gsap from 'gsap';
 	import Lenis from 'lenis';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { initSync, fullSync, syncState } from '$lib/sync.svelte';
 	import '../app.css';
@@ -41,6 +44,13 @@
 			if (!e.shiftKey && e.code === 'Slash' && composer.canReflect) {
 				e.preventDefault();
 				composer.reflection = !composer.reflection;
+				return;
+			}
+
+			// ⌘K / Ctrl+K toggles entry search on the timeline
+			if (!e.shiftKey && e.code === 'KeyK' && page.url.pathname === '/') {
+				e.preventDefault();
+				search.open = !search.open;
 			}
 		};
 		window.addEventListener('keydown', onKeydown);
@@ -62,6 +72,50 @@
 	});
 
 	let isNew = $derived(page.url.pathname === '/entry');
+
+	// --- entry search (timeline route) ---------------------------------------
+	const TONES: { value: Tone; label: string }[] = [
+		{ value: 'positive', label: 'Positive' },
+		{ value: 'neutral', label: 'Neutral' },
+		{ value: 'negative', label: 'Negative' }
+	];
+
+	let searchInput = $state<HTMLInputElement | null>(null);
+	let allTags = $state<{ tag: string; count: number }[]>([]);
+
+	// Load the tag vocabulary BEFORE the panel can open: chips arriving while
+	// the accordion row is mid-transition change its content height and the
+	// reveal visibly jumps.
+	$effect(() => {
+		if (isNew) return;
+		getAllTags().then((t) => (allTags = t));
+	});
+
+	// each open: focus the input. preventScroll matters — the panel sits in an
+	// overflow:hidden clip while the row opens, and a default focus() scrolls
+	// that clip internally to reveal the input, snapping the animation.
+	$effect(() => {
+		if (!search.open) return;
+		tick().then(() => searchInput?.focus({ preventScroll: true }));
+	});
+
+	function onSearchKeydown(e: KeyboardEvent) {
+		if (e.key !== 'Escape') return;
+		e.preventDefault();
+		// first Esc clears an active search, second closes the bar
+		if (searchActive()) clearSearch();
+		else search.open = false;
+	}
+
+	function toggleTag(tag: string) {
+		const key = tag.trim().toLowerCase();
+		if (search.tags.has(key)) search.tags.delete(key);
+		else search.tags.add(key);
+	}
+
+	function toggleTone(tone: Tone) {
+		search.tone = search.tone === tone ? null : tone;
+	}
 
 	// single source of truth for the tab title: a saved entry shows its
 	// date + time, everything else shows the app name
@@ -199,7 +253,12 @@
 	>
 		<div class="topbar-inner" bind:this={topbarInner}>
 			{#if isNew}
-				<a class="brand" href="/" aria-label="present — home" in:gFade={{ duration: 1.1, delay: 0.7 }}>
+				<a
+					class="brand"
+					href="/"
+					aria-label="present — home"
+					in:gFade={{ duration: 1.1, delay: 0.7 }}
+				>
 					<Clock at={composer.createdAt} />
 				</a>
 			{:else}
@@ -209,6 +268,28 @@
 			{/if}
 			{#if !isNew}
 				<nav in:gIn={{ x: 12, duration: 0.35, delay: 0.1 }}>
+					<button
+						class="settings-btn search-toggle"
+						class:active={search.open || searchActive()}
+						onclick={() => (search.open = !search.open)}
+						aria-expanded={search.open}
+						aria-label="Search entries"
+						title="Search entries (⌘K)"
+					>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							aria-hidden="true"
+						>
+							<circle cx="11" cy="11" r="7" />
+							<path d="m20 20-3.5-3.5" />
+						</svg>
+					</button>
 					<Settings />
 				</nav>
 			{:else}
@@ -231,64 +312,94 @@
 					</a>
 					{#if composer.share}
 						<span class="share-wrap">
-						<button
-							class="header-action"
-							class:pinned={composer.shareState !== 'idle'}
-							onclick={() => composer.share?.()}
-							disabled={composer.sharing || composer.shareState === 'copied'}
-							aria-label={composer.shareState === 'download'
-								? 'Download entry image'
-								: 'Share entry as image'}
-							title={composer.shareState === 'copied'
-								? 'Copied to clipboard'
-								: composer.shareState === 'download'
+							<button
+								class="header-action"
+								class:pinned={composer.shareState !== 'idle'}
+								onclick={() => composer.share?.()}
+								disabled={composer.sharing || composer.shareState === 'copied'}
+								aria-label={composer.shareState === 'download'
 									? 'Download entry image'
 									: 'Share entry as image'}
-						>
-							{#if composer.sharing}
-								<svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-									<path d="M21 12a9 9 0 1 1-6.2-8.6" />
-								</svg>
-							{:else if composer.shareState === 'copied'}
-								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-									<path d="m4 12.5 5 5L20 6.5" />
-								</svg>
-							{:else if composer.shareState === 'download'}
-								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-									<path d="M12 15V3" />
-									<path d="m8 11 4 4 4-4" />
-									<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
-								</svg>
-							{:else}
-								<svg
-									width="18"
-									height="18"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-								>
-									<path d="M12 3v12" />
-									<path d="m8 7 4-4 4 4" />
-									<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
-								</svg>
+								title={composer.shareState === 'copied'
+									? 'Copied to clipboard'
+									: composer.shareState === 'download'
+										? 'Download entry image'
+										: 'Share entry as image'}
+							>
+								{#if composer.sharing}
+									<svg
+										class="spin"
+										width="18"
+										height="18"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.2"
+										stroke-linecap="round"
+										aria-hidden="true"
+									>
+										<path d="M21 12a9 9 0 1 1-6.2-8.6" />
+									</svg>
+								{:else if composer.shareState === 'copied'}
+									<svg
+										width="18"
+										height="18"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<path d="m4 12.5 5 5L20 6.5" />
+									</svg>
+								{:else if composer.shareState === 'download'}
+									<svg
+										width="18"
+										height="18"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M12 15V3" />
+										<path d="m8 11 4 4 4-4" />
+										<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+									</svg>
+								{:else}
+									<svg
+										width="18"
+										height="18"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M12 3v12" />
+										<path d="m8 7 4-4 4 4" />
+										<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+									</svg>
+								{/if}
+							</button>
+							{#if composer.shareState !== 'idle'}
+								{#key composer.shareState}
+									<span
+										class="share-toast"
+										role="status"
+										in:gIn={{ y: -6, duration: 0.3 }}
+										out:gOut={{ y: -4, duration: 0.2 }}
+									>
+										{composer.shareState === 'copied' ? 'Copied to clipboard' : 'Click to download'}
+									</span>
+								{/key}
 							{/if}
-						</button>
-						{#if composer.shareState !== 'idle'}
-							{#key composer.shareState}
-								<span
-									class="share-toast"
-									role="status"
-									in:gIn={{ y: -6, duration: 0.3 }}
-									out:gOut={{ y: -4, duration: 0.2 }}
-								>
-									{composer.shareState === 'copied' ? 'Copied to clipboard' : 'Click to download'}
-								</span>
-							{/key}
-						{/if}
 						</span>
 					{/if}
 					{#if composer.pin}
@@ -327,7 +438,14 @@
 						>
 							<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
 								<!-- light half = page bg, dark half = currentColor, dots inverted -->
-								<circle cx="12" cy="12" r="11" fill="var(--color-bg)" stroke="currentColor" stroke-width="1.5" />
+								<circle
+									cx="12"
+									cy="12"
+									r="11"
+									fill="var(--color-bg)"
+									stroke="currentColor"
+									stroke-width="1.5"
+								/>
 								<path
 									fill="currentColor"
 									d="M12 1a11 11 0 0 1 0 22 5.5 5.5 0 0 1 0-11 5.5 5.5 0 0 0 0-11z"
@@ -387,6 +505,80 @@
 				</div>
 			{/if}
 		</div>
+		{#if !isNew}
+			<!-- always in the DOM; open/close animates grid-template-rows (0fr↔1fr)
+			     like an accordion — mounting via {#if search.open} would re-insert
+			     the subtree and the first frames of the slide visibly snap -->
+			<div class="search-wrap" class:open={search.open} inert={!search.open}>
+				<div class="search-clip">
+					<div class="search-panel" role="search">
+						<div class="search-row">
+							<svg
+								class="search-row-icon"
+								width="15"
+								height="15"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								aria-hidden="true"
+							>
+								<circle cx="11" cy="11" r="7" />
+								<path d="m20 20-3.5-3.5" />
+							</svg>
+							<input
+								bind:this={searchInput}
+								bind:value={search.query}
+								onkeydown={onSearchKeydown}
+								class="search-input"
+								type="search"
+								placeholder="Search entries…"
+								aria-label="Search entries"
+								autocomplete="off"
+								spellcheck="false"
+							/>
+							{#if searchActive()}
+								<button
+									class="search-clear"
+									onclick={clearSearch}
+									transition:gFade={{ duration: 0.15 }}
+								>
+									Clear
+								</button>
+							{/if}
+						</div>
+						<div class="search-filters">
+							{#each TONES as t (t.value)}
+								<button
+									class="filter-chip tone-chip"
+									class:on={search.tone === t.value}
+									data-tone={t.value}
+									onclick={() => toggleTone(t.value)}
+									aria-pressed={search.tone === t.value}
+								>
+									<span class="tone-dot" aria-hidden="true"></span>{t.label}
+								</button>
+							{/each}
+							{#if allTags.length}
+								<span class="filter-sep" aria-hidden="true"></span>
+								{#each allTags as { tag } (tag.toLowerCase())}
+									<button
+										class="filter-chip tag-chip"
+										class:on={search.tags.has(tag.trim().toLowerCase())}
+										style={tagStyle(tag)}
+										onclick={() => toggleTag(tag)}
+										aria-pressed={search.tags.has(tag.trim().toLowerCase())}
+									>
+										{tag}
+									</button>
+								{/each}
+							{/if}
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
 	</header>
 	<main>
 		{#key page.url.href + '|' + composer.newEntryNonce}
