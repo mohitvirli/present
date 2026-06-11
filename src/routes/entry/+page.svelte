@@ -237,6 +237,10 @@
 				openContext = !!(e.metadata.title?.trim() || (e.metadata.tags && e.metadata.tags.length));
 				composer.pinned = !!meta.pinned;
 				composer.pin = togglePin;
+				// count this open as a view — metadata-only write, so the entry's
+				// visible "updated" time stays put (only content edits move it)
+				meta.views = (meta.views ?? 0) + 1;
+				void updateEntry(e.id, { metadata: meta });
 			}
 		}
 		ready = true;

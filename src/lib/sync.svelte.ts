@@ -340,8 +340,8 @@ async function pull(): Promise<void> {
 			entry = { ...remote, content: dec.content, metadata: dec.metadata };
 		}
 		const local = await getEntry(entry.id);
-		// last-write-wins by updatedAt
-		if (!local || entry.updatedAt > local.updatedAt) {
+		// last-write-wins by touchedAt (any write; updatedAt only tracks content edits)
+		if (!local || (entry.touchedAt ?? entry.updatedAt) > (local.touchedAt ?? local.updatedAt)) {
 			await putRemote(entry);
 			changed = true;
 		}

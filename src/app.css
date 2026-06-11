@@ -1494,6 +1494,19 @@ body:has(dialog[open]) .cursor-rail {
 	opacity: 0.7;
 }
 
+.entry-card .views {
+	font-size: 0.72rem;
+	font-weight: 500;
+	color: var(--color-text-muted);
+	opacity: 0.75;
+}
+
+.entry-card .views::before {
+	content: '·';
+	margin-right: 0.5rem;
+	opacity: 0.7;
+}
+
 .entry-card .card-title {
 	font-size: 1.15rem;
 	font-weight: 600;

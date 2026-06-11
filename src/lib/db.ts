@@ -22,6 +22,7 @@ export interface EntryMetadata {
 	aiSummaryHidden?: boolean; // user collapsed the summary (kept, not deleted)
 	tutorial?: boolean; // seeded example entry shown to first-time users
 	pinned?: boolean; // surfaced in the timeline's Pinned section
+	views?: number; // times the entry was opened from the timeline
 }
 
 export interface Entry {
@@ -29,7 +30,8 @@ export interface Entry {
 	content: EntryContent; // TipTap JSON doc
 	metadata: EntryMetadata;
 	createdAt: number; // Date.now()
-	updatedAt: number;
+	updatedAt: number; // last *content* edit — drives the UI's "updated" time
+	touchedAt?: number; // last write of any kind (pin, views…) — sync's LWW clock
 	deleted?: boolean; // tombstone — kept so deletes propagate via sync
 }
 
@@ -74,7 +76,8 @@ export async function addEntry(
 		content: plain(content),
 		metadata: { ...plain(metadata), wordCount: wordCount(content) },
 		createdAt: now,
-		updatedAt: now
+		updatedAt: now,
+		touchedAt: now
 	};
 	await db.put('entries', entry);
 	return entry;
@@ -87,6 +90,7 @@ export async function updateEntry(
 	const db = await getDB();
 	const existing = await db.get('entries', id);
 	if (!existing) throw new Error(`Entry ${id} not found`);
+	const now = Date.now();
 	const merged: Entry = {
 		...existing,
 		...patch,
@@ -95,7 +99,10 @@ export async function updateEntry(
 		// resurrect keys the user explicitly cleared, since plain() drops the
 		// undefined values that mark a removal.
 		metadata: patch.metadata !== undefined ? plain(patch.metadata) : existing.metadata,
-		updatedAt: Date.now()
+		// metadata-only writes (pin, view count) shouldn't move the visible
+		// "updated" time — only real content edits do. touchedAt is the sync clock.
+		updatedAt: patch.content !== undefined ? now : existing.updatedAt,
+		touchedAt: now
 	};
 	if (patch.content !== undefined) {
 		merged.metadata.wordCount = wordCount(patch.content);
@@ -139,7 +146,8 @@ export async function deleteEntry(id: string): Promise<void> {
 	const existing = await db.get('entries', id);
 	if (!existing) return;
 	// soft-delete (tombstone) so the deletion can sync to other devices
-	await db.put('entries', { ...existing, deleted: true, updatedAt: Date.now() });
+	const now = Date.now();
+	await db.put('entries', { ...existing, deleted: true, updatedAt: now, touchedAt: now });
 }
 
 // --- sync helpers ---
