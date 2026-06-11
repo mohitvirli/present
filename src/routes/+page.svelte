@@ -2,7 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { onNavigate, goto } from '$app/navigation';
 	import gsap from 'gsap';
-	import { listEntries, seedTutorialEntries, type Entry } from '$lib/db';
+	import { listEntries, seedTutorialEntries, updateEntry, type Entry } from '$lib/db';
 	import { hasOnboarded, markOnboarded, hasWrittenEntry } from '$lib/onboarding';
 	import { isStandalone, consumeLaunch } from '$lib/pwa';
 	import { syncState } from '$lib/sync.svelte';
@@ -52,6 +52,17 @@
 		}
 	});
 
+	// pin/unpin from a timeline card: persist the full metadata object (db
+	// replaces metadata wholesale; `undefined` is the "key removed" convention)
+	// and swap the entry in the local array so both the Pinned section and the
+	// day group re-render — no full re-listEntries needed.
+	async function togglePin(entry: Entry) {
+		const updated = await updateEntry(entry.id, {
+			metadata: { ...entry.metadata, pinned: entry.metadata.pinned ? undefined : true }
+		});
+		entries = entries.map((e) => (e.id === updated.id ? updated : e));
+	}
+
 	// when a sync pull applies remote changes, re-read the timeline
 	$effect(() => {
 		void syncState.rev;
@@ -88,5 +99,5 @@
 </script>
 
 <div class="home">
-	<Timeline {entries} {loaded} />
+	<Timeline {entries} {loaded} onTogglePin={togglePin} />
 </div>

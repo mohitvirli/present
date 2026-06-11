@@ -1304,6 +1304,79 @@ body:has(dialog[open]) .cursor-rail {
 	list-style: none;
 	margin: 0;
 	padding: 0;
+	position: relative; /* anchors the hover pin toggle over the card */
+}
+
+/* Pinned section header — a pin glyph where the date text would be */
+.day-label .pinned-label {
+	display: inline-flex;
+	align-items: center;
+	line-height: 0;
+}
+
+/* hover pin toggle — a sibling of the card's <a> (a button inside the anchor
+   would be invalid HTML), overlaid on its top-right. Hidden until the row is
+   hovered or focused; touch devices get an always-visible, dimmer variant. */
+.pin-toggle {
+	position: absolute;
+	top: -0.2rem;
+	right: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	background: none;
+	border: none;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	opacity: 0;
+	transition:
+		opacity 0.2s ease,
+		color 0.2s ease;
+}
+.entry-row:hover .pin-toggle,
+.entry-row:focus-within .pin-toggle {
+	opacity: 1;
+}
+.pin-toggle:hover,
+.pin-toggle:focus-visible {
+	color: var(--color-accent);
+}
+.pin-toggle svg {
+	transition: transform 0.15s ease;
+}
+.pin-toggle:active svg {
+	transform: scale(0.8);
+}
+/* already pinned → always visible (it doubles as the card's pinned marker),
+   shown in the active color, with a little pop as the pin lands */
+.pin-toggle[aria-pressed='true'] {
+	opacity: 1;
+	color: var(--color-accent);
+}
+.pin-toggle[aria-pressed='true'] svg {
+	animation: pin-pop 0.3s ease-out;
+}
+@keyframes pin-pop {
+	0% {
+		transform: scale(0.6);
+	}
+	60% {
+		transform: scale(1.25);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+/* no hover on touch — keep the affordance visible, smaller and dimmed */
+@media (pointer: coarse) {
+	.pin-toggle {
+		opacity: 0.55;
+		width: 24px;
+		height: 24px;
+	}
 }
 
 /* hollow node per entry, centered on the spine */
