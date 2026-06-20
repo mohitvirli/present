@@ -7,6 +7,7 @@
 	import { DictationDecoration } from '$lib/tiptap-dictation';
 	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
 	import { SuggestionDecoration } from '$lib/tiptap-suggestion';
+	import { Quirks, QuirkTime } from '$lib/tiptap-quirks';
 
 	let {
 		content = null,
@@ -34,7 +35,9 @@
 				TaskList,
 				TaskItemBracket.configure({ nested: true }),
 				DictationDecoration,
-				SuggestionDecoration
+				SuggestionDecoration,
+				QuirkTime,
+				Quirks
 			],
 			content: content ?? '',
 			editable,
