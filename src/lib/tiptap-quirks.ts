@@ -25,7 +25,7 @@ export const Quirks = Extension.create({
 			new InputRule({
 				find: /@time$/,
 				handler: ({ range, chain }) => {
-					const now = new Date().toLocaleTimeString();
+					const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 					chain()
 						.deleteRange(range)
 						.insertContent({
