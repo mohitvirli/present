@@ -1,10 +1,12 @@
 import { generateHTML, type JSONContent } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskList, TaskItemBracket } from './tiptap-task';
+import { QuirkTime } from './tiptap-quirks';
 
 // Same schema the editor uses, so timeline previews render exactly as written
-// (headings, lists, todos, links, marks) rather than flattened to plain text.
-const RENDER_EXTENSIONS = [StarterKit, TaskList, TaskItemBracket];
+// (headings, lists, todos, links, marks, quirk timestamps) rather than
+// flattened to plain text.
+const RENDER_EXTENSIONS = [StarterKit, TaskList, TaskItemBracket, QuirkTime];
 
 function escapeHtml(s: string): string {
 	return s

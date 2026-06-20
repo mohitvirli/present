@@ -871,6 +871,24 @@ a {
 	white-space: pre-wrap;
 }
 
+/* inline timestamp expanded from the `@time` edit quirk */
+.quirk-time {
+	display: inline-block;
+	font-size: 0.72em;
+	line-height: 1.4;
+	padding: 0.1em 0.4em;
+	border-radius: 4px;
+	background: var(--color-accent-soft);
+	color: var(--color-accent);
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: 'tnum';
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	vertical-align: baseline;
+	position: relative;
+	top: -0.05em;
+}
+
 /* keyboard focus should always reveal the control */
 .header-action:focus-visible {
 	opacity: 1;
