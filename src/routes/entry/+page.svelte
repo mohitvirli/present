@@ -309,7 +309,20 @@
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 	async function doSave() {
-		if (!text.trim() || content == null) return;
+		// emptied an existing entry → remove it instead of persisting a blank doc
+		// (or leaving the last non-empty content stranded in the DB)
+		if (!text.trim()) {
+			if (entryId) {
+				const id = entryId;
+				entryId = null;
+				savedAt = null;
+				replaceState('/entry', {}); // drop ?id so a later save creates fresh
+				await deleteEntry(id);
+				queueSync();
+			}
+			return;
+		}
+		if (content == null) return;
 		saving = true;
 		try {
 			if (!entryId) {
@@ -480,8 +493,14 @@
 		dictation.unmount();
 		if (saveTimer) clearTimeout(saveTimer);
 		if (reflectTimer) clearTimeout(reflectTimer);
-		if (!readonly && text.trim() && entryId && content != null) {
-			updateEntry(entryId, { content, metadata: meta });
+		if (!readonly && entryId) {
+			// leaving with content → flush a final save; leaving emptied → delete the
+			// entry so a cleared-out doc never lingers if we navigate before autosave
+			if (text.trim() && content != null) {
+				updateEntry(entryId, { content, metadata: meta });
+			} else if (!text.trim()) {
+				deleteEntry(entryId).then(queueSync);
+			}
 		}
 		composer.entryId = null;
 		composer.readonly = false;
