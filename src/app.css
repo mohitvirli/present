@@ -1336,6 +1336,11 @@ main {
 	padding: 0.3rem 0;
 	white-space: nowrap;
 	cursor: pointer;
+	/* the heading pins under the topbar while its group is in view, then the
+	   next group's heading pushes it away (sticky is bounded by .day-group) */
+	position: sticky;
+	top: 4.25rem;
+	z-index: 5;
 }
 
 /* narrow screens: trail a wavy rule out from the date to the column edge.
@@ -1393,22 +1398,31 @@ main {
 /* wide screens: float the chip out into the left gutter, beyond the column */
 @media (min-width: 980px) {
 	.day-label {
-		position: absolute;
-		top: 0;
-		right: calc(100% + 32px);
-		display: inline-flex;
+		/* sticky (not absolute) so the heading pins under the topbar as its group
+		   scrolls past. translateX shifts it left out of the centred column into
+		   the gutter; the negative margin-bottom reclaims the vertical space its
+		   in-flow box would otherwise add above the first entry. */
+		position: sticky;
+		top: 2.1rem; /* line the pinned heading up with the Be Present button row */
+		display: flex; /* block-level so the negative margin-bottom is honoured */
 		width: fit-content;
 		gap: 0.4rem;
-		margin: 0;
+		padding: 0.3rem 0;
+		margin: 0 0 -1.6rem 0;
+		transform: translateX(calc(-100% - 32px));
 		flex-direction: row-reverse; /* chevron sits after the date on desktop */
+		background: transparent; /* gutter is empty — no card to mask behind it */
 	}
 	.day-label::after {
 		display: none;
 	}
-	/* the date floats out of flow, so a collapsed day has no in-flow content and
-	   would otherwise stack onto the next group — reserve the label's height */
+	/* collapsed day still needs to reserve the heading's height (its entries are
+	   gone, and the negative margin-bottom would otherwise pull the next group up) */
 	.day-group.collapsed {
 		min-height: 1.5rem;
+	}
+	.day-group.collapsed .day-label {
+		margin-bottom: 0;
 	}
 	/* swap the inline count for a compact number parked right of the rail spine,
 	   only while the day is collapsed */

@@ -108,7 +108,9 @@
 			const tl = gsap.timeline({ onComplete: resolve, defaults: { ease: 'power2.in' } });
 			tl.to(header, { y: -8, autoAlpha: 0, duration: 0.26, stagger: 0.06 }, 0);
 			tl.to(rows, { y: -10, autoAlpha: 0, duration: 0.28, stagger: 0.015 }, 0);
-			tl.to(labels, { x: -8, autoAlpha: 0, duration: 0.24 }, 0);
+			// autoAlpha only (no x): the desktop label's gutter placement is a CSS
+			// transform — an inline transform here would fight it on the way out
+			tl.to(labels, { autoAlpha: 0, duration: 0.24 }, 0);
 			if (counts.length) tl.to(counts, { x: -8, autoAlpha: 0, duration: 0.24 }, 0);
 			if (rail)
 				tl.to(rail, { scaleY: 0, autoAlpha: 0, transformOrigin: 'top center', duration: 0.32 }, 0);

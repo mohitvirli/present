@@ -105,8 +105,10 @@
 			// delay + stagger, which makes the rows non-clickable for up to a
 			// second after landing on the timeline. opacity:0 elements still
 			// receive pointer events, so the list stays interactive while it fades.
+			// opacity-only (no x/transform): the desktop heading uses a CSS transform
+			// to sit out in the gutter; an inline transform from GSAP would override
+			// it and yank the heading back into the content column
 			gsap.from(root.querySelectorAll('.day-label'), {
-				x: -8,
 				opacity: 0,
 				duration: 0.5,
 				ease: 'power3.out',
