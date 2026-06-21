@@ -871,10 +871,11 @@ a {
 	white-space: pre-wrap;
 }
 
-/* inline timestamp expanded from the `@time` edit quirk */
-.quirk-time {
+/* inline badges expanded from the `@time` / `@date` edit quirks */
+.quirk-time,
+.quirk-date {
 	display: inline-block;
-	font-size: 0.72em;
+	font-size: 0.62em;
 	line-height: 1.4;
 	padding: 0.1em 0.4em;
 	border-radius: 4px;
@@ -887,6 +888,12 @@ a {
 	vertical-align: baseline;
 	position: relative;
 	top: -0.05em;
+}
+
+/* date reads as a compact label */
+.quirk-date {
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
 }
 
 /* keyboard focus should always reveal the control */

@@ -7,7 +7,7 @@
 	import { DictationDecoration } from '$lib/tiptap-dictation';
 	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
 	import { SuggestionDecoration } from '$lib/tiptap-suggestion';
-	import { Quirks, QuirkTime } from '$lib/tiptap-quirks';
+	import { Quirks, QuirkTime, QuirkDate } from '$lib/tiptap-quirks';
 
 	let {
 		content = null,
@@ -37,6 +37,7 @@
 				DictationDecoration,
 				SuggestionDecoration,
 				QuirkTime,
+				QuirkDate,
 				Quirks
 			],
 			content: content ?? '',
