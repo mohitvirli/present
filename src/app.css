@@ -1408,7 +1408,11 @@ main {
 		width: fit-content;
 		gap: 0.4rem;
 		padding: 0.3rem 0;
-		margin: 0 0 -1.6rem 0;
+		/* margin-top lifts the resting heading to line up with the first entry's
+		   dot/meta row; margin-bottom keeps its net height at -1.6rem so the
+		   entries don't shift. (When stuck, the `top` clamp overrides margin-top,
+		   so this doesn't disturb the Be-Present-row alignment.) */
+		margin: -5px 0 calc(-1.6rem + 5px) 0;
 		transform: translateX(calc(-100% - 32px));
 		flex-direction: row-reverse; /* chevron sits after the date on desktop */
 		background: transparent; /* gutter is empty — no card to mask behind it */
@@ -1622,7 +1626,8 @@ body:has(dialog[open]) .cursor-rail {
 	/* rail sits at the ul's left edge (-36px) and is 2px wide, so its centre is
 	   +1px — offset the node to match, otherwise it hugs the rail's left edge */
 	left: -35px;
-	top: 0.27rem; /* fixed top edge of the dot; only height grows on hover */
+	top: 0.24rem; /* fixed top edge; nudged up ~0.5px so the dot's centre matches
+	                 the date/meta row centre exactly. only height grows on hover. */
 	transform: translateX(-50%);
 	width: 9px;
 	height: 9px;
