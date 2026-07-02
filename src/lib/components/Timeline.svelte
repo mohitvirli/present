@@ -92,6 +92,219 @@
 		return [...map.entries()];
 	});
 
+	// month demarcation: day groups bucket into months, and every month except
+	// the current one gets a big collapsible header. The current month's days
+	// render bare — "June 2026" only appears once you scroll past July.
+	const currentMonth = new Date().toISOString().slice(0, 7);
+	const months = $derived.by(() => {
+		const out: {
+			key: string;
+			current: boolean;
+			count: number;
+			words: number;
+			days: [string, Entry[]][];
+		}[] = [];
+		for (const [day, items] of groups) {
+			const mk = day.slice(0, 7);
+			let m = out.at(-1);
+			if (!m || m.key !== mk) {
+				m = { key: mk, current: mk === currentMonth, count: 0, words: 0, days: [] };
+				out.push(m);
+			}
+			m.days.push([day, items]);
+			m.count += items.length;
+			for (const e of items) m.words += e.metadata.wordCount ?? 0;
+		}
+		return out;
+	});
+
+	function monthLabel(key: string): { name: string; year: string } {
+		// construct from parts — new Date('2026-06-01') parses as UTC midnight and
+		// toLocaleDateString could render "May" in negative-offset timezones
+		const d = new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1);
+		return { name: d.toLocaleDateString(undefined, { month: 'long' }), year: key.slice(0, 4) };
+	}
+
+	// Month toggle with dot choreography: collapsing flies every visible entry
+	// dot up the rail into the month's socket segment; expanding pours them back
+	// out to their rows. Real dots hide behind the `dots-flying` class while
+	// fixed-position clones do the travel.
+	const flyCleanup = new Map<string, () => void>();
+
+	function toggleMonth(key: string) {
+		const root = timelineEl;
+		const group = root?.querySelector<HTMLElement>(`[data-month="${key}"]`);
+		const label = group?.querySelector<HTMLElement>('.month-label');
+		const rail = root?.querySelector('.rail');
+		if (
+			!root ||
+			!group ||
+			!label ||
+			!rail ||
+			window.matchMedia('(prefers-reduced-motion: reduce)').matches
+		) {
+			toggle(key);
+			return;
+		}
+		flyCleanup.get(key)?.(); // a previous flight may still be mid-air
+
+		const railRect = rail.getBoundingClientRect();
+		const x = railRect.left + railRect.width / 2;
+		const socketY = () => {
+			const b = getComputedStyle(label, '::before');
+			return label.getBoundingClientRect().top + parseFloat(b.top) + parseFloat(b.height) / 2;
+		};
+		// dot centres for this month's entries, viewport-clipped (offscreen dots
+		// travel invisibly — no point animating them) and capped for huge months
+		const dotYs = () =>
+			[...group.querySelectorAll<HTMLElement>('.entry-card')]
+				.map((c) => {
+					const b = getComputedStyle(c, '::before');
+					return c.getBoundingClientRect().top + parseFloat(b.top) + parseFloat(b.height) / 2;
+				})
+				.filter((y) => y > -150 && y < window.innerHeight + 150)
+				.slice(0, 60);
+		const spawn = (ys: number[]) =>
+			ys.map((y) => {
+				const d = document.createElement('div');
+				d.className = 'dot-fly';
+				d.style.left = `${x}px`;
+				d.style.top = `${y}px`;
+				// px radius (not the stylesheet's 50%) so the circle↔square morph
+				// tweens cleanly — GSAP can't interpolate % → px
+				gsap.set(d, { xPercent: -50, yPercent: -50, borderRadius: '7px' });
+				document.body.appendChild(d);
+				return d;
+			});
+		const finish = (dots: HTMLElement[], tl?: gsap.core.Timeline) => {
+			tl?.kill();
+			gsap.killTweensOf(dots);
+			dots.forEach((d) => d.remove());
+			label.classList.remove('socket-pulse');
+			group.classList.remove('dots-flying');
+			flyCleanup.delete(key);
+		};
+
+		if (!collapsed.has(key)) {
+			// collapsing, in two beats. Anticipation: each circle squares off (size
+			// unchanged) while the flock tightens ~12% toward the socket (the
+			// "curve's peak"). Merge: they accelerate in with a back-eased wind-up
+			// and the socket pulses elastically as they land.
+			// The height collapse fires at the merge, not the click. Travel is a
+			// transform (`y`), not `top` — top would reflow per dot per frame.
+			const ys = dotYs();
+			const target = socketY();
+			if (!ys.length) {
+				toggle(key);
+				return;
+			}
+			const dots = spawn(ys);
+			group.classList.add('dots-flying');
+			const tl = gsap.timeline();
+			const cleanup = () => finish(dots, tl);
+			flyCleanup.set(key, cleanup);
+			tl.eventCallback('onComplete', cleanup);
+			tl.to(
+				dots,
+				{
+					borderRadius: '1.5px',
+					y: (i: number) => (target - ys[i]) * 0.12,
+					duration: 0.18,
+					ease: 'power2.out',
+					stagger: 0.008
+				},
+				0
+			);
+			tl.add(() => toggle(key), 0.16);
+			tl.to(
+				dots,
+				{
+					y: (i: number) => target - ys[i],
+					duration: 0.4,
+					ease: 'back.in(1.7)',
+					stagger: 0.008
+				},
+				0.16
+			);
+			tl.add(() => label.classList.add('socket-pulse'), 0.44);
+			tl.to(dots, { opacity: 0, duration: 0.12, stagger: 0.008 }, 0.44);
+		} else {
+			// expanding: mount the rows first, then pour clones out of the socket.
+			// Mounting a big month is one long synchronous frame — start the
+			// flight two rAFs later so that layout cost lands before the tween's
+			// first tick instead of freezing it mid-scale.
+			toggle(key);
+			// hide the real dots before the rows mount — they'd flash for the two
+			// frames between mount and lift-off otherwise
+			group.classList.add('dots-flying');
+			tick().then(() => {
+				requestAnimationFrame(() =>
+					requestAnimationFrame(() => {
+						const ys = dotYs();
+						if (!ys.length) {
+							group.classList.remove('dots-flying');
+							return;
+						}
+						const start = socketY();
+						const dots = spawn(ys.map(() => start));
+						const cleanup = () => finish(dots);
+						flyCleanup.set(key, cleanup);
+						// mirror of the collapse morph: squares slip out of the segment
+						// and round back into circles as they pour
+						gsap.fromTo(
+							dots,
+							{ borderRadius: '1.5px', opacity: 0 },
+							{ borderRadius: '7px', opacity: 1, duration: 0.22, stagger: 0.012 }
+						);
+						gsap.to(dots, {
+							y: (i: number) => ys[i] - start,
+							duration: 0.45,
+							ease: 'power3.out',
+							stagger: 0.012,
+							onComplete: cleanup
+						});
+					})
+				);
+			});
+		}
+	}
+
+	// tag pinned month headers with .stuck — the desktop subtitle sits right of
+	// the rail on the same row as the topbar's CTA, so it fades out while the
+	// header is pinned there. A label is stuck once it sits at (or is pushed
+	// above) its sticky offset — checked on scroll, rAF-throttled.
+	// (IntersectionObserver's threshold-1 trick can't detect this: the gutter
+	// label clips off the viewport's left edge on narrower windows, capping its
+	// ratio below 1 permanently.)
+	$effect(() => {
+		const root = timelineEl;
+		if (!root || !loaded) return;
+		void months.length; // re-run when the month list changes
+		const labels = [...root.querySelectorAll<HTMLElement>('.month-label')];
+		if (!labels.length) return;
+		let raf = 0;
+		const update = () => {
+			raf = 0;
+			for (const label of labels) {
+				// read the sticky offset live — it changes across the 980px
+				// breakpoint, and caching it would strand the class after a resize
+				const top = parseFloat(getComputedStyle(label).top) || 0;
+				label.classList.toggle('stuck', label.getBoundingClientRect().top <= top + 1);
+			}
+		};
+		const onScroll = () => {
+			if (!raf) raf = requestAnimationFrame(update);
+		};
+		update();
+		window.addEventListener('scroll', onScroll, { passive: true });
+		window.addEventListener('resize', onScroll);
+		return () => {
+			cancelAnimationFrame(raf);
+			window.removeEventListener('scroll', onScroll);
+			window.removeEventListener('resize', onScroll);
+		};
+	});
+
 	// imperative GSAP entrance once entries are rendered (Svelte's nested
 	// intro transitions are unreliable here, so we drive it directly)
 	$effect(() => {
@@ -108,7 +321,7 @@
 			// opacity-only (no x/transform): the desktop heading uses a CSS transform
 			// to sit out in the gutter; an inline transform from GSAP would override
 			// it and yank the heading back into the content column
-			gsap.from(root.querySelectorAll('.day-label'), {
+			gsap.from(root.querySelectorAll('.day-label, .month-label'), {
 				opacity: 0,
 				duration: 0.5,
 				ease: 'power3.out',
@@ -154,10 +367,23 @@
 			if (!Number.isNaN(t) && !Number.isNaN(h)) nodeOffset = t + h / 2;
 		}
 
-		const nodeYs = () =>
-			[...timelineEl!.querySelectorAll<HTMLElement>('.entry-card')].map(
-				(c) => c.getBoundingClientRect().top + nodeOffset
+		// snap targets: entry dots (cursor collapses to a dot) and the months'
+		// rail segments (cursor stretches to fill the hollow socket — `h` set)
+		type SnapTarget = { y: number; h?: number };
+		const snapTargets = (): SnapTarget[] => {
+			const out: SnapTarget[] = [...timelineEl!.querySelectorAll<HTMLElement>('.entry-card')].map(
+				(c) => ({ y: c.getBoundingClientRect().top + nodeOffset })
 			);
+			for (const label of timelineEl!.querySelectorAll<HTMLElement>('.month-label')) {
+				const b = getComputedStyle(label, '::before');
+				const t = parseFloat(b.top);
+				const h = parseFloat(b.height);
+				if (Number.isNaN(t) || Number.isNaN(h)) continue;
+				const top = label.getBoundingClientRect().top + t;
+				out.push({ y: top + h / 2, h });
+			}
+			return out;
+		};
 
 		const onMove = (e: PointerEvent) => {
 			targetY = e.clientY;
@@ -172,13 +398,15 @@
 		};
 		const onLeave = () => {
 			active = false;
-			el.classList.remove('visible', 'magnet');
+			el.classList.remove('visible', 'magnet', 'magnet-socket');
+			el.style.height = '';
 		};
 
 		// clicking Be Present morphs the cursor into the composer caret; opening
 		// an entry pops the dot softly (scale + fade, no ring) as the page leaves
 		const endPop = () => {
-			el.classList.remove('pop', 'visible', 'magnet');
+			el.classList.remove('pop', 'visible', 'magnet', 'magnet-socket');
+			el.style.height = '';
 			bursting = false;
 			active = false; // reappears on the next pointer move
 		};
@@ -233,18 +461,26 @@
 			if (!active || bursting) return;
 			let goal = targetY;
 			let nearest = Infinity;
-			for (const y of nodeYs()) {
-				const d = Math.abs(y - targetY);
+			let snapped: SnapTarget | null = null;
+			for (const target of snapTargets()) {
+				const d = Math.abs(target.y - targetY);
 				if (d < nearest) {
 					nearest = d;
-					if (d < SNAP) goal = y;
+					if (d < SNAP) {
+						goal = target.y;
+						snapped = target;
+					}
 				}
 			}
 			curY += (goal - curY) * 0.25;
 			// -50% on both axes keeps the element centred on (rail x, curY)
 			// regardless of whether it's the tall bar or the snapped dot
 			el.style.transform = `translate(-50%, calc(${curY}px - 50%))`;
-			el.classList.toggle('magnet', nearest < SNAP);
+			el.classList.toggle('magnet', !!snapped && snapped.h === undefined);
+			el.classList.toggle('magnet-socket', !!snapped && snapped.h !== undefined);
+			// month segment: stretch to the socket's height (CSS transitions the
+			// change); otherwise clear back to the stylesheet's bar height
+			el.style.height = snapped?.h !== undefined ? `${snapped.h}px` : '';
 		};
 
 		window.addEventListener('pointermove', onMove);
@@ -357,7 +593,7 @@
 				{/if}
 			</li>
 		{/if}
-		{#each groups as [day, items] (day)}
+		{#snippet dayGroup(day: string, items: Entry[])}
 			<li class="day-group" class:collapsed={collapsed.has(day)}>
 				<h2
 					class="day-label"
@@ -397,6 +633,49 @@
 					</ul>
 				{/if}
 			</li>
+		{/snippet}
+
+		{#each months as m (m.key)}
+			{#if m.current}
+				{#each m.days as [day, items] (day)}
+					{@render dayGroup(day, items)}
+				{/each}
+			{:else}
+				{@const label = monthLabel(m.key)}
+				<li class="month-group" class:collapsed={collapsed.has(m.key)} data-month={m.key}>
+					<h2
+						class="month-label"
+						onclick={() => toggleMonth(m.key)}
+						role="button"
+						tabindex="0"
+						aria-expanded={!collapsed.has(m.key)}
+						aria-label={collapsed.has(m.key)
+							? `Expand ${label.name} ${label.year}`
+							: `Collapse ${label.name} ${label.year}`}
+					>
+						<span class="month-title">
+							<span class="month-name"
+								>{label.name} <span class="month-year">{label.year}</span></span
+							>
+							<span class="month-sub">
+								{m.count}
+								{m.count === 1 ? 'entry' : 'entries'} · {m.days.length}
+								{m.days.length === 1 ? 'day' : 'days'}{#if m.words > 0}
+									&nbsp;· {m.words.toLocaleString()} {m.words === 1 ? 'word' : 'words'}{/if}
+							</span>
+						</span>
+					</h2>
+					{#if !collapsed.has(m.key)}
+						<!-- height animation paced to the dot flight: expand matches the
+						     0.45s pour-out, collapse the 0.38s converge -->
+						<ol class="month-days" in:collapse={{ duration: 450 }} out:collapse={{ duration: 380 }}>
+							{#each m.days as [day, items] (day)}
+								{@render dayGroup(day, items)}
+							{/each}
+						</ol>
+					{/if}
+				</li>
+			{/if}
 		{/each}
 	</ol>
 {/if}

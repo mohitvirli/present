@@ -96,7 +96,9 @@
 		// nicety; on touch, navigate immediately.
 		if (window.matchMedia('(pointer: coarse)').matches) return;
 		const rows = Array.from(document.querySelectorAll('.entry-row'));
-		const labels = Array.from(document.querySelectorAll('.day-label'));
+		// month headers too — a pinned one would otherwise stay put (sticky, own
+		// bg) while everything else fades, then pop on unmount
+		const labels = Array.from(document.querySelectorAll('.day-label, .month-label'));
 		// collapsed days show only the rail count (rows are unmounted) — fade it
 		// out with the labels so it doesn't linger after everything else leaves
 		const counts = Array.from(document.querySelectorAll('.day-count-rail'));
