@@ -613,7 +613,9 @@ html::-webkit-scrollbar {
 	border: 1px solid var(--color-border);
 	position: relative;
 	cursor: pointer;
-	transition: background 0.16s ease, border-color 0.16s ease;
+	transition:
+		background 0.16s ease,
+		border-color 0.16s ease;
 }
 
 .switch::after {
@@ -625,7 +627,9 @@ html::-webkit-scrollbar {
 	height: 17px;
 	border-radius: 50%;
 	background: var(--color-text-muted);
-	transition: transform 0.16s ease, background 0.16s ease;
+	transition:
+		transform 0.16s ease,
+		background 0.16s ease;
 }
 
 .switch:checked {
@@ -1246,8 +1250,10 @@ main {
 	max-width: 1080px;
 	margin: 0 auto;
 	padding: 1.1rem 2rem 5rem;
+	/* no z-index: a stacking context here would trap the timeline rail (and the
+	   month sockets/cursor) below the glassy topbar — on narrow screens the rail
+	   must layer above it (see the month demarcation block) */
 	position: relative;
-	z-index: 1;
 }
 
 .muted {
@@ -1336,11 +1342,6 @@ main {
 	padding: 0.3rem 0;
 	white-space: nowrap;
 	cursor: pointer;
-	/* the heading pins under the topbar while its group is in view, then the
-	   next group's heading pushes it away (sticky is bounded by .day-group) */
-	position: sticky;
-	top: 4.25rem;
-	z-index: 5;
 }
 
 /* narrow screens: trail a wavy rule out from the date to the column edge.
@@ -1398,17 +1399,17 @@ main {
 /* wide screens: float the chip out into the left gutter, beyond the column */
 @media (min-width: 980px) {
 	.day-label {
-		/* sticky (not absolute) so the heading pins under the topbar as its group
-		   scrolls past. translateX shifts it left out of the centred column into
-		   the gutter; the negative margin-bottom reclaims the vertical space its
+		/* translateX shifts the heading left out of the centred column into the
+		   gutter; the negative margin-bottom reclaims the vertical space its
 		   in-flow box would otherwise add above the first entry. */
-		position: sticky;
-		top: 2.1rem; /* line the pinned heading up with the Be Present button row */
 		display: flex; /* block-level so the negative margin-bottom is honoured */
 		width: fit-content;
 		gap: 0.4rem;
 		padding: 0.3rem 0;
-		margin: 0 0 -1.6rem 0;
+		/* margin-top lifts the heading to line up with the first entry's dot/meta
+		   row; margin-bottom keeps its net height at -1.6rem so the entries
+		   don't shift. */
+		margin: -5px 0 calc(-1.6rem + 5px) 0;
 		transform: translateX(calc(-100% - 32px));
 		flex-direction: row-reverse; /* chevron sits after the date on desktop */
 		background: transparent; /* gutter is empty — no card to mask behind it */
@@ -1449,6 +1450,215 @@ main {
 	}
 }
 
+/* ---------- Month demarcation ---------- */
+/* every month except the current one wraps its day groups and carries a big
+   header: month name in the accent color (year muted) with the entry count as
+   a subtitle, marked on the rail by an accent bar. The whole header row
+   toggles the month. */
+.month-group {
+	position: relative;
+	margin-bottom: 2rem;
+}
+
+.month-group:last-child {
+	margin-bottom: 0;
+}
+
+.month-days {
+	list-style: none;
+	/* extend the box left so the rail dots (and on wide screens the gutter day
+	   chips) stay inside it — otherwise the overflow:hidden collapse animation
+	   hard-clips them the moment it starts. Negative margin + equal padding
+	   keeps the content at the same x (same trick as .day-group > ul). */
+	margin: 0 0 0 -20px;
+	padding: 0 0 0 20px;
+}
+
+.month-days > .day-group:last-child {
+	margin-bottom: 0;
+}
+
+/* flying rail dots: fixed-position clones of the entry dots that converge
+   into the month's socket on collapse and pour back out on expand (spawned
+   and tweened from Timeline.svelte). Real dots hide while clones fly. */
+.dot-fly {
+	position: fixed;
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	background: var(--color-bg);
+	border: 2px solid var(--color-border-strong);
+	box-shadow: 0 0 0 3px var(--color-bg);
+	z-index: 4; /* above the rail (0), under the month socket (5) on desktop */
+	pointer-events: none;
+}
+
+.dots-flying .entry-card::before {
+	opacity: 0; /* dots have no opacity transition — they swap out instantly */
+}
+
+.month-label {
+	display: flex;
+	align-items: flex-start;
+	margin: 0 0 1.5rem 36px; /* same content-column indent as the day chips */
+	padding: 0.35rem 0 0.45rem;
+	border: none;
+	cursor: pointer;
+	/* pins under the topbar while its month scrolls past (sticky is bounded by
+	   .month-group, so the next month pushes it away). Day chips are unpinned
+	   and scroll under it — the bg masks them, and the accent rail bar rides
+	   along as a "you are here" month marker. */
+	position: sticky;
+	top: 4.25rem;
+	z-index: 5;
+	background: var(--color-bg);
+}
+
+.month-title {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+}
+
+.month-name {
+	font-size: 1.55rem;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	line-height: 1.15;
+	color: var(--color-accent);
+	transition: color 0.25s ease;
+}
+
+.month-year {
+	color: var(--color-text-muted);
+	font-weight: 400;
+}
+
+.month-sub {
+	font-size: 0.72rem;
+	font-weight: 500;
+	color: var(--color-text-muted);
+}
+
+.month-group.collapsed .month-name {
+	color: var(--color-text-muted);
+}
+
+/* accent bar segment on the rail, spanning the header's height — the month's
+   marker on the spine. Dims while the month is collapsed. */
+.month-label::before {
+	content: '';
+	position: absolute;
+	left: -35px; /* rail centre, same offset as the entry dots */
+	top: -0.1rem;
+	bottom: -0.2rem;
+	width: 5px;
+	background: var(--color-bg);
+	border: 2px solid var(--color-border-strong);
+	box-shadow: 0 0 0 2px var(--color-bg);
+	transform: translateX(-50%);
+	transition: opacity 0.25s ease;
+	pointer-events: none;
+}
+
+/* wide screens: float the header out into the left gutter beyond the column,
+   right-aligned against the rail (like the day chips, one hierarchy level up) */
+@media (min-width: 980px) {
+	.month-label {
+		width: fit-content;
+		margin-left: 0;
+		transform: translateX(calc(-100% - 32px));
+		/* centre the pinned month name on the Be Present button: button centre
+		   sits at 47.2px and the name's centre rides 19.9px below the label's
+		   top edge → 47.2 − 19.9 ≈ 27.2px */
+		top: 1.7rem;
+	}
+	.month-title {
+		align-items: flex-end;
+		text-align: right;
+	}
+	/* the label's right edge sits 32px left of the column, so the rail centre
+	   is 32px + 1px past its own width */
+	.month-label::before {
+		left: calc(100% + 33px);
+	}
+	/* wide screens park the day chips out in the gutter — extend further left
+	   so the collapse animation's overflow:hidden doesn't hard-clip them */
+	.month-days {
+		margin-left: -220px;
+		padding-left: 220px;
+	}
+	/* subtitle jumps across the spine: parked in the content column, centred on
+	   the big month name. The label's right edge sits 32px left of the column
+	   and entry content is indented 36px into it — 68px lines the subtitle up
+	   with the entries' text (same x as a day's count-rail badge) */
+	.month-sub {
+		position: absolute;
+		left: calc(100% + 68px);
+		top: 0.72rem;
+		white-space: nowrap;
+		transition: opacity 0.2s ease;
+		/* trail a wavy rule (same as the mobile day chips') out to the column's
+		   right edge: the column is --composer-width wide and the text starts
+		   36px into it */
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		width: calc(var(--composer-width) - 36px);
+	}
+	.month-sub::after {
+		content: '';
+		flex: 1;
+		height: 8px;
+		background: var(--color-border-strong);
+		opacity: 0.7;
+		-webkit-mask: var(--wave-mask);
+		mask: var(--wave-mask);
+		--wave-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='8' viewBox='0 0 20 8'%3E%3Cpath d='M0 4 Q5 0 10 4 T20 4' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E")
+			repeat-x left center / 20px 8px;
+	}
+	/* pinned header shares its row with the Be Present button, which sits right
+	   where the subtitle lands — fade it while stuck (JS toggles the class) */
+	.month-label.stuck .month-sub {
+		opacity: 0;
+	}
+}
+
+/* narrow screens: the header shares the content column with entries, so the
+   topbar and the pinned month header get a blurred glassy backdrop instead of
+   a solid mask — content scrolling under stays legible as a frosted hint */
+@media (max-width: 979px) {
+	.topbar {
+		background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+		-webkit-backdrop-filter: blur(12px);
+		backdrop-filter: blur(12px);
+	}
+
+	.month-label {
+		top: 5.6rem; /* pin flush under the topbar, not inside it */
+		background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+		-webkit-backdrop-filter: blur(12px);
+		backdrop-filter: blur(12px);
+	}
+
+	/* keep the spine visible through the glass: rail above the topbar's frost
+	   (their x never overlaps the topbar's controls), month header above the
+	   rail so its socket still masks the line, cursor above the socket. Stack:
+	   topbar (10) < rail (11) < month header (12) < cursor (13, set after the
+	   base .cursor-rail rule below so the cascade keeps it). */
+	.timeline .rail {
+		z-index: 11;
+	}
+	.month-label {
+		z-index: 12;
+	}
+	/* flying dots ride between the raised rail and the socket (same z as the
+	   rail, but appended to <body> so DOM order paints them above it) */
+	.dot-fly {
+		z-index: 11;
+	}
+}
+
 /* magnetic rail cursor — pinned to the spine, trails the pointer in JS */
 .cursor-rail {
 	position: fixed;
@@ -1458,7 +1668,9 @@ main {
 	height: 40px;
 	border-radius: 2px;
 	background: var(--color-accent);
-	z-index: 1;
+	/* above the month headers (z 5) so the cursor passes over their hollow
+	   rail segments, still under the topbar (z 10) */
+	z-index: 6;
 	pointer-events: none;
 	opacity: 0;
 	will-change: transform;
@@ -1470,6 +1682,13 @@ main {
 		width 0.2s cubic-bezier(0.16, 1, 0.3, 1),
 		height 0.2s cubic-bezier(0.16, 1, 0.3, 1),
 		border-radius 0.2s ease;
+}
+/* narrow screens re-stack the spine above the glassy topbar (see the month
+   demarcation block) — keep the cursor on top of the raised rail + sockets */
+@media (max-width: 979px) {
+	.cursor-rail {
+		z-index: 13;
+	}
 }
 .cursor-rail.visible {
 	opacity: 1;
@@ -1498,8 +1717,15 @@ main {
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
-	margin-top: 1.7px;
+	margin-top: 1.8px;
 	/* box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 16%, transparent); */
+}
+/* snapped onto a month's rail segment: stretch to fill the hollow socket
+   (JS sets the inline height to match the segment) */
+.cursor-rail.magnet-socket {
+	width: 5px;
+	border-radius: 0px;
+	margin-top: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
 	.cursor-rail {
@@ -1622,7 +1848,8 @@ body:has(dialog[open]) .cursor-rail {
 	/* rail sits at the ul's left edge (-36px) and is 2px wide, so its centre is
 	   +1px — offset the node to match, otherwise it hugs the rail's left edge */
 	left: -35px;
-	top: 0.27rem; /* fixed top edge of the dot; only height grows on hover */
+	top: 0.24rem; /* fixed top edge; nudged up ~0.5px so the dot's centre matches
+	                 the date/meta row centre exactly. only height grows on hover. */
 	transform: translateX(-50%);
 	width: 9px;
 	height: 9px;
@@ -1637,7 +1864,9 @@ body:has(dialog[open]) .cursor-rail {
 
 @media (prefers-reduced-motion: reduce) {
 	.day-group > ul .entry-card::before {
-		transition: background 0.16s ease, border-color 0.16s ease;
+		transition:
+			background 0.16s ease,
+			border-color 0.16s ease;
 	}
 }
 
@@ -1654,6 +1883,14 @@ body:has(dialog[open]) .cursor-rail {
 
 	.day-label {
 		margin: 0 0 1rem 20px;
+	}
+
+	.month-label {
+		margin-left: 20px;
+	}
+
+	.month-label::before {
+		left: -26px; /* narrow gutter — rail centre moves in with the entry dots */
 	}
 
 	.day-group > ul {
@@ -2309,7 +2546,8 @@ body:has(dialog[open]) .cursor-rail {
 	border-radius: 50%;
 	flex: none;
 	background: var(--mood-color, var(--color-text-muted));
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--mood-color, var(--color-text-muted)) 22%, transparent);
+	box-shadow: 0 0 0 3px
+		color-mix(in srgb, var(--mood-color, var(--color-text-muted)) 22%, transparent);
 }
 
 .composer .ai-mood[data-tone='positive'] {
@@ -2620,7 +2858,6 @@ body:has(dialog[open]) .cursor-rail {
 	height: 0;
 	pointer-events: none;
 }
-
 
 /* ---------- Share card (offscreen, rasterized to an image) ---------- */
 /* Carries the `composer` class so the entry text inherits the exact editor

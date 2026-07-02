@@ -50,7 +50,16 @@ export default defineConfig(({ mode }) => {
 		},
 		plugins: [sveltekit()],
 		// host:true binds 0.0.0.0 so the LAN (phone) can reach it; https from the
-		// local cert when present.
-		server: { host: true, https: localHttps() }
+		// local cert when present. Git worktrees under .claude/worktrees/ have no
+		// node_modules of their own — deps resolve up into the main repo, so Vite
+		// must be allowed to serve files from there too.
+		server: {
+			host: true,
+			https: localHttps(),
+			fs: (() => {
+				const m = process.cwd().match(/^(.*)\/\.claude\/worktrees\/[^/]+$/);
+				return m ? { allow: [process.cwd(), m[1]] } : undefined;
+			})()
+		}
 	};
 });
