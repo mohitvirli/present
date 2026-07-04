@@ -8,6 +8,7 @@
 	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
 	import { SuggestionDecoration } from '$lib/tiptap-suggestion';
 	import { Quirks, QuirkTime, QuirkDate } from '$lib/tiptap-quirks';
+	import { Tables, TablePipeRow } from '$lib/tiptap-table';
 
 	let {
 		content = null,
@@ -34,6 +35,8 @@
 				Typography,
 				TaskList,
 				TaskItemBracket.configure({ nested: true }),
+				Tables,
+				TablePipeRow,
 				DictationDecoration,
 				SuggestionDecoration,
 				QuirkTime,
