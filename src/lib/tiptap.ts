@@ -5,7 +5,15 @@ import type { JSONContent } from '@tiptap/core';
 export function extractText(doc: JSONContent | string | null | undefined): string {
 	if (doc == null) return '';
 	if (typeof doc === 'string') return doc; // legacy markdown/plain entries
-	const blocks = ['paragraph', 'heading', 'blockquote', 'listItem', 'codeBlock'];
+	const blocks = [
+		'paragraph',
+		'heading',
+		'blockquote',
+		'listItem',
+		'codeBlock',
+		'tableHeader',
+		'tableCell'
+	];
 	let out = '';
 	const walk = (node: JSONContent) => {
 		if (node.text) out += node.text;

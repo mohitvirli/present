@@ -2,17 +2,22 @@ import { generateHTML, type JSONContent } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskList, TaskItemBracket } from './tiptap-task';
 import { QuirkTime, QuirkDate } from './tiptap-quirks';
+import { TablesStatic } from './tiptap-table';
 
 // Same schema the editor uses, so timeline previews render exactly as written
 // (headings, lists, todos, links, marks, quirk timestamps) rather than
 // flattened to plain text.
-const RENDER_EXTENSIONS = [StarterKit, TaskList, TaskItemBracket, QuirkTime, QuirkDate];
+const RENDER_EXTENSIONS = [
+	StarterKit,
+	TaskList,
+	TaskItemBracket,
+	QuirkTime,
+	QuirkDate,
+	TablesStatic
+];
 
 function escapeHtml(s: string): string {
-	return s
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;');
+	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 export function renderEntryHTML(
@@ -24,7 +29,11 @@ export function renderEntryHTML(
 	if (typeof content === 'string') return content ? `<p>${escapeHtml(content)}</p>` : '';
 
 	let doc = content;
-	if (opts.dropLeadingHeading && Array.isArray(content.content) && content.content[0]?.type === 'heading') {
+	if (
+		opts.dropLeadingHeading &&
+		Array.isArray(content.content) &&
+		content.content[0]?.type === 'heading'
+	) {
 		doc = { ...content, content: content.content.slice(1) };
 	}
 
