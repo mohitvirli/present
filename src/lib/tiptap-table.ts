@@ -1,12 +1,35 @@
 import { Extension } from '@tiptap/core';
-import { TableKit } from '@tiptap/extension-table';
+import { Table, TableKit } from '@tiptap/extension-table';
+import { columnResizing, tableEditing } from '@tiptap/pm/tables';
 import { TextSelection } from '@tiptap/pm/state';
 import type { Schema, Node as PMNode } from '@tiptap/pm/model';
 
-// Editor: interactive tables with draggable column resizing.
-export const Tables = TableKit.configure({
-	table: { resizable: true }
+// Upstream Table only installs columnResizing when the editor is editable *at
+// creation time* — our entry editor is created read-only and flipped editable
+// later, so resizing never activated. Install the plugin unconditionally; its
+// own handlers check view.editable on every event, so it stays inert while
+// viewing.
+const ResizableTable = Table.extend({
+	addProseMirrorPlugins() {
+		return [
+			columnResizing({
+				handleWidth: this.options.handleWidth,
+				cellMinWidth: this.options.cellMinWidth,
+				defaultCellMinWidth: this.options.cellMinWidth,
+				View: this.options.View,
+				lastColumnResizable: this.options.lastColumnResizable
+			}),
+			tableEditing({ allowTableNodeSelection: this.options.allowTableNodeSelection })
+		];
+	}
 });
+
+// Editor: interactive tables with draggable column resizing. TableKit still
+// provides row/header/cell; the table node itself comes from ResizableTable.
+export const Tables = [
+	TableKit.configure({ table: false }),
+	ResizableTable.configure({ resizable: true })
+];
 
 // Static render (generateHTML): plugins/NodeViews never run there, so plain
 // TableKit is enough — the schema (and the colwidth attr that renderHTML
@@ -43,6 +66,34 @@ function buildTable(schema: Schema, cells: string[]): PMNode {
 	);
 	return table.create(null, [headerRow, bodyRow]);
 }
+
+// Backspace inside a completely empty table deletes the whole table — the
+// inverse of the pipe-row gesture, so a table can be removed the same way it
+// was created, without reaching for a menu. Only fires when every cell is
+// empty, so no content can be lost.
+export const TableBackspaceDelete = Extension.create({
+	name: 'tableBackspaceDelete',
+	priority: 1000,
+
+	addKeyboardShortcuts() {
+		return {
+			Backspace: () => {
+				const { $from, empty } = this.editor.state.selection;
+				if (!empty || $from.parentOffset !== 0) return false;
+				let tableDepth = 0;
+				for (let d = $from.depth; d > 0; d--) {
+					if ($from.node(d).type.name === 'table') {
+						tableDepth = d;
+						break;
+					}
+				}
+				if (!tableDepth) return false;
+				if ($from.node(tableDepth).textContent !== '') return false;
+				return this.editor.commands.deleteTable();
+			}
+		};
+	}
+});
 
 // Markdown-style table creation: typing `| a | b |` and pressing Enter turns
 // the paragraph into a table with those header cells and one empty body row —
