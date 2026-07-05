@@ -8,7 +8,15 @@
 	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
 	import { SuggestionDecoration } from '$lib/tiptap-suggestion';
 	import { Quirks, QuirkTime, QuirkDate } from '$lib/tiptap-quirks';
-	import { Tables, TablePipeRow, TableBackspaceDelete } from '$lib/tiptap-table';
+	import {
+		Tables,
+		TablePipeRow,
+		TableBackspaceDelete,
+		TextAlignment,
+		columnAlignment,
+		cycleColumnAlignment,
+		type ColumnAlign
+	} from '$lib/tiptap-table';
 
 	let {
 		content = null,
@@ -27,7 +35,7 @@
 	let element: HTMLDivElement;
 	// Floating table controls: anchored to the top-right of the table the
 	// cursor is in, hidden otherwise. Positions are relative to the host div.
-	let tableMenu = $state<{ top: number; left: number } | null>(null);
+	let tableMenu = $state<{ top: number; left: number; align: ColumnAlign } | null>(null);
 
 	function updateTableMenu() {
 		if (!editor || editor.isDestroyed || !editor.isEditable || !editor.isActive('table')) {
@@ -44,7 +52,11 @@
 		const anchor = table.closest('.tableWrapper') ?? table;
 		const hostRect = element.getBoundingClientRect();
 		const rect = anchor.getBoundingClientRect();
-		tableMenu = { top: rect.top - hostRect.top, left: rect.right - hostRect.left };
+		tableMenu = {
+			top: rect.top - hostRect.top,
+			left: rect.right - hostRect.left,
+			align: columnAlignment(editor)
+		};
 	}
 
 	onMount(() => {
@@ -59,6 +71,7 @@
 				...Tables,
 				TablePipeRow,
 				TableBackspaceDelete,
+				TextAlignment,
 				DictationDecoration,
 				SuggestionDecoration,
 				QuirkTime,
@@ -162,6 +175,36 @@
 				aria-label="Delete column"
 				onpointerdown={(e) => tableCmd(e, 'deleteColumn')}>&minus; col</button
 			>
+			<span class="table-menu-sep" aria-hidden="true"></span>
+			<button
+				type="button"
+				title="Align column ({tableMenu.align}, click to cycle)"
+				aria-label="Align column: {tableMenu.align}"
+				onpointerdown={(e) => {
+					e.preventDefault();
+					if (editor) cycleColumnAlignment(editor);
+				}}
+			>
+				<svg
+					width="13"
+					height="13"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					aria-hidden="true"
+				>
+					<path d="M3 6h18" />
+					{#if tableMenu.align === 'center'}
+						<path d="M7 12h10" /><path d="M5 18h14" />
+					{:else if tableMenu.align === 'right'}
+						<path d="M11 12h10" /><path d="M7 18h14" />
+					{:else}
+						<path d="M3 12h10" /><path d="M3 18h14" />
+					{/if}
+				</svg>
+			</button>
 			<span class="table-menu-sep" aria-hidden="true"></span>
 			<button
 				type="button"
