@@ -2,7 +2,7 @@ import { generateHTML, type JSONContent } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskList, TaskItemBracket } from './tiptap-task';
 import { QuirkTime, QuirkDate } from './tiptap-quirks';
-import { TablesStatic } from './tiptap-table';
+import { TablesStatic, TextAlignment } from './tiptap-table';
 
 // Same schema the editor uses, so timeline previews render exactly as written
 // (headings, lists, todos, links, marks, quirk timestamps) rather than
@@ -13,7 +13,8 @@ const RENDER_EXTENSIONS = [
 	TaskItemBracket,
 	QuirkTime,
 	QuirkDate,
-	TablesStatic
+	TablesStatic,
+	TextAlignment
 ];
 
 function escapeHtml(s: string): string {

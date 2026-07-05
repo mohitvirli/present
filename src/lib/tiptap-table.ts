@@ -1,7 +1,8 @@
-import { Extension } from '@tiptap/core';
+import { Extension, type Editor } from '@tiptap/core';
 import { Table, TableKit } from '@tiptap/extension-table';
-import { columnResizing, tableEditing } from '@tiptap/pm/tables';
-import { TextSelection } from '@tiptap/pm/state';
+import TextAlign from '@tiptap/extension-text-align';
+import { columnResizing, tableEditing, TableMap, cellAround } from '@tiptap/pm/tables';
+import { TextSelection, type EditorState } from '@tiptap/pm/state';
 import type { Schema, Node as PMNode } from '@tiptap/pm/model';
 
 // Upstream Table only installs columnResizing when the editor is editable *at
@@ -35,6 +36,58 @@ export const Tables = [
 // TableKit is enough — the schema (and the colwidth attr that renderHTML
 // turns into a <colgroup>) is identical, keeping resized widths in previews.
 export const TablesStatic = TableKit;
+
+// Text alignment, driven by the table menu's column-align cycle (and the
+// stock Mod-Shift-L/E/R shortcuts). Lives on cell paragraphs as an inline
+// style, so generateHTML previews and share cards pick it up with no extra
+// work — register this in the static renderer too. Left is the default and
+// stored as null, keeping docs free of redundant attrs.
+export const TextAlignment = TextAlign.configure({
+	types: ['paragraph', 'heading'],
+	alignments: ['left', 'center', 'right']
+});
+
+export type ColumnAlign = 'left' | 'center' | 'right';
+
+// The cursor's column as cell positions relative to the table start.
+function columnCells(state: EditorState) {
+	const $cell = cellAround(state.selection.$from);
+	if (!$cell) return null;
+	const table = $cell.node(-1);
+	const tableStart = $cell.start(-1);
+	const map = TableMap.get(table);
+	const col = map.colCount($cell.pos - tableStart);
+	const cells = map.cellsInRect({ left: col, right: col + 1, top: 0, bottom: map.height });
+	return { table, tableStart, cells };
+}
+
+// Alignment of the cursor's column, read from its first cell — the menu
+// applies alignment column-wide, so any cell is representative.
+export function columnAlignment(editor: Editor): ColumnAlign {
+	const info = columnCells(editor.state);
+	const first = info && info.table.nodeAt(info.cells[0]);
+	return first?.firstChild?.attrs.textAlign ?? 'left';
+}
+
+// One button, three states: left → center → right → left, applied to every
+// cell in the cursor's column (markdown tables align per column, and mixed
+// alignment within one column reads as broken).
+export function cycleColumnAlignment(editor: Editor): void {
+	const info = columnCells(editor.state);
+	if (!info) return;
+	const order: ColumnAlign[] = ['left', 'center', 'right'];
+	const next = order[(order.indexOf(columnAlignment(editor)) + 1) % order.length];
+	const value = next === 'left' ? null : next;
+	const tr = editor.state.tr;
+	for (const rel of info.cells) {
+		info.table.nodeAt(rel)?.forEach((child, offset) => {
+			if (child.type.name !== 'paragraph' && child.type.name !== 'heading') return;
+			const pos = info.tableStart + rel + 1 + offset;
+			tr.setNodeMarkup(pos, undefined, { ...child.attrs, textAlign: value });
+		});
+	}
+	editor.view.dispatch(tr);
+}
 
 // A pipe row: starts and ends with |, at least 2 cells, not all empty,
 // and not a `|---|---|` separator-only row. Typography rewrites typed `--`
