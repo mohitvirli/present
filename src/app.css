@@ -1760,52 +1760,40 @@ main {
 		opacity: 0.5;
 	}
 
-	/* days with entries: heat box — accent deepens with the entry count */
+	/* days with entries: no box — the accent bleeds into the number itself,
+	   deepening with the entry count */
 	.month-cal .cal-day.has {
 		opacity: 1;
-		color: var(--color-text);
 		cursor: pointer;
-		transition: box-shadow 0.15s ease;
+		font-weight: 600;
 	}
 
 	.month-cal .cal-day.heat-1 {
-		background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+		color: color-mix(in srgb, var(--color-accent) 55%, var(--color-text-muted));
 	}
 
 	.month-cal .cal-day.heat-2 {
-		background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+		color: color-mix(in srgb, var(--color-accent) 72%, var(--color-text-muted));
 	}
 
 	.month-cal .cal-day.heat-3 {
-		background: color-mix(in srgb, var(--color-accent) 46%, transparent);
+		color: color-mix(in srgb, var(--color-accent) 88%, var(--color-text-muted));
 	}
 
 	.month-cal .cal-day.heat-4 {
-		background: color-mix(in srgb, var(--color-accent) 68%, transparent);
-		color: var(--color-accent-text);
+		color: var(--color-accent);
 	}
 
 	.month-cal .cal-day.has:hover {
-		box-shadow: inset 0 0 0 1.5px var(--color-accent);
+		color: var(--color-accent);
 	}
 
-	/* today without an entry: a confident accent number, no ghost box — the
-	   hairline ring around a faded number read as a broken state */
+	/* today is the only cell that gets a box, entry or not */
 	.month-cal .cal-day.today {
 		opacity: 1;
 		color: var(--color-accent);
 		font-weight: 700;
-	}
-
-	/* today with entries: the heat box carries the color, so mark today with
-	   an accent ring and keep the bucket's number color */
-	.month-cal .cal-day.has.today {
-		color: var(--color-text);
 		box-shadow: inset 0 0 0 1.5px var(--color-accent);
-	}
-
-	.month-cal .cal-day.heat-4.today {
-		color: var(--color-accent-text);
 	}
 }
 
