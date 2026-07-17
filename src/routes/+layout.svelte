@@ -259,7 +259,7 @@
 					aria-label="present — home"
 					in:gFade={{ duration: 1.1, delay: 0.7 }}
 				>
-					<Clock at={composer.createdAt} />
+					<Clock at={composer.readonly ? composer.createdAt : null} />
 				</a>
 			{:else}
 				<a class="cta" href="/entry" in:gFade={{ duration: 0.3 }}>
