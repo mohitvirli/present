@@ -332,7 +332,10 @@
 				opacity: 0,
 				duration: 0.55,
 				ease: 'power3.out',
-				delay: 0.2
+				delay: 0.2,
+				// leftover inline transform would keep each row a stacking context,
+				// trapping its entry dot's z-index under the raised mobile rail
+				clearProps: 'transform,opacity'
 			});
 		});
 	});

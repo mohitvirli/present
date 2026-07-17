@@ -1657,6 +1657,12 @@ main {
 	.dot-fly {
 		z-index: 11;
 	}
+	/* entry dots likewise: same z as the raised rail, later in the DOM, so
+	   the spine doesn't show through their hollow centres — still under the
+	   month header's frost (12) when scrolling beneath it */
+	.day-group > ul .entry-card::before {
+		z-index: 11;
+	}
 }
 
 /* magnetic rail cursor — pinned to the spine, trails the pointer in JS */
