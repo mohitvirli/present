@@ -1665,6 +1665,150 @@ main {
 	}
 }
 
+/* ---------- Month calendar (desktop right gutter) ---------- */
+/* only where a full gutter fits beside the column: 50% + 380 (column half)
+   + 40 (gap) + 224 (grid) + 16 (breathing room) → needs ~1280px */
+.month-cal {
+	display: none;
+}
+
+@media (min-width: 1280px) {
+	.month-cal {
+		display: block;
+		position: fixed;
+		/* header row: title lines up with the search/settings buttons' centre
+		   (topbar buttons centre ≈ 55px, head is 20px tall) */
+		top: 2.8rem;
+		left: calc(50% + var(--composer-width) / 2 + 40px);
+		width: 224px;
+		user-select: none;
+		/* the sticky topbar (z 10, full-width, transparent here) would otherwise
+		   swallow clicks on the calendar's header and first rows */
+		z-index: 11;
+	}
+
+	.month-cal .cal-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0.55rem;
+	}
+
+	.month-cal .cal-title {
+		font-size: 0.68rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.09em;
+		color: var(--color-text-muted);
+		/* line up with the first weekday letter, which sits centred in its
+		   32px grid cell rather than at the container edge */
+		padding-left: 12px;
+	}
+
+	.month-cal .cal-nav {
+		display: inline-flex;
+		gap: 2px;
+	}
+
+	.month-cal .cal-nav button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		border: none;
+		border-radius: 6px;
+		background: transparent;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		opacity: 0.7;
+	}
+
+	.month-cal .cal-nav button:hover {
+		background: var(--color-surface-2);
+		color: var(--color-text);
+		opacity: 1;
+	}
+
+	.month-cal .cal-grid {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 3px;
+	}
+
+	.month-cal .cal-dow {
+		text-align: center;
+		font-size: 0.6rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+		opacity: 0.6;
+		padding-bottom: 0.35rem;
+	}
+
+	.month-cal .cal-day {
+		position: relative;
+		height: 29px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		border-radius: 8px;
+		background: transparent;
+		font-size: 0.76rem;
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-muted);
+		opacity: 0.5;
+	}
+
+	/* days with entries: heat box — accent deepens with the entry count */
+	.month-cal .cal-day.has {
+		opacity: 1;
+		color: var(--color-text);
+		cursor: pointer;
+		transition: box-shadow 0.15s ease;
+	}
+
+	.month-cal .cal-day.heat-1 {
+		background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+	}
+
+	.month-cal .cal-day.heat-2 {
+		background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+	}
+
+	.month-cal .cal-day.heat-3 {
+		background: color-mix(in srgb, var(--color-accent) 46%, transparent);
+	}
+
+	.month-cal .cal-day.heat-4 {
+		background: color-mix(in srgb, var(--color-accent) 68%, transparent);
+		color: var(--color-accent-text);
+	}
+
+	.month-cal .cal-day.has:hover {
+		box-shadow: inset 0 0 0 1.5px var(--color-accent);
+	}
+
+	/* today without an entry: a confident accent number, no ghost box — the
+	   hairline ring around a faded number read as a broken state */
+	.month-cal .cal-day.today {
+		opacity: 1;
+		color: var(--color-accent);
+		font-weight: 700;
+	}
+
+	/* today with entries: the heat box carries the color, so mark today with
+	   an accent ring and keep the bucket's number color */
+	.month-cal .cal-day.has.today {
+		color: var(--color-text);
+		box-shadow: inset 0 0 0 1.5px var(--color-accent);
+	}
+
+	.month-cal .cal-day.heat-4.today {
+		color: var(--color-accent-text);
+	}
+}
+
 /* magnetic rail cursor — pinned to the spine, trails the pointer in JS */
 .cursor-rail {
 	position: fixed;

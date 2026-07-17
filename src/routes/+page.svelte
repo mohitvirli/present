@@ -103,6 +103,7 @@
 		// out with the labels so it doesn't linger after everything else leaves
 		const counts = Array.from(document.querySelectorAll('.day-count-rail'));
 		const rail = document.querySelector('.rail');
+		const cal = document.querySelector('.month-cal');
 		const header = Array.from(document.querySelectorAll('.topbar-inner > *'));
 		if (!rows.length && !rail) return;
 
@@ -116,6 +117,7 @@
 			if (counts.length) tl.to(counts, { x: -8, autoAlpha: 0, duration: 0.24 }, 0);
 			if (rail)
 				tl.to(rail, { scaleY: 0, autoAlpha: 0, transformOrigin: 'top center', duration: 0.32 }, 0);
+			if (cal) tl.to(cal, { autoAlpha: 0, duration: 0.24 }, 0);
 			// safety: never block navigation longer than ~500ms
 			gsap.delayedCall(0.5, resolve);
 		});

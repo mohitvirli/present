@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Entry } from '$lib/db';
 	import { clearSearch } from '$lib/search.svelte';
+	import { calendarSettings } from '$lib/settings.svelte';
+	import { scroll } from '$lib/scroll.svelte';
 	import { gFade, gScaleY } from '$lib/transitions';
 	import gsap from 'gsap';
 	import { tick } from 'svelte';
@@ -8,6 +10,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { SvelteSet } from 'svelte/reactivity';
 	import EntryCard from './EntryCard.svelte';
+	import MonthCalendar from './MonthCalendar.svelte';
 
 	// height + opacity collapse: fading as it shrinks keeps the rail dots from
 	// looking clipped when the list height animates to zero
@@ -65,6 +68,7 @@
 
 	let timelineEl = $state<HTMLElement | null>(null);
 	let cursorEl = $state<HTMLElement | null>(null);
+	let calRef = $state<MonthCalendar | null>(null);
 	let animated = false;
 
 	function dayKey(ts: number): string {
@@ -340,6 +344,47 @@
 		});
 	});
 
+	// Calendar → timeline: expand whatever hides the day, then smooth-scroll to
+	// its group with the header clearance the pinned month label needs.
+	async function jumpToDay(day: string) {
+		const mk = day.slice(0, 7);
+		if (collapsed.has(mk)) toggle(mk); // plain expand — skip the dot flight
+		if (collapsed.has(day)) toggle(day);
+		await tick();
+		const el = timelineEl?.querySelector<HTMLElement>(`[data-day="${day}"]`);
+		if (!el) return;
+		const y = el.getBoundingClientRect().top + (scroll.lenis?.scroll ?? window.scrollY) - 110;
+		if (scroll.lenis) scroll.lenis.scrollTo(Math.max(0, y));
+		else window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+	}
+
+	// Timeline → calendar: the month of the topmost group under the header
+	// drives the calendar, so scrolling through June shows June's grid.
+	$effect(() => {
+		if (!loaded) return;
+		let raf = 0;
+		const onScroll = () => {
+			cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(() => {
+				const groups = timelineEl?.querySelectorAll<HTMLElement>('[data-day], [data-month]');
+				if (!groups?.length) return;
+				for (const g of groups) {
+					if (g.getBoundingClientRect().bottom > 130) {
+						const key = g.dataset.day?.slice(0, 7) ?? g.dataset.month;
+						if (key) calRef?.syncTo(key);
+						return;
+					}
+				}
+			});
+		};
+		window.addEventListener('scroll', onScroll, { passive: true });
+		onScroll();
+		return () => {
+			window.removeEventListener('scroll', onScroll);
+			cancelAnimationFrame(raf);
+		};
+	});
+
 	// Magnetic rail cursor: a dot pinned to the timeline spine that trails the
 	// pointer's Y and snaps onto the nearest entry node when close — so it reads
 	// as part of the rail, not a free-floating dot. Driven by rAF and written
@@ -546,6 +591,9 @@
 	{/snippet}
 
 	<div class="cursor-rail" bind:this={cursorEl} aria-hidden="true"></div>
+	{#if calendarSettings.enabled}
+		<MonthCalendar bind:this={calRef} {entries} onJump={jumpToDay} />
+	{/if}
 	<ol class="timeline" bind:this={timelineEl}>
 		<li class="rail" aria-hidden="true" in:gScaleY={{ duration: 0.8 }}></li>
 		{#if pinned.length > 0}
@@ -597,7 +645,7 @@
 			</li>
 		{/if}
 		{#snippet dayGroup(day: string, items: Entry[])}
-			<li class="day-group" class:collapsed={collapsed.has(day)}>
+			<li class="day-group" class:collapsed={collapsed.has(day)} data-day={day}>
 				<h2
 					class="day-label"
 					onclick={() => toggle(day)}

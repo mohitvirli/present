@@ -1,7 +1,14 @@
 <script lang="ts">
 	import gsap from 'gsap';
 	import { THEMES, theme, setTheme } from '$lib/theme.svelte';
-	import { aiSettings, micSettings, setAiEnabled, setMicEnabled } from '$lib/settings.svelte';
+	import {
+		aiSettings,
+		micSettings,
+		calendarSettings,
+		setAiEnabled,
+		setMicEnabled,
+		setCalendarEnabled
+	} from '$lib/settings.svelte';
 	import {
 		syncState,
 		syncSupported,
@@ -148,6 +155,21 @@
 			class="switch"
 			checked={micSettings.enabled}
 			onchange={(e) => setMicEnabled(e.currentTarget.checked)}
+		/>
+	</label>
+
+	<h3 class="settings-subhead">Date &amp; time</h3>
+	<label class="ai-toggle">
+		<span class="ai-toggle-text">
+			<span class="ai-toggle-title">Show calendar</span>
+			<span class="ai-toggle-sub">Month heatmap beside the timeline on wide screens.</span>
+		</span>
+		<input
+			type="checkbox"
+			role="switch"
+			class="switch"
+			checked={calendarSettings.enabled}
+			onchange={(e) => setCalendarEnabled(e.currentTarget.checked)}
 		/>
 	</label>
 
