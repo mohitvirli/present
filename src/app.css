@@ -1665,22 +1665,26 @@ main {
 	}
 }
 
-/* ---------- Month calendar (desktop right gutter) ---------- */
+/* ---------- Desktop right gutter (month calendar + pinned panel) ---------- */
 /* only where a full gutter fits beside the column: 50% + 380 (column half)
    + 40 (gap) + 224 (grid) + 16 (breathing room) → needs ~1280px */
-.month-cal {
+.timeline-gutter {
 	display: none;
 }
 
 @media (min-width: 1280px) {
-	.month-cal {
-		display: block;
+	.timeline-gutter {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
 		position: fixed;
 		/* header row: title lines up with the search/settings buttons' centre
 		   (topbar buttons centre ≈ 55px, head is 20px tall) */
 		top: 2.8rem;
 		left: calc(50% + var(--composer-width) / 2 + 40px);
 		width: 224px;
+		/* long pinned lists scroll inside the panel instead of running off-screen */
+		max-height: calc(100vh - 4rem);
 		user-select: none;
 		/* the sticky topbar (z 10, full-width, transparent here) would otherwise
 		   swallow clicks on the calendar's header and first rows */
@@ -1795,6 +1799,110 @@ main {
 		font-weight: 700;
 		box-shadow: inset 0 0 0 1.5px var(--color-accent);
 	}
+
+	/* ----- pinned panel: title-only rows below the calendar ----- */
+	.pinned-panel {
+		min-height: 0; /* lets the list scroll when the gutter hits max-height */
+		display: flex;
+		flex-direction: column;
+	}
+
+	.pinned-panel .pinned-head {
+		display: flex;
+		align-items: center;
+		margin-bottom: 0.55rem;
+	}
+
+	.pinned-panel .pinned-panel-title {
+		font-size: 0.68rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.09em;
+		color: var(--color-text-muted);
+		/* align with the calendar title's inset */
+		padding-left: 12px;
+	}
+
+	.pinned-panel .pinned-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		overflow-y: auto;
+		min-height: 0;
+	}
+
+	.pinned-panel .pinned-item {
+		position: relative;
+	}
+
+	.pinned-panel .pinned-link {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.5rem;
+		padding: 0.3rem 12px;
+		border-radius: 8px;
+		text-decoration: none;
+	}
+
+	.pinned-panel .pinned-link:hover {
+		background: var(--color-surface-2);
+	}
+
+	.pinned-panel .pinned-entry-title {
+		font-size: 0.8rem;
+		font-weight: 500;
+		color: var(--color-text);
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	.pinned-panel .pinned-date {
+		flex-shrink: 0;
+		font-size: 0.68rem;
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-muted);
+		opacity: 0.7;
+		transition: opacity 0.15s ease;
+	}
+
+	/* unpin sits where the date is — swap them on hover so rows stay quiet */
+	.pinned-panel .pinned-unpin {
+		position: absolute;
+		top: 50%;
+		right: 8px;
+		transform: translateY(-50%);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		border: none;
+		border-radius: 6px;
+		background: none;
+		color: var(--color-accent);
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity 0.15s ease;
+	}
+
+	.pinned-panel .pinned-item:hover .pinned-date,
+	.pinned-panel .pinned-item:focus-within .pinned-date {
+		opacity: 0;
+	}
+
+	.pinned-panel .pinned-item:hover .pinned-unpin,
+	.pinned-panel .pinned-item:focus-within .pinned-unpin {
+		opacity: 1;
+	}
+
+	.pinned-panel .pinned-unpin:hover {
+		background: var(--color-surface-2);
+	}
 }
 
 /* magnetic rail cursor — pinned to the spine, trails the pointer in JS */
@@ -1901,13 +2009,6 @@ body:has(dialog[open]) .cursor-rail {
 	margin: 0;
 	padding: 0;
 	position: relative; /* anchors the hover pin toggle over the card */
-}
-
-/* Pinned section header — a pin glyph where the date text would be */
-.day-label .pinned-label {
-	display: inline-flex;
-	align-items: center;
-	line-height: 0;
 }
 
 /* hover pin toggle — a sibling of the card's <a> (a button inside the anchor

@@ -103,7 +103,7 @@
 		// out with the labels so it doesn't linger after everything else leaves
 		const counts = Array.from(document.querySelectorAll('.day-count-rail'));
 		const rail = document.querySelector('.rail');
-		const cal = document.querySelector('.month-cal');
+		const cal = document.querySelector('.timeline-gutter');
 		const header = Array.from(document.querySelectorAll('.topbar-inner > *'));
 		if (!rows.length && !rail) return;
 

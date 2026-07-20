@@ -6,11 +6,11 @@
 	import { gFade, gScaleY } from '$lib/transitions';
 	import gsap from 'gsap';
 	import { tick } from 'svelte';
-	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
 	import { SvelteSet } from 'svelte/reactivity';
 	import EntryCard from './EntryCard.svelte';
 	import MonthCalendar from './MonthCalendar.svelte';
+	import PinnedPanel from './PinnedPanel.svelte';
 
 	// height + opacity collapse: fading as it shrinks keeps the rail dots from
 	// looking clipped when the list height animates to zero
@@ -43,11 +43,9 @@
 		onTogglePin: (entry: Entry) => void;
 	} = $props();
 
-	// pinned entries surface in a dedicated group above the day groups (the
+	// pinned entries surface in the gutter panel below the calendar (the
 	// entry also stays in its day group). listEntries order — no special sort.
 	const pinned = $derived(entries.filter((e) => e.metadata.pinned));
-	// reserved collapse key for the Pinned group — safe, real keys are ISO dates
-	const PINNED_KEY = '__pinned__';
 
 	// days the user has collapsed (keyed by dayKey) — kept in sessionStorage so
 	// the choice survives reloads and route round-trips, but resets next session
@@ -591,59 +589,18 @@
 	{/snippet}
 
 	<div class="cursor-rail" bind:this={cursorEl} aria-hidden="true"></div>
-	{#if calendarSettings.enabled}
-		<MonthCalendar bind:this={calRef} {entries} onJump={jumpToDay} />
+	{#if calendarSettings.enabled || pinned.length > 0}
+		<div class="timeline-gutter">
+			{#if calendarSettings.enabled}
+				<MonthCalendar bind:this={calRef} {entries} onJump={jumpToDay} />
+			{/if}
+			{#if pinned.length > 0}
+				<PinnedPanel entries={pinned} {onTogglePin} />
+			{/if}
+		</div>
 	{/if}
 	<ol class="timeline" bind:this={timelineEl}>
 		<li class="rail" aria-hidden="true" in:gScaleY={{ duration: 0.8 }}></li>
-		{#if pinned.length > 0}
-			<li class="day-group" class:collapsed={collapsed.has(PINNED_KEY)} transition:collapse>
-				<h2
-					class="day-label"
-					onclick={() => toggle(PINNED_KEY)}
-					role="button"
-					tabindex="0"
-					aria-expanded={!collapsed.has(PINNED_KEY)}
-					aria-label={collapsed.has(PINNED_KEY) ? 'Expand pinned' : 'Collapse pinned'}
-				>
-					<span class="day-toggle" aria-hidden="true">
-						<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-							<path
-								d="M6 4l4 4-4 4"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							/>
-						</svg>
-					</span>
-					<span class="day-date pinned-label"> Pinned </span>
-					<span class="day-count-inline"
-						>{pinned.length} {pinned.length === 1 ? 'entry' : 'entries'}</span
-					>
-				</h2>
-				<span class="day-count-rail"
-					>{pinned.length} {pinned.length === 1 ? 'entry' : 'entries'}</span
-				>
-				{#if !collapsed.has(PINNED_KEY)}
-					<ul transition:collapse>
-						{#each pinned as entry (entry.id)}
-							<!-- rows grow/shrink as entries are pinned/unpinned; flip slides
-							     the neighbours into place instead of snapping -->
-							<li
-								class="entry-row"
-								transition:collapse={{ duration: 240 }}
-								animate:flip={{ duration: 240, easing: cubicOut }}
-							>
-								<EntryCard {entry} />
-								{@render pinToggle(entry)}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</li>
-		{/if}
 		{#snippet dayGroup(day: string, items: Entry[])}
 			<li class="day-group" class:collapsed={collapsed.has(day)} data-day={day}>
 				<h2
