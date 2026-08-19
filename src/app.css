@@ -2311,6 +2311,12 @@ body:has(dialog[open]) .cursor-rail {
 	margin: 0;
 }
 
+/* same nested-list gap fix as the editor */
+.entry-card .preview-rich li ul,
+.entry-card .preview-rich li ol {
+	margin-bottom: 0;
+}
+
 .entry-card .preview-rich a {
 	color: var(--color-accent);
 }
@@ -3036,6 +3042,14 @@ body:has(dialog[open]) .cursor-rail {
    bottom margin so bullets aren't spaced like separate paragraphs */
 .composer .writing .tiptap li > p {
 	margin: 0;
+}
+
+/* a nested list lives inside its parent <li>, so the list's own bottom margin
+   would open a paragraph-sized gap before the next sibling item — only the
+   outermost list should push space after itself */
+.composer .writing .tiptap li ul,
+.composer .writing .tiptap li ol {
+	margin-bottom: 0;
 }
 
 /* task list (checkbox todos) */
