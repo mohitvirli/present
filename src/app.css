@@ -426,6 +426,18 @@ html::-webkit-scrollbar {
 	cursor: pointer;
 }
 
+/* the unlabelled block of feature switches under the dialog title */
+.settings-toggles {
+	display: flex;
+	flex-direction: column;
+	gap: 0.9rem;
+	margin-bottom: 1.4rem;
+}
+
+.theme-auto-row {
+	margin-bottom: 0.85rem;
+}
+
 .ai-toggle-text {
 	display: flex;
 	flex-direction: column;
@@ -690,6 +702,15 @@ html::-webkit-scrollbar {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	min-width: 0;
+}
+
+/* sun/moon marker on the two themes auto mode alternates between */
+.theme-slot {
+	flex: none;
+	margin-left: auto;
+	font-size: 0.72rem;
+	line-height: 1;
+	color: var(--color-accent);
 }
 
 /* ---------- Lenis smooth scroll ---------- */

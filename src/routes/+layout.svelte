@@ -15,8 +15,12 @@
 	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { initSync, fullSync, syncState } from '$lib/sync.svelte';
+	import { initTheme } from '$lib/theme.svelte';
 	import '../app.css';
 	let { children } = $props();
+
+	// flip the theme at the day/night boundary while the tab stays open
+	onMount(initTheme);
 
 	// kick off sync on load (if enabled) and whenever the tab regains focus
 	onMount(() => {

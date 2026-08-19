@@ -19,25 +19,122 @@ export const THEMES: ThemeDef[] = [
 	{ id: 'deep', name: 'Deep Blue', mode: 'dark', swatches: ['#6c93c4', '#4f6a8f', '#333b47', '#262b33', '#15181c'] }
 ];
 
-const IDS = THEMES.map((t) => t.id);
-const KEY = 'present:theme';
-
-function initial(): ThemeId {
-	if (!browser) return 'sky';
-	const saved = localStorage.getItem(KEY) as ThemeId | null;
-	if (saved && IDS.includes(saved)) return saved;
-	return 'sky';
+export interface PaletteDef {
+	id: string;
+	name: string;
+	light: ThemeId;
+	dark: ThemeId;
 }
 
-export const theme = $state<{ value: ThemeId }>({ value: initial() });
+// Auto mode swaps between the two halves of a palette, so the colour never
+// changes — only the mode. The settings grid shows these instead of the six
+// themes while auto is on.
+export const PALETTES: PaletteDef[] = [
+	{ id: 'claude', name: 'Claude', light: 'light', dark: 'dark' },
+	{ id: 'sage', name: 'Sage', light: 'sage', dark: 'sage-dark' },
+	{ id: 'sky', name: 'Sky', light: 'sky', dark: 'deep' }
+];
+
+const IDS = THEMES.map((t) => t.id);
+
+// the other half of each palette — mirrored by the pre-hydration script in app.html
+const PAIR: Record<ThemeId, ThemeId> = Object.fromEntries(
+	PALETTES.flatMap((p) => [
+		[p.light, p.dark],
+		[p.dark, p.light]
+	])
+) as Record<ThemeId, ThemeId>;
+
+const MODE = new Map<ThemeId, 'light' | 'dark'>(THEMES.map((t) => [t.id, t.mode]));
+
+export const THEME_BY_ID = new Map<ThemeId, ThemeDef>(THEMES.map((t) => [t.id, t]));
+
+const KEY = 'present:theme';
+const AUTO_KEY = 'present:theme-auto';
+
+const DEFAULT: ThemeId = 'sky';
+
+// Day runs 06:00–17:59 local; the rest of the clock is night. Mirrored by the
+// pre-hydration script in app.html — keep the two in step.
+export function isNight(at: Date = new Date()): boolean {
+	const h = at.getHours();
+	return h < 6 || h >= 18;
+}
+
+// the half of `id`'s palette that matches `mode`
+function half(id: ThemeId, mode: 'light' | 'dark'): ThemeId {
+	return MODE.get(id) === mode ? id : PAIR[id];
+}
+
+function initialTheme(): ThemeId {
+	if (!browser) return DEFAULT;
+	const v = localStorage.getItem(KEY) as ThemeId | null;
+	return v && IDS.includes(v) ? v : DEFAULT;
+}
+
+function initialAuto(): boolean {
+	if (!browser) return false;
+	return localStorage.getItem(AUTO_KEY) === '1';
+}
+
+const stored = initialTheme();
+const auto = initialAuto();
+
+export const theme = $state<{ value: ThemeId; auto: boolean }>({
+	value: auto ? half(stored, isNight() ? 'dark' : 'light') : stored,
+	auto
+});
+
+// the half of the selected palette auto mode should be showing right now
+function resolved(): ThemeId {
+	return half(theme.value, isNight() ? 'dark' : 'light');
+}
+
+function apply(id: ThemeId): void {
+	theme.value = id;
+	if (!browser) return;
+	document.documentElement.setAttribute('data-theme', id);
+	const bg = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim();
+	const meta = document.querySelector('meta[name="theme-color"]');
+	if (bg && meta) meta.setAttribute('content', bg);
+}
 
 export function setTheme(id: ThemeId): void {
-	theme.value = id;
-	if (browser) {
-		localStorage.setItem(KEY, id);
-		document.documentElement.setAttribute('data-theme', id);
-		const bg = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim();
-		const meta = document.querySelector('meta[name="theme-color"]');
-		if (bg && meta) meta.setAttribute('content', bg);
-	}
+	// Picking a card picks its palette. With auto on, the clock decides which
+	// half of that palette is showing.
+	const next = theme.auto ? half(id, isNight() ? 'dark' : 'light') : id;
+	if (browser) localStorage.setItem(KEY, next);
+	apply(next);
+}
+
+export function setAutoTheme(on: boolean): void {
+	theme.auto = on;
+	if (browser) localStorage.setItem(AUTO_KEY, on ? '1' : '0');
+	if (!on) return;
+	const next = resolved();
+	if (browser) localStorage.setItem(KEY, next);
+	apply(next);
+}
+
+// Watch the clock so the theme flips at the day/night boundary without a
+// reload. Returns a cleanup function.
+export function initTheme(): () => void {
+	if (!browser) return () => {};
+
+	const check = () => {
+		if (!theme.auto) return;
+		const next = resolved();
+		if (next === theme.value) return;
+		localStorage.setItem(KEY, next);
+		apply(next);
+	};
+
+	check();
+	const timer = setInterval(check, 60_000);
+	document.addEventListener('visibilitychange', check);
+
+	return () => {
+		clearInterval(timer);
+		document.removeEventListener('visibilitychange', check);
+	};
 }

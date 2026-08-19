@@ -1,6 +1,13 @@
 <script lang="ts">
 	import gsap from 'gsap';
-	import { THEMES, theme, setTheme } from '$lib/theme.svelte';
+	import {
+		THEMES,
+		THEME_BY_ID,
+		PALETTES,
+		theme,
+		setTheme,
+		setAutoTheme
+	} from '$lib/theme.svelte';
 	import {
 		aiSettings,
 		micSettings,
@@ -128,50 +135,49 @@
 		<button class="settings-close" onclick={close} aria-label="Close">✕</button>
 	</div>
 
-	<h3 class="settings-subhead">AI</h3>
-	<label class="ai-toggle">
-		<span class="ai-toggle-text">
-			<span class="ai-toggle-title">Enable AI suggestions</span>
-			<span class="ai-toggle-sub">Analyze entries for title, tags, mood &amp; summary.</span>
-		</span>
-		<input
-			type="checkbox"
-			role="switch"
-			class="switch"
-			checked={aiSettings.enabled}
-			onchange={(e) => setAiEnabled(e.currentTarget.checked)}
-		/>
-	</label>
+	<div class="settings-toggles">
+		<label class="ai-toggle">
+			<span class="ai-toggle-text">
+				<span class="ai-toggle-title">Enable AI suggestions</span>
+				<span class="ai-toggle-sub">Analyze entries for title, tags, mood &amp; summary.</span>
+			</span>
+			<input
+				type="checkbox"
+				role="switch"
+				class="switch"
+				checked={aiSettings.enabled}
+				onchange={(e) => setAiEnabled(e.currentTarget.checked)}
+			/>
+		</label>
 
-	<h3 class="settings-subhead">Microphone</h3>
-	<label class="ai-toggle">
-		<span class="ai-toggle-text">
-			<span class="ai-toggle-title">Enable mic</span>
-			<span class="ai-toggle-sub">Show the live dictation mic button while editing.</span>
-		</span>
-		<input
-			type="checkbox"
-			role="switch"
-			class="switch"
-			checked={micSettings.enabled}
-			onchange={(e) => setMicEnabled(e.currentTarget.checked)}
-		/>
-	</label>
+		<label class="ai-toggle">
+			<span class="ai-toggle-text">
+				<span class="ai-toggle-title">Enable mic</span>
+				<span class="ai-toggle-sub">Show the live dictation mic button while editing.</span>
+			</span>
+			<input
+				type="checkbox"
+				role="switch"
+				class="switch"
+				checked={micSettings.enabled}
+				onchange={(e) => setMicEnabled(e.currentTarget.checked)}
+			/>
+		</label>
 
-	<h3 class="settings-subhead">Date &amp; time</h3>
-	<label class="ai-toggle">
-		<span class="ai-toggle-text">
-			<span class="ai-toggle-title">Show calendar</span>
-			<span class="ai-toggle-sub">Month heatmap beside the timeline on wide screens.</span>
-		</span>
-		<input
-			type="checkbox"
-			role="switch"
-			class="switch"
-			checked={calendarSettings.enabled}
-			onchange={(e) => setCalendarEnabled(e.currentTarget.checked)}
-		/>
-	</label>
+		<label class="ai-toggle">
+			<span class="ai-toggle-text">
+				<span class="ai-toggle-title">Show calendar</span>
+				<span class="ai-toggle-sub">Month heatmap beside the timeline on wide screens.</span>
+			</span>
+			<input
+				type="checkbox"
+				role="switch"
+				class="switch"
+				checked={calendarSettings.enabled}
+				onchange={(e) => setCalendarEnabled(e.currentTarget.checked)}
+			/>
+		</label>
+	</div>
 
 	<h3 class="settings-subhead">Sync</h3>
 	<section class="sync-card" class:is-on={syncState.enabled}>
@@ -198,7 +204,8 @@
 				<span class="sync-pill sync-pill-error">! Error</span>
 			{:else if syncState.enabled}
 				<span class="sync-pill sync-pill-on">
-					{#if syncState.status === 'syncing'}Syncing…{:else if syncState.status === 'synced'}✓ Synced{:else}On{/if}
+					{#if syncState.status === 'syncing'}Syncing…{:else if syncState.status === 'synced'}✓
+						Synced{:else}On{/if}
 				</span>
 			{:else}
 				<span class="sync-pill sync-pill-muted">Off</span>
@@ -243,24 +250,73 @@
 	</section>
 
 	<h3 class="settings-subhead">Theme</h3>
-	<div class="theme-grid">
-		{#each THEMES as t (t.id)}
-			<button
-				class="theme-card"
-				class:selected={theme.value === t.id}
-				onclick={() => setTheme(t.id)}
-				aria-label={t.name}
-				title={t.name}
-			>
-				<span
-					class="theme-dot"
-					aria-hidden="true"
-					style="background: conic-gradient(from 135deg, {t.swatches[1]} 0 50%, {t.swatches[0]} 50% 100%); border-color: {t.swatches[4]};"
-				></span>
-				<span class="theme-name">{t.name}</span>
-			</button>
-		{/each}
-	</div>
+	<label class="ai-toggle theme-auto-row">
+		<span class="ai-toggle-text">
+			<span class="ai-toggle-title">Auto day &amp; night</span>
+			<span class="ai-toggle-sub">
+				Same palette all day — light from 6am, dark from 6pm.
+			</span>
+		</span>
+		<input
+			type="checkbox"
+			role="switch"
+			class="switch"
+			checked={theme.auto}
+			onchange={(e) => setAutoTheme(e.currentTarget.checked)}
+		/>
+	</label>
+	{#if theme.auto}
+		<!-- auto picks the mode, so the grid picks the palette -->
+		<div class="theme-grid">
+			{#each PALETTES as p (p.id)}
+				{@const light = THEME_BY_ID.get(p.light)!}
+				{@const dark = THEME_BY_ID.get(p.dark)!}
+				{@const on = theme.value === p.light || theme.value === p.dark}
+				<button
+					class="theme-card"
+					class:selected={on}
+					onclick={() => setTheme(p.light)}
+					aria-pressed={on}
+					aria-label={p.name}
+					title={p.name}
+				>
+					<span
+						class="theme-dot"
+						aria-hidden="true"
+						style="background: conic-gradient(from 135deg, {light.swatches[0]} 0 50%, {dark
+							.swatches[4]} 50% 100%); border-color: {dark.swatches[4]};"
+					></span>
+					<span class="theme-name">{p.name}</span>
+					{#if on}
+						<span class="theme-slot" aria-hidden="true">
+							{theme.value === p.dark ? '☾' : '☀'}
+						</span>
+					{/if}
+				</button>
+			{/each}
+		</div>
+	{:else}
+		<div class="theme-grid">
+			{#each THEMES as t (t.id)}
+				<button
+					class="theme-card"
+					class:selected={theme.value === t.id}
+					onclick={() => setTheme(t.id)}
+					aria-pressed={theme.value === t.id}
+					aria-label={t.name}
+					title={t.name}
+				>
+					<span
+						class="theme-dot"
+						aria-hidden="true"
+						style="background: conic-gradient(from 135deg, {t.swatches[1]} 0 50%, {t
+							.swatches[0]} 50% 100%); border-color: {t.swatches[4]};"
+					></span>
+					<span class="theme-name">{t.name}</span>
+				</button>
+			{/each}
+		</div>
+	{/if}
 
 	<footer class="settings-foot">
 		<a
@@ -290,7 +346,8 @@
 >
 	<h2 id="delete-sync-title">Delete private sync account?</h2>
 	<p class="sync-confirm-text">
-		This deletes all synced entries and passkeys from the server. Entries already on this device stay.
+		This deletes all synced entries and passkeys from the server. Entries already on this device
+		stay.
 	</p>
 	<div class="sync-confirm-actions">
 		<button class="sync-btn ghost" type="button" onclick={closeDeleteDialog}>Cancel</button>

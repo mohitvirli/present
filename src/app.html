@@ -50,9 +50,27 @@
 						deep: '#15181c',
 						'sage-dark': '#161816'
 					};
+					// the other half of each palette — keep in step with PAIR in theme.svelte.ts
+					var pair = {
+						light: 'dark',
+						dark: 'light',
+						sage: 'sage-dark',
+						'sage-dark': 'sage',
+						sky: 'deep',
+						deep: 'sky'
+					};
+					var isDark = { dark: 1, deep: 1, 'sage-dark': 1 };
 					var t = localStorage.getItem('present:theme');
 					if (!bg[t]) {
 						t = 'sky';
+					}
+					if (localStorage.getItem('present:theme-auto') === '1') {
+						// day runs 06:00–17:59 local — keep in step with isNight() in theme.svelte.ts
+						var h = new Date().getHours();
+						var night = h < 6 || h >= 18;
+						if (!!isDark[t] !== night) {
+							t = pair[t];
+						}
 					}
 					document.documentElement.setAttribute('data-theme', t);
 					var m = document.querySelector('meta[name="theme-color"]');
