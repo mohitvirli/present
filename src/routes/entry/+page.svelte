@@ -15,7 +15,7 @@
 		type EntryMetadata
 	} from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
-	import { aiSettings, micSettings } from '$lib/settings.svelte';
+	import { aiSettings, micSettings, spellcheckSettings } from '$lib/settings.svelte';
 	import { extractText } from '$lib/tiptap';
 	import { createDictation } from '$lib/dictation.svelte';
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
@@ -652,7 +652,12 @@
 				{/if}
 			{:else}
 				<div class="title-row">
-					<input class="title-input" bind:value={meta.title} placeholder="Untitled" />
+					<input
+						class="title-input"
+						bind:value={meta.title}
+						placeholder="Untitled"
+						spellcheck={spellcheckSettings.enabled}
+					/>
 				</div>
 				<TagInput bind:tags suggestions={allTags} placeholder="Add tags" />
 			{/if}

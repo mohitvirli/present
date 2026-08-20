@@ -18,6 +18,7 @@
 		cycleColumnAlignment,
 		type ColumnAlign
 	} from '$lib/tiptap-table';
+	import { spellcheckSettings } from '$lib/settings.svelte';
 
 	let {
 		content = null,
@@ -34,6 +35,12 @@
 	} = $props();
 
 	let element: HTMLDivElement;
+
+	// keep the contenteditable's spellcheck in step with the setting
+	$effect(() => {
+		editor?.view.dom.setAttribute('spellcheck', spellcheckSettings.enabled ? 'true' : 'false');
+	});
+
 	// Floating table controls: anchored to the top-right of the table the
 	// cursor is in, hidden otherwise. Positions are relative to the host div.
 	let tableMenu = $state<{ top: number; left: number; align: ColumnAlign } | null>(null);

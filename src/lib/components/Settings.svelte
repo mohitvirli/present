@@ -12,9 +12,11 @@
 		aiSettings,
 		micSettings,
 		calendarSettings,
+		spellcheckSettings,
 		setAiEnabled,
 		setMicEnabled,
-		setCalendarEnabled
+		setCalendarEnabled,
+		setSpellcheckEnabled
 	} from '$lib/settings.svelte';
 	import {
 		syncState,
@@ -176,6 +178,20 @@
 				class="switch"
 				checked={calendarSettings.enabled}
 				onchange={(e) => setCalendarEnabled(e.currentTarget.checked)}
+			/>
+		</label>
+
+		<label class="ai-toggle">
+			<span class="ai-toggle-text">
+				<span class="ai-toggle-title">Spell check</span>
+				<span class="ai-toggle-sub">Squiggle misspelled words as you write.</span>
+			</span>
+			<input
+				type="checkbox"
+				role="switch"
+				class="switch"
+				checked={spellcheckSettings.enabled}
+				onchange={(e) => setSpellcheckEnabled(e.currentTarget.checked)}
 			/>
 		</label>
 	</div>
