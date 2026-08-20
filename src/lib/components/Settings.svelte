@@ -164,7 +164,8 @@
 			/>
 		</label>
 
-		<label class="ai-toggle">
+		<!-- the gutter calendar only exists on wide screens, so hide its switch below -->
+		<label class="ai-toggle calendar-toggle">
 			<span class="ai-toggle-text">
 				<span class="ai-toggle-title">Show calendar</span>
 				<span class="ai-toggle-sub">Month heatmap beside the timeline on wide screens.</span>

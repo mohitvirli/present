@@ -426,6 +426,18 @@ html::-webkit-scrollbar {
 	cursor: pointer;
 }
 
+/* the gutter calendar only renders from 1280px up (see .timeline-gutter), so
+   below that there is nothing for this switch to show or hide */
+.calendar-toggle {
+	display: none;
+}
+
+@media (min-width: 1280px) {
+	.calendar-toggle {
+		display: flex;
+	}
+}
+
 /* the unlabelled block of feature switches under the dialog title */
 .settings-toggles {
 	display: flex;
