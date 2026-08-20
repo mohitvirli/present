@@ -3107,6 +3107,7 @@ body:has(dialog[open]) .cursor-rail {
 
 .list-dragging {
 	cursor: grabbing;
+	-webkit-user-select: none;
 	user-select: none;
 }
 
@@ -3144,6 +3145,13 @@ body:has(dialog[open]) .cursor-rail {
 @media (hover: none) {
 	.list-drag-handle {
 		display: none;
+	}
+
+	/* on a row, holding means "pick this up" — suppress the callout iOS would
+	   otherwise raise partway through the same gesture. Selection by long press
+	   still works everywhere else in the entry. */
+	.composer .writing .tiptap li {
+		-webkit-touch-callout: none;
 	}
 }
 

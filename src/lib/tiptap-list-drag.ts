@@ -236,6 +236,8 @@ type Drag = {
 	pointerId: number;
 	/** where the row would land on release, or null while over an illegal spot */
 	target: number | null;
+	/** a finger, not the grip — the row was lifted by long press */
+	touch: boolean;
 	/** pointer origin, used to tell a real drag from a plain click on the grip */
 	originX: number;
 	originY: number;
@@ -413,9 +415,11 @@ class ListDragView {
 	};
 
 	private startDrag(item: Item, e: PointerEvent, capture: Element) {
+		const touch = e.pointerType !== 'mouse';
 		this.drag = {
 			item,
 			pointerId: e.pointerId,
+			touch,
 			target: null,
 			originX: e.clientX,
 			originY: e.clientY,
@@ -425,6 +429,11 @@ class ListDragView {
 		};
 		this.view.dispatch(this.view.state.tr.setMeta(dragKey, item.pos));
 		this.host.classList.add('list-dragging');
+		// The press landed inside contenteditable, so the browser has put a caret
+		// in the row and raised the on-screen keyboard. Once the row is airborne
+		// that caret is neither wanted nor reachable — drop focus so the keyboard
+		// goes away and the drag has the screen to itself.
+		if (touch) this.view.dom.blur();
 		try {
 			capture.setPointerCapture(e.pointerId);
 		} catch {
@@ -579,7 +588,9 @@ class ListDragView {
 			canDrop(this.view.state, drag.item, drag.target)
 		) {
 			moveItem(this.view, drag.item, drag.target, 1);
-			this.view.focus();
+			// refocusing after a touch drop would summon the keyboard again for a
+			// gesture that was never about typing
+			if (!drag.touch) this.view.focus();
 		}
 	}
 }
