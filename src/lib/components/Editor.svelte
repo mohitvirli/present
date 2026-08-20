@@ -8,6 +8,7 @@
 	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
 	import { SuggestionDecoration } from '$lib/tiptap-suggestion';
 	import { Quirks, QuirkTime, QuirkDate } from '$lib/tiptap-quirks';
+	import { ListDragHandle } from '$lib/tiptap-list-drag';
 	import {
 		Tables,
 		TablePipeRow,
@@ -68,6 +69,7 @@
 				Typography,
 				TaskList,
 				TaskItemBracket.configure({ nested: true }),
+				ListDragHandle,
 				...Tables,
 				TablePipeRow,
 				TableBackspaceDelete,

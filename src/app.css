@@ -3052,6 +3052,109 @@ body:has(dialog[open]) .cursor-rail {
 	margin-bottom: 0;
 }
 
+/* ---------- list drag & drop ---------- */
+/* Overlays owned by the ListDragHandle plugin. They're appended to
+   .tiptap-host (position: relative) from JS, so they can't be Svelte-scoped
+   and live here instead. The grip is parked in the left gutter — clear of
+   bullet markers and task checkboxes — which the page's 2rem padding absorbs
+   for top-level rows. */
+.list-drag-handle {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 20px;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--color-text-muted);
+	fill: currentColor;
+	opacity: 0;
+	cursor: grab;
+	touch-action: none;
+	pointer-events: none;
+	transition:
+		opacity 0.12s ease,
+		background 0.12s ease,
+		top 0.14s cubic-bezier(0.2, 0, 0, 1),
+		left 0.14s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* the grip is drawn small but grabbed at 28x28 — an invisible pad so the
+   pointer does not have to land on the dots themselves */
+.list-drag-handle::after {
+	content: '';
+	position: absolute;
+	inset: -6px;
+}
+
+.list-drag-handle.visible {
+	opacity: 0.55;
+	pointer-events: auto;
+}
+
+.list-drag-handle.visible:hover {
+	opacity: 1;
+	background: var(--color-surface-2);
+}
+
+/* while a row is in flight the grip would just trail the pointer uselessly */
+.list-dragging .list-drag-handle {
+	display: none;
+}
+
+.list-dragging {
+	cursor: grabbing;
+	user-select: none;
+}
+
+.list-drop-indicator {
+	position: absolute;
+	height: 2px;
+	border-radius: 1px;
+	background: var(--color-accent);
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-1px);
+	/* glides between candidate rows instead of blinking from one to the next */
+	transition:
+		opacity 0.1s ease,
+		top 0.13s cubic-bezier(0.2, 0, 0, 1),
+		left 0.13s cubic-bezier(0.2, 0, 0, 1),
+		width 0.13s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.list-drop-indicator.visible {
+	opacity: 1;
+}
+
+/* the row being carried stays in place, dimmed, so the list keeps its shape
+   and the indicator reads as "it will land here" */
+.composer .writing .tiptap li {
+	transition: opacity 0.15s ease;
+}
+
+.composer .writing .tiptap li.is-dragging {
+	opacity: 0.35;
+}
+
+/* the grip is a pointer affordance; touch picks rows up with a long press */
+@media (hover: none) {
+	.list-drag-handle {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.list-drag-handle,
+	.list-drop-indicator,
+	.composer .writing .tiptap li {
+		transition: none;
+	}
+}
+
 /* task list (checkbox todos) */
 .composer .writing .tiptap ul[data-type='taskList'] {
 	list-style: none;
