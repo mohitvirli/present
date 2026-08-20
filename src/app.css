@@ -3257,14 +3257,6 @@ body:has(dialog[open]) .cursor-rail {
 	text-underline-offset: 2px;
 }
 
-/* underline mark (Cmd+U) — wavy and dimmed, in the editor and timeline previews */
-.composer .writing .tiptap u,
-.entry-card .preview-rich u {
-	text-decoration: underline wavy;
-	text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
-	text-underline-offset: 3px;
-}
-
 .composer .writing .tiptap hr {
 	border: none;
 	border-top: 1px solid var(--color-border);
