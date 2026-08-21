@@ -9,11 +9,20 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 // schema check in `canDrop` enforces rather than a hand-written rule.
 const ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
-// Holds the position of the row currently in flight, or null. Kept in plugin
-// state rather than as a class on the row's element: ProseMirror redraws nodes
-// mid-drag (a selection change is enough) and a hand-set class does not
-// survive that, while a decoration is re-applied on every redraw.
-const dragKey = new PluginKey<number | null>('listDragHandle');
+// The row in flight and where it would land. Kept in plugin state rather than
+// as classes on the elements: ProseMirror redraws nodes mid-drag (a selection
+// change is enough) and hand-set DOM does not survive that, while decorations
+// are re-applied on every redraw.
+type Airborne = {
+	/** the row being carried — hidden in the list while it rides the pointer */
+	source: number;
+	/** where the gap is held open, or null while over somewhere it can't land */
+	target: number | null;
+	/** how tall the gap must be to stand in for the row */
+	height: number;
+};
+
+const dragKey = new PluginKey<Airborne | null>('listDragHandle');
 
 const HANDLE_W = 16;
 const HANDLE_H = 20;
@@ -36,6 +45,9 @@ const DRAG_SLOP = 4;
 // rows sliding to their new places after a move
 const FLIP_MS = 220;
 const FLIP_EASE = 'cubic-bezier(0.2, 0, 0, 1)';
+// the gap moving from one slot to the next, mid-drag — shorter than a drop,
+// since it happens repeatedly while the pointer is still moving
+const GAP_MS = 150;
 const LONG_PRESS_MS = 420;
 const LONG_PRESS_SLOP = 8;
 const AUTOSCROLL_EDGE = 60;
@@ -118,7 +130,7 @@ function snapshotRows(view: EditorView): Shot[] {
 	view.state.doc.descendants((node, pos) => {
 		if (!ITEM_TYPES.has(node.type.name)) return true;
 		const dom = view.nodeDOM(pos);
-		if (dom instanceof HTMLElement) {
+		if (dom instanceof HTMLElement && !dom.classList.contains('is-dragging')) {
 			const r = dom.getBoundingClientRect();
 			if (r.bottom > -100 && r.top < limit) shots.push({ pos, top: r.top, left: r.left });
 		}
@@ -171,11 +183,45 @@ function playFlip(
 	}
 }
 
+// Rows animating from a remembered box to wherever they have just landed. Used
+// when the gap moves and the document itself has not changed, so a snapshot's
+// positions still name the same rows.
+function slideRows(view: EditorView, shots: Shot[]): Animation[] {
+	const running: Animation[] = [];
+	const animated: HTMLElement[] = [];
+	for (const shot of shots) {
+		const dom = view.nodeDOM(shot.pos);
+		if (!(dom instanceof HTMLElement)) continue;
+		if (animated.some((done) => done.contains(dom))) continue;
+		const r = dom.getBoundingClientRect();
+		const dx = shot.left - r.left;
+		const dy = shot.top - r.top;
+		if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+		running.push(
+			dom.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], {
+				duration: GAP_MS,
+				easing: FLIP_EASE
+			})
+		);
+		animated.push(dom);
+	}
+	return running;
+}
+
 // Insert first, then delete the source: the target position stays valid and
 // the source range is mapped through the insertion. `caretOffset` is the
 // caret's distance into the row, preserved so a keyboard move doesn't lose
 // the cursor.
-function moveItem(view: EditorView, item: Item, insertPos: number, caretOffset: number) {
+function moveItem(
+	view: EditorView,
+	item: Item,
+	insertPos: number,
+	caretOffset: number,
+	// A drop measures its own "before" — the rows while the gap still holds their
+	// places, and the airborne clone as the row's starting box — because by the
+	// time the move runs, both are gone.
+	pre?: { shots: Shot[]; fromRect: DOMRect | null }
+) {
 	const tr = view.state.tr;
 	tr.insert(insertPos, item.node);
 
@@ -194,9 +240,13 @@ function moveItem(view: EditorView, item: Item, insertPos: number, caretOffset: 
 	tr.setSelection(TextSelection.near(tr.doc.resolve(caret)));
 
 	const animate = !reducedMotion();
-	const shots = animate ? snapshotRows(view) : [];
-	const sourceDOM = animate ? view.nodeDOM(item.pos) : null;
-	const rect = sourceDOM instanceof HTMLElement ? sourceDOM.getBoundingClientRect() : null;
+	const shots = animate ? (pre?.shots ?? snapshotRows(view)) : [];
+	const sourceDOM = animate && !pre ? view.nodeDOM(item.pos) : null;
+	const rect = pre
+		? pre.fromRect
+		: sourceDOM instanceof HTMLElement
+			? sourceDOM.getBoundingClientRect()
+			: null;
 	const scrollX = window.scrollX;
 	const scrollY = window.scrollY;
 
@@ -238,6 +288,15 @@ type Drag = {
 	target: number | null;
 	/** a finger, not the grip — the row was lifted by long press */
 	touch: boolean;
+	/** the detached copy of the row that follows the pointer */
+	layer: HTMLElement | null;
+	/** pointer's offset into the row when it was picked up */
+	grabY: number;
+	/** the clone's own offset inside its layer, and the column it stays in */
+	layerDX: number;
+	layerDY: number;
+	colX: number;
+	height: number;
 	/** pointer origin, used to tell a real drag from a plain click on the grip */
 	originX: number;
 	originY: number;
@@ -249,13 +308,13 @@ type Drag = {
 class ListDragView {
 	private host: HTMLElement;
 	private handle: HTMLButtonElement;
-	private indicator: HTMLDivElement;
 	/** the row the grip is parked on — held as DOM, not a doc position, so an
 	 *  unrelated transaction can't strand it on a stale offset */
 	private hovered: HTMLElement | null = null;
 	private drag: Drag | null = null;
 	private pressTimer: ReturnType<typeof setTimeout> | null = null;
 	private scrollFrame: number | null = null;
+	private slides: Animation[] = [];
 
 	constructor(private view: EditorView) {
 		// `.tiptap-host` is the positioned wrapper the editor is mounted into;
@@ -276,10 +335,7 @@ class ListDragView {
 			'</svg>';
 		this.handle.addEventListener('pointerdown', this.onHandleDown);
 
-		this.indicator = document.createElement('div');
-		this.indicator.className = 'list-drop-indicator';
-
-		this.host.append(this.handle, this.indicator);
+		this.host.append(this.handle);
 
 		// Tracked on the document, not on view.dom: the grip is a sibling of the
 		// editor and can sit left of it, so reaching for it leaves view.dom and a
@@ -307,7 +363,6 @@ class ListDragView {
 		this.view.dom.removeEventListener('pointerdown', this.onDocDown);
 		this.view.dom.removeEventListener('touchmove', this.onTouchMove);
 		this.handle.remove();
-		this.indicator.remove();
 	}
 
 	// ---- handle ----------------------------------------------------------
@@ -416,6 +471,12 @@ class ListDragView {
 
 	private startDrag(item: Item, e: PointerEvent, capture: Element) {
 		const touch = e.pointerType !== 'mouse';
+		// measured before the row is hidden, while it is still in the list
+		const sourceDOM = itemDOM(this.view, item);
+		const rect = sourceDOM?.getBoundingClientRect();
+		const hostRect = this.host.getBoundingClientRect();
+		const lifted = sourceDOM && rect ? this.lift(sourceDOM) : null;
+
 		this.drag = {
 			item,
 			pointerId: e.pointerId,
@@ -425,10 +486,23 @@ class ListDragView {
 			originY: e.clientY,
 			moved: false,
 			x: e.clientX,
-			y: e.clientY
+			y: e.clientY,
+			layer: lifted?.el ?? null,
+			grabY: rect ? e.clientY - rect.top : 0,
+			layerDX: lifted?.dx ?? 0,
+			layerDY: lifted?.dy ?? 0,
+			colX: rect ? rect.left - hostRect.left : 0,
+			height: rect?.height ?? 0
 		};
-		this.view.dispatch(this.view.state.tr.setMeta(dragKey, item.pos));
+		this.view.dispatch(
+			this.view.state.tr.setMeta(dragKey, {
+				source: item.pos,
+				target: null,
+				height: this.drag.height
+			})
+		);
 		this.host.classList.add('list-dragging');
+		this.positionLayer();
 		// The press landed inside contenteditable, so the browser has put a caret
 		// in the row and raised the on-screen keyboard. Once the row is airborne
 		// that caret is neither wanted nor reachable — drop focus so the keyboard
@@ -448,16 +522,62 @@ class ListDragView {
 		// plain click on the grip into a move the user never asked for
 	}
 
+	// A detached copy of the row, so what the pointer carries is the row itself
+	// rather than a hint about it. The clone is wrapped in a copy of its list so
+	// bullets, numbers and checkboxes survive, and the layer carries `tiptap` so
+	// the editor's own typography applies to it unchanged.
+	private lift(sourceDOM: HTMLElement): { el: HTMLElement; dx: number; dy: number } {
+		const el = document.createElement('div');
+		el.className = 'list-drag-layer tiptap';
+		el.setAttribute('aria-hidden', 'true');
+
+		const list = sourceDOM.parentElement;
+		const wrap = document.createElement(list?.tagName ?? 'ul');
+		for (const attr of list?.attributes ?? []) wrap.setAttribute(attr.name, attr.value);
+		wrap.appendChild(sourceDOM.cloneNode(true));
+		el.appendChild(wrap);
+		el.style.width = `${(list ?? sourceDOM).getBoundingClientRect().width}px`;
+		this.host.appendChild(el);
+
+		// the clone sits inset from the layer by the list's own padding, which has
+		// to come back out of the placement for it to land over the original
+		const clone = wrap.firstElementChild;
+		const cloneRect = (clone ?? el).getBoundingClientRect();
+		const layerRect = el.getBoundingClientRect();
+		return { el, dx: cloneRect.left - layerRect.left, dy: cloneRect.top - layerRect.top };
+	}
+
+	// Vertical follow only: the row stays in its own column, the way a list
+	// reorder reads. Absolute rather than fixed, so a transformed ancestor
+	// can't strand it.
+	//
+	// Always call this *after* the gap has been placed. Opening the gap reflows
+	// the editor and can shift the host a few pixels; measuring first would
+	// leave the carried row that far off the pointer holding it until the next
+	// move nudged it back.
+	private positionLayer() {
+		const drag = this.drag;
+		if (!drag?.layer) return;
+		const hostRect = this.host.getBoundingClientRect();
+		const x = drag.colX - drag.layerDX;
+		const y = drag.y - drag.grabY - hostRect.top - drag.layerDY;
+		drag.layer.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+	}
+
 	private onDragMove = (e: PointerEvent) => {
 		if (!this.drag || e.pointerId !== this.drag.pointerId) return;
 		this.drag.x = e.clientX;
 		this.drag.y = e.clientY;
 		if (!this.drag.moved) {
 			const { originX, originY } = this.drag;
-			if (Math.hypot(e.clientX - originX, e.clientY - originY) < DRAG_SLOP) return;
+			if (Math.hypot(e.clientX - originX, e.clientY - originY) < DRAG_SLOP) {
+				this.positionLayer();
+				return;
+			}
 			this.drag.moved = true;
 		}
 		this.trackTarget(e.clientX, e.clientY);
+		this.positionLayer();
 	};
 
 	private onDragUp = (e: PointerEvent) => {
@@ -479,8 +599,8 @@ class ListDragView {
 	};
 
 	// Resolve the row under the pointer, pick the nearer of its two edges, and
-	// park the indicator there. An illegal drop clears the target so releasing
-	// is a no-op rather than a surprise.
+	// hold the gap open there. An illegal drop closes it so releasing is a no-op
+	// rather than a surprise.
 	private trackTarget(x: number, y: number) {
 		if (!this.drag) return;
 		this.drag.x = x;
@@ -507,20 +627,51 @@ class ListDragView {
 		const after = py > rect.top + rect.height / 2;
 		const insertPos = after ? over.pos + over.node.nodeSize : over.pos;
 		if (!canDrop(this.view.state, this.drag.item, insertPos)) return this.clearTarget();
+		this.setGap(insertPos);
+	}
 
-		this.drag.target = insertPos;
-		const settled = this.indicator.classList.contains('visible');
-		this.indicator.style.transition = settled ? '' : 'none';
-		const hostRect = this.host.getBoundingClientRect();
-		const box = dom.getBoundingClientRect();
-		this.indicator.style.left = `${box.left - hostRect.left}px`;
-		this.indicator.style.width = `${box.width}px`;
-		this.indicator.style.top = `${(after ? rect.bottom : rect.top) - hostRect.top}px`;
-		this.indicator.classList.add('visible');
-		if (!settled) {
-			void this.indicator.offsetWidth; // place it, then let it glide between targets
-			this.indicator.style.transition = '';
+	// One transaction per change of target, never one per pointer move. It
+	// carries no steps, so history ignores it.
+	private setGap(target: number | null) {
+		if (!this.drag || this.drag.target === target) return;
+		this.drag.target = target;
+		const air = dragKey.getState(this.view.state);
+		if (!air) return;
+
+		const animate = !reducedMotion();
+		// measured with any in-flight slide still applied, so a gap moved again
+		// mid-animation carries on from where it visibly is
+		const shots = animate ? snapshotRows(this.view) : [];
+		const gapWas = animate ? this.gapRect() : null;
+
+		this.view.dispatch(this.view.state.tr.setMeta(dragKey, { ...air, target }));
+		if (!animate) return;
+
+		// cancel only after the dispatch: the elements drop back to their
+		// untransformed boxes, which is what the new slide has to start from
+		this.cancelSlides();
+		this.slides = slideRows(this.view, shots);
+
+		// and the gap itself, which is a fresh element at each new slot
+		const gap = this.host.querySelector('.list-drop-gap');
+		const dy = gap && gapWas ? gapWas.top - gap.getBoundingClientRect().top : 0;
+		if (gap && Math.abs(dy) >= 1) {
+			this.slides.push(
+				gap.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], {
+					duration: GAP_MS,
+					easing: FLIP_EASE
+				})
+			);
 		}
+	}
+
+	private gapRect(): DOMRect | null {
+		return this.host.querySelector('.list-drop-gap')?.getBoundingClientRect() ?? null;
+	}
+
+	private cancelSlides() {
+		for (const slide of this.slides) slide.cancel();
+		this.slides = [];
 	}
 
 	// Only walked when the pointer resolves to no row at all, so the cost of
@@ -531,6 +682,7 @@ class ListDragView {
 			if (!ITEM_TYPES.has(node.type.name)) return true;
 			const dom = this.view.nodeDOM(pos);
 			if (!(dom instanceof HTMLElement)) return true;
+			if (dom.classList.contains('is-dragging')) return true; // it is in the air
 			const item = itemAt(this.view.state, pos + 1);
 			if (!item) return true;
 			const r = lineRect(dom);
@@ -542,8 +694,7 @@ class ListDragView {
 	}
 
 	private clearTarget() {
-		if (this.drag) this.drag.target = null;
-		this.indicator.classList.remove('visible');
+		this.setGap(null);
 	}
 
 	// Keep dragging usable in a document taller than the viewport.
@@ -559,6 +710,7 @@ class ListDragView {
 		if (dy && this.drag.moved) {
 			window.scrollBy(0, dy);
 			this.trackTarget(this.drag.x, this.drag.y);
+			this.positionLayer();
 		}
 		this.scrollFrame = requestAnimationFrame(this.autoScroll);
 	};
@@ -574,24 +726,40 @@ class ListDragView {
 		window.removeEventListener('pointercancel', this.onDragCancel);
 		window.removeEventListener('keydown', this.onDragKey, true);
 		this.host.classList.remove('list-dragging');
-		if (dragKey.getState(this.view.state) != null) {
-			this.view.dispatch(this.view.state.tr.setMeta(dragKey, null));
-		}
-		this.indicator.classList.remove('visible');
-		this.handle.classList.remove('visible');
-		this.hovered = null;
 
-		if (
+		const landing =
 			commit &&
 			drag.moved &&
 			drag.target !== null &&
-			canDrop(this.view.state, drag.item, drag.target)
-		) {
-			moveItem(this.view, drag.item, drag.target, 1);
+			canDrop(this.view.state, drag.item, drag.target);
+
+		// Measured while the gap still stands: the rows are already sitting where
+		// the move will leave them, so only the row itself has any distance to
+		// travel — from wherever the clone was released into its slot.
+		const animate = landing && !reducedMotion();
+		const shots = animate ? snapshotRows(this.view) : [];
+		const fromRect = animate ? (this.cloneRect(drag) ?? null) : null;
+		this.cancelSlides();
+
+		drag.layer?.remove();
+		if (dragKey.getState(this.view.state) != null) {
+			this.view.dispatch(this.view.state.tr.setMeta(dragKey, null));
+		}
+		this.handle.classList.remove('visible');
+		this.hovered = null;
+
+		if (landing && drag.target !== null) {
+			moveItem(this.view, drag.item, drag.target, 1, animate ? { shots, fromRect } : undefined);
 			// refocusing after a touch drop would summon the keyboard again for a
 			// gesture that was never about typing
 			if (!drag.touch) this.view.focus();
 		}
+	}
+
+	/** where the carried row actually is on screen, as its own box */
+	private cloneRect(drag: Drag): DOMRect | undefined {
+		const clone = drag.layer?.firstElementChild?.firstElementChild;
+		return clone?.getBoundingClientRect();
 	}
 }
 
@@ -607,26 +775,51 @@ export const ListDragHandle = Extension.create({
 
 	addProseMirrorPlugins() {
 		return [
-			new Plugin<number | null>({
+			new Plugin<Airborne | null>({
 				key: dragKey,
 				view: (view) => new ListDragView(view),
 				state: {
 					init: () => null,
-					apply: (tr, pos) => {
+					apply: (tr, air) => {
 						const meta = tr.getMeta(dragKey);
-						if (meta !== undefined) return meta as number | null;
-						return pos === null ? null : tr.mapping.map(pos);
+						if (meta !== undefined) return meta as Airborne | null;
+						if (!air) return null;
+						return {
+							...air,
+							source: tr.mapping.map(air.source),
+							target: air.target === null ? null : tr.mapping.map(air.target)
+						};
 					}
 				},
 				props: {
 					decorations(state) {
-						const pos = dragKey.getState(state);
-						if (pos == null) return null;
-						const node = state.doc.nodeAt(pos);
-						if (!node) return null;
-						return DecorationSet.create(state.doc, [
-							Decoration.node(pos, pos + node.nodeSize, { class: 'is-dragging' })
-						]);
+						const air = dragKey.getState(state);
+						if (!air) return null;
+						const decos: Decoration[] = [];
+						const node = state.doc.nodeAt(air.source);
+						// the row itself is out of the list, riding the pointer
+						if (node) {
+							decos.push(
+								Decoration.node(air.source, air.source + node.nodeSize, { class: 'is-dragging' })
+							);
+						}
+						// and a gap of its exact height stands where it would land, so the
+						// list shows the shape it will have rather than describing it
+						if (air.target !== null) {
+							decos.push(
+								Decoration.widget(
+									air.target,
+									() => {
+										const gap = document.createElement('li');
+										gap.className = 'list-drop-gap';
+										gap.style.height = `${air.height}px`;
+										return gap;
+									},
+									{ key: `gap-${air.target}-${air.height}`, side: -1 }
+								)
+							);
+						}
+						return DecorationSet.create(state.doc, decos);
 					}
 				}
 			})
