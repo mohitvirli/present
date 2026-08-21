@@ -15,12 +15,20 @@
 	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { initSync, fullSync, syncState } from '$lib/sync.svelte';
+	import { initAnalytics, trackPageView } from '$lib/analytics';
 	import { initTheme } from '$lib/theme.svelte';
 	import '../app.css';
 	let { children } = $props();
 
 	// flip the theme at the day/night boundary while the tab stays open
 	onMount(initTheme);
+
+	// Google Analytics: load gtag once, then report the first view by hand —
+	// afterNavigate only fires for later client-side navigations.
+	onMount(() => {
+		initAnalytics();
+		trackPageView(page.url);
+	});
 
 	// kick off sync on load (if enabled) and whenever the tab regains focus
 	onMount(() => {
@@ -67,7 +75,10 @@
 
 	// Lenis keeps its own scroll position across client navigations, so opening
 	// an entry can land mid-page. Reset to the top after every navigation.
-	afterNavigate(({ to }) => {
+	afterNavigate(({ to, type }) => {
+		// `enter` is the initial load, already reported in onMount
+		if (to && type !== 'enter') trackPageView(to.url);
+
 		// the timeline restores its own saved position once entries render; only
 		// reset to top for other destinations (e.g. opening an entry).
 		if (to?.url.pathname === '/') return;
