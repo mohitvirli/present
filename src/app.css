@@ -933,6 +933,226 @@ a {
 	letter-spacing: 0.04em;
 }
 
+/* `@date` chips — a real day reference, not a decorative stamp (tiptap-date.ts).
+   Same pill shape as the quirks so the two read as one family, but the label is
+   regenerated on every render, so this text is never selectable or editable. */
+.date-ref {
+	display: inline-block;
+	font-size: 0.62em;
+	line-height: 1.4;
+	padding: 0.1em 0.45em;
+	border-radius: 4px;
+	background: var(--color-accent-soft);
+	color: var(--color-accent);
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: 'tnum';
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	vertical-align: baseline;
+	position: relative;
+	top: -0.05em;
+	user-select: none;
+	cursor: default;
+}
+
+/* selecting the atom (click, or shift+arrow into it) — ProseMirror's own class */
+.date-ref.ProseMirror-selectednode {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 1px;
+}
+
+/* ----- `@` menu: inline popover for the dated shorthands + the date picker --- */
+
+/* zero-size inline anchor — the popover hangs off it absolutely, so opening the
+   menu never reflows the line of prose it was triggered from */
+.at-anchor {
+	position: relative;
+	display: inline-block;
+	width: 0;
+	height: 0;
+	vertical-align: baseline;
+}
+
+.at-menu {
+	position: absolute;
+	top: 1.5em;
+	left: 0;
+	z-index: 20;
+	min-width: 210px;
+	padding: 4px;
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: 10px;
+	box-shadow: var(--shadow-sm);
+	font-size: 0.82rem;
+	user-select: none;
+}
+
+/* caret near a viewport edge — open upward / leftward rather than clip */
+.at-menu.flip {
+	top: auto;
+	bottom: 1.6em;
+}
+
+.at-menu.shift {
+	left: auto;
+	right: 0;
+}
+
+.at-item {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	width: 100%;
+	padding: 5px 8px;
+	border: none;
+	border-radius: 6px;
+	background: none;
+	font-family: inherit;
+	font-size: inherit;
+	color: var(--color-text-muted);
+	text-align: left;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.at-item:hover,
+.at-item.active {
+	background: var(--color-surface-2);
+	color: var(--color-text);
+}
+
+.at-label {
+	font-weight: 500;
+}
+
+.at-hint {
+	font-size: 0.72em;
+	color: var(--color-text-muted);
+	font-variant-numeric: tabular-nums;
+	opacity: 0.75;
+}
+
+.at-item.active .at-hint {
+	color: var(--color-accent);
+	opacity: 1;
+}
+
+/* ----- the picker: same month grid the gutter calendar renders ----- */
+.at-menu.at-picker {
+	min-width: 232px;
+	padding: 8px;
+}
+
+.at-cal-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.4rem;
+}
+
+.at-cal-title {
+	font-size: 0.68rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.09em;
+	color: var(--color-text-muted);
+}
+
+.at-cal-nav {
+	display: inline-flex;
+	gap: 2px;
+}
+
+.at-cal-nav button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--color-text-muted);
+	font-family: inherit;
+	font-size: 0.9rem;
+	line-height: 1;
+	opacity: 0.7;
+	cursor: pointer;
+}
+
+.at-cal-nav button:hover {
+	background: var(--color-surface-2);
+	color: var(--color-text);
+	opacity: 1;
+}
+
+.at-cal-grid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+
+.at-cal-dow {
+	text-align: center;
+	font-size: 0.58rem;
+	font-weight: 600;
+	color: var(--color-text-muted);
+	opacity: 0.6;
+	padding-bottom: 0.3rem;
+}
+
+.at-cal-day {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 26px;
+	border: none;
+	border-radius: 7px;
+	background: transparent;
+	font-family: inherit;
+	font-size: 0.74rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--color-text-muted);
+	cursor: pointer;
+}
+
+.at-cal-day.blank {
+	cursor: default;
+}
+
+.at-cal-day:hover {
+	background: var(--color-surface-2);
+	color: var(--color-text);
+}
+
+/* today keeps the gutter calendar's ring; the keyboard cursor takes the fill,
+   so the two never read as the same state */
+.at-cal-day.today {
+	color: var(--color-accent);
+	font-weight: 700;
+	box-shadow: inset 0 0 0 1.5px var(--color-accent);
+}
+
+.at-cal-day.active {
+	background: var(--color-accent);
+	color: var(--color-accent-text);
+	font-weight: 700;
+	box-shadow: none;
+}
+
+.at-cal-foot {
+	margin-top: 0.45rem;
+	padding-top: 0.4rem;
+	border-top: 1px solid var(--color-border);
+	font-size: 0.66rem;
+	color: var(--color-text-muted);
+	text-align: center;
+}
+
 /* keyboard focus should always reveal the control */
 .header-action:focus-visible {
 	opacity: 1;
@@ -1825,6 +2045,25 @@ main {
 		color: var(--color-accent);
 	}
 
+	/* a day something points at but nothing is written on — the calendar's echo
+	   of the timeline's dashed ghost dots. An outline, never a heat fill: no
+	   entry exists here to give it weight. */
+	.month-cal .cal-day.ghost {
+		opacity: 1;
+		cursor: pointer;
+		box-shadow: inset 0 0 0 1px var(--color-border-strong);
+	}
+
+	.month-cal .cal-day.ghost:hover {
+		color: var(--color-accent);
+		box-shadow: inset 0 0 0 1px var(--color-accent);
+	}
+
+	/* referenced *and* written on: keep the heat colour, add the ring */
+	.month-cal .cal-day.has.ghost {
+		box-shadow: inset 0 0 0 1px var(--color-border-strong);
+	}
+
 	/* today is the only cell that gets a box, entry or not */
 	.month-cal .cal-day.today {
 		opacity: 1;
@@ -2114,6 +2353,77 @@ body:has(dialog[open]) .cursor-rail {
 	position: relative;
 }
 
+/* ---------- ghost rows ----------
+   A date chip projected onto the day it points at. Dashed and unfilled, because
+   it is a reference to a day — not an entry sitting on it. */
+.day-group > ul .ghost-card {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	padding: 0.6rem 0.85rem;
+	border: 1px dashed var(--color-border-strong);
+	border-radius: 12px;
+	background: none;
+	text-decoration: none;
+	color: var(--color-text-muted);
+	opacity: 0.62;
+	transition:
+		opacity 0.25s ease,
+		border-color 0.25s ease;
+}
+
+.day-group > ul .ghost-card:hover,
+.entry-row:focus-within .ghost-card {
+	opacity: 0.95;
+	border-color: var(--color-accent);
+}
+
+.ghost-meta {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.32rem;
+	font-size: 0.72rem;
+	letter-spacing: 0.02em;
+}
+
+.ghost-from {
+	opacity: 0.7;
+}
+
+.ghost-source {
+	color: var(--color-text);
+	font-weight: 600;
+}
+
+.ghost-excerpt {
+	font-size: 0.84rem;
+	line-height: 1.5;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* ---------- "Ahead": the boundary between referenced future and lived past --- */
+.ahead-divider {
+	list-style: none;
+	/* 36px = same content-column indent as .month-label and the day chips.
+	   Without it the bare <li> sits at the timeline's left edge, straddling
+	   the rail. */
+	margin: 0 0 1.1rem 36px;
+	font-size: 0.62rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	color: var(--color-text-muted);
+	opacity: 0.55;
+}
+
+/* days that haven't happened yet read a touch lighter than lived ones */
+.day-group.ahead .day-label {
+	opacity: 0.8;
+}
+
 .day-group > ul .entry-card::before {
 	content: '';
 	position: absolute;
@@ -2158,6 +2468,10 @@ body:has(dialog[open]) .cursor-rail {
 	}
 
 	.month-label {
+		margin-left: 20px;
+	}
+
+	.ahead-divider {
 		margin-left: 20px;
 	}
 

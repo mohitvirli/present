@@ -8,6 +8,8 @@
 	import { TaskList, TaskItemBracket } from '$lib/tiptap-task';
 	import { SuggestionDecoration } from '$lib/tiptap-suggestion';
 	import { Quirks, QuirkTime, QuirkDate } from '$lib/tiptap-quirks';
+	import { DateRef } from '$lib/tiptap-date';
+	import { AtMenu } from '$lib/tiptap-at-menu';
 	import { ListDragHandle } from '$lib/tiptap-list-drag';
 	import {
 		Tables,
@@ -85,7 +87,9 @@
 				SuggestionDecoration,
 				QuirkTime,
 				QuirkDate,
-				Quirks
+				DateRef,
+				Quirks,
+				AtMenu
 			],
 			content: content ?? '',
 			editable,
