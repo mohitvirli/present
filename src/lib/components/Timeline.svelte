@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Entry } from '$lib/db';
+	import { dateRefLabel, dayKeyOf, daysFromToday } from '$lib/day';
+	import { dateRefContext, firstHeading } from '$lib/tiptap';
 	import { clearSearch } from '$lib/search.svelte';
 	import { calendarSettings } from '$lib/settings.svelte';
 	import { scroll } from '$lib/scroll.svelte';
@@ -69,30 +71,80 @@
 	let calRef = $state<MonthCalendar | null>(null);
 	let animated = false;
 
-	function dayKey(ts: number): string {
-		return new Date(ts).toISOString().slice(0, 10);
-	}
+	const todayKey = dayKeyOf();
 
 	function dayLabel(key: string): string {
-		const today = new Date().toISOString().slice(0, 10);
-		const yest = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-		if (key === today) return 'Today';
-		if (key === yest) return 'Yesterday';
-		return new Date(key).toLocaleDateString(undefined, {
-			month: 'short',
-			day: 'numeric'
-		});
+		const diff = daysFromToday(key);
+		if (diff === 0) return 'Today';
+		if (diff === 1) return 'Tomorrow';
+		if (diff === -1) return 'Yesterday';
+		// built from parts — new Date('2026-08-19') is UTC midnight, which
+		// toLocaleDateString renders as the previous day west of the meridian
+		const d = new Date(
+			Number(key.slice(0, 4)),
+			Number(key.slice(5, 7)) - 1,
+			Number(key.slice(8, 10))
+		);
+		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+	}
+
+	// A date chip projected onto the day it points at. The entry itself stays put
+	// in its own day group — this is a second, translucent appearance of it.
+	type Ghost = { id: string; day: string; source: Entry };
+	type DayBucket = { entries: Entry[]; ghosts: Ghost[] };
+
+	const ghosts = $derived.by(() => {
+		const out: Ghost[] = [];
+		for (const e of entries) {
+			const own = dayKeyOf(e.createdAt);
+			for (const day of e.metadata.dates ?? []) {
+				// a chip pointing at its own day adds nothing the entry doesn't already say
+				if (day === own) continue;
+				out.push({ id: `${e.id}:${day}`, day, source: e });
+			}
+		}
+		return out;
+	});
+
+	function ghostTitle(entry: Entry): string {
+		return entry.metadata.title || firstHeading(entry.content) || 'Untitled';
+	}
+
+	// the quoted sentence — resolved at render, so collapsed days never pay for it
+	function ghostExcerpt(g: Ghost): string {
+		const text = dateRefContext(g.source.content, g.day);
+		// a paragraph that is nothing but the chip quotes back as just the date,
+		// which tells the reader nothing they can't see from the day heading
+		return text === dateRefLabel(g.day) ? '' : text;
+	}
+
+	function dayCount(b: DayBucket): string {
+		const parts: string[] = [];
+		if (b.entries.length)
+			parts.push(`${b.entries.length} ${b.entries.length === 1 ? 'entry' : 'entries'}`);
+		if (b.ghosts.length) parts.push(`${b.ghosts.length} planned`);
+		return parts.join(' · ');
 	}
 
 	const groups = $derived.by(() => {
-		const map = new Map<string, Entry[]>();
-		for (const e of entries) {
-			const k = dayKey(e.createdAt);
-			if (!map.has(k)) map.set(k, []);
-			map.get(k)!.push(e);
-		}
-		return [...map.entries()];
+		const map = new Map<string, DayBucket>();
+		const bucket = (k: string) => {
+			let b = map.get(k);
+			if (!b) map.set(k, (b = { entries: [], ghosts: [] }));
+			return b;
+		};
+		for (const e of entries) bucket(dayKeyOf(e.createdAt)).entries.push(e);
+		for (const g of ghosts) bucket(g.day).ghosts.push(g);
+		// entries arrive newest-first, so insertion order used to be enough — but a
+		// ghost-only day has no entry to seed its position, so the keys need a real
+		// sort or a referenced future day lands wherever it happened to be added
+		return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0));
 	});
+
+	// does anything sit ahead of today? drives the "Ahead" divider at the top of
+	// the list — it labels the whole future region, so it can't live inside a
+	// month group (it would render below that month's own header)
+	const hasAhead = $derived(groups.some(([d]) => d > todayKey));
 
 	// month demarcation: day groups bucket into months, and every month except
 	// the current one gets a big collapsible header. The current month's days
@@ -103,19 +155,21 @@
 			key: string;
 			current: boolean;
 			count: number;
+			ghosts: number;
 			words: number;
-			days: [string, Entry[]][];
+			days: [string, DayBucket][];
 		}[] = [];
-		for (const [day, items] of groups) {
+		for (const [day, b] of groups) {
 			const mk = day.slice(0, 7);
 			let m = out.at(-1);
 			if (!m || m.key !== mk) {
-				m = { key: mk, current: mk === currentMonth, count: 0, words: 0, days: [] };
+				m = { key: mk, current: mk === currentMonth, count: 0, ghosts: 0, words: 0, days: [] };
 				out.push(m);
 			}
-			m.days.push([day, items]);
-			m.count += items.length;
-			for (const e of items) m.words += e.metadata.wordCount ?? 0;
+			m.days.push([day, b]);
+			m.count += b.entries.length;
+			m.ghosts += b.ghosts.length;
+			for (const e of b.entries) m.words += e.metadata.wordCount ?? 0;
 		}
 		return out;
 	});
@@ -601,8 +655,43 @@
 	{/if}
 	<ol class="timeline" bind:this={timelineEl}>
 		<li class="rail" aria-hidden="true" in:gScaleY={{ duration: 0.8 }}></li>
-		{#snippet dayGroup(day: string, items: Entry[])}
-			<li class="day-group" class:collapsed={collapsed.has(day)} data-day={day}>
+		{#if hasAhead}
+			<li class="ahead-divider"><span>Ahead</span></li>
+		{/if}
+		{#snippet ghostRow(g: Ghost)}
+			{@const excerpt = ghostExcerpt(g)}
+			<li class="entry-row ghost-row">
+				<!-- a ghost is a pointer back to the entry that mentioned this day -->
+				<a class="ghost-card" href="/entry?id={g.source.id}">
+					<span class="ghost-meta">
+						<svg
+							viewBox="0 0 24 24"
+							width="12"
+							height="12"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path d="M9 14 4 9l5-5" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+						</svg>
+						<span class="ghost-from">from</span>
+						<span class="ghost-source">{ghostTitle(g.source)}</span>
+					</span>
+					{#if excerpt}<span class="ghost-excerpt">{excerpt}</span>{/if}
+				</a>
+			</li>
+		{/snippet}
+
+		{#snippet dayGroup(day: string, bucket: DayBucket)}
+			<li
+				class="day-group"
+				class:collapsed={collapsed.has(day)}
+				class:ahead={day > todayKey}
+				data-day={day}
+			>
 				<h2
 					class="day-label"
 					onclick={() => toggle(day)}
@@ -624,19 +713,20 @@
 						</svg>
 					</span>
 					<span class="day-date">{dayLabel(day)}</span>
-					<span class="day-count-inline"
-						>{items.length} {items.length === 1 ? 'entry' : 'entries'}</span
-					>
+					<span class="day-count-inline">{dayCount(bucket)}</span>
 				</h2>
-				<span class="day-count-rail">{items.length} {items.length === 1 ? 'entry' : 'entries'}</span
-				>
+				<span class="day-count-rail">{dayCount(bucket)}</span>
 				{#if !collapsed.has(day)}
 					<ul transition:collapse>
-						{#each items as entry (entry.id)}
+						{#each bucket.entries as entry (entry.id)}
 							<li class="entry-row">
 								<EntryCard {entry} />
 								{@render pinToggle(entry)}
 							</li>
+						{/each}
+						<!-- ghosts sort after the day's real entries: they carry no time -->
+						{#each bucket.ghosts as g (g.id)}
+							{@render ghostRow(g)}
 						{/each}
 					</ul>
 				{/if}
@@ -645,8 +735,8 @@
 
 		{#each months as m (m.key)}
 			{#if m.current}
-				{#each m.days as [day, items] (day)}
-					{@render dayGroup(day, items)}
+				{#each m.days as [day, bucket] (day)}
+					{@render dayGroup(day, bucket)}
 				{/each}
 			{:else}
 				{@const label = monthLabel(m.key)}
@@ -666,9 +756,12 @@
 								>{label.name} <span class="month-year">{label.year}</span></span
 							>
 							<span class="month-sub">
-								{m.count}
-								{m.count === 1 ? 'entry' : 'entries'} · {m.days.length}
-								{m.days.length === 1 ? 'day' : 'days'}{#if m.words > 0}
+								<!-- a month can now hold ghost-only days, so the entry count may be 0 -->
+								{#if m.count > 0}{m.count}
+									{m.count === 1 ? 'entry' : 'entries'} ·
+								{/if}{m.days.length}
+								{m.days.length === 1 ? 'day' : 'days'}{#if m.ghosts > 0}
+									&nbsp;· {m.ghosts} planned{/if}{#if m.words > 0}
 									&nbsp;· {m.words.toLocaleString()} {m.words === 1 ? 'word' : 'words'}{/if}
 							</span>
 						</span>
@@ -677,8 +770,8 @@
 						<!-- height animation paced to the dot flight: expand matches the
 						     0.45s pour-out, collapse the 0.38s converge -->
 						<ol class="month-days" in:collapse={{ duration: 450 }} out:collapse={{ duration: 380 }}>
-							{#each m.days as [day, items] (day)}
-								{@render dayGroup(day, items)}
+							{#each m.days as [day, bucket] (day)}
+								{@render dayGroup(day, bucket)}
 							{/each}
 						</ol>
 					{/if}

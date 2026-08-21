@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import { wordCount } from './tiptap';
+import { relativeDayKey } from './day';
+import { extractDates, wordCount } from './tiptap';
 
 export type Mood = 'great' | 'good' | 'neutral' | 'low' | 'bad';
 
@@ -13,6 +14,7 @@ export interface EntryMetadata {
 	tags?: string[]; // free-form labels
 	location?: string; // optional, user-typed for now
 	wordCount?: number; // derived on save
+	dates?: string[]; // derived on save — day keys referenced by @date chips
 	// reserved for future AI integration (Phase 7)
 	aiSummary?: string;
 	aiTags?: string[];
@@ -65,6 +67,18 @@ function plain<T>(value: T): T {
 	return JSON.parse(JSON.stringify(value));
 }
 
+// wordCount and dates are read *out of* the content on every content write —
+// callers never supply them, and metadata-only writes must leave them alone.
+function applyDerived(meta: EntryMetadata, content: EntryContent): EntryMetadata {
+	meta.wordCount = wordCount(content);
+	const dates = extractDates(content);
+	// absent rather than empty: the repo's convention is that a missing key means
+	// "none", and it keeps the common case out of every stored record
+	if (dates.length) meta.dates = dates;
+	else delete meta.dates;
+	return meta;
+}
+
 export async function addEntry(
 	content: EntryContent,
 	metadata: EntryMetadata = {}
@@ -74,7 +88,7 @@ export async function addEntry(
 	const entry: Entry = {
 		id: crypto.randomUUID(),
 		content: plain(content),
-		metadata: { ...plain(metadata), wordCount: wordCount(content) },
+		metadata: applyDerived({ ...plain(metadata) }, content),
 		createdAt: now,
 		updatedAt: now,
 		touchedAt: now
@@ -105,7 +119,7 @@ export async function updateEntry(
 		touchedAt: now
 	};
 	if (patch.content !== undefined) {
-		merged.metadata.wordCount = wordCount(patch.content);
+		applyDerived(merged.metadata, patch.content);
 	}
 	await db.put('entries', merged);
 	return merged;
@@ -188,7 +202,15 @@ function bullet(text: string): JSONContent {
 
 // at = absolute timestamp; offsetMs = how far before "now". One of the two sets
 // the entry's date, which drives timeline order (newest first) and day grouping.
-type Seed = { content: JSONContent; metadata: EntryMetadata; offsetMs?: number; at?: number };
+// content may be a thunk: the date-chip seed resolves "tomorrow" when seeding
+// actually runs. Evaluated at module load it would go stale in a tab left open
+// across midnight.
+type Seed = {
+	content: JSONContent | (() => JSONContent);
+	metadata: EntryMetadata;
+	offsetMs?: number;
+	at?: number;
+};
 
 const DAY = 86_400_000;
 // The day Present was first committed — the origin-story entry is dated here.
@@ -222,6 +244,37 @@ const TUTORIAL_SEEDS: Seed[] = [
 			]
 		},
 		metadata: { tutorial: true }
+	},
+	{
+		offsetMs: 90_000,
+		content: () => ({
+			type: 'doc',
+			content: [
+				{
+					type: 'paragraph',
+					content: [
+						{ type: 'text', text: 'Type ' },
+						{ type: 'text', marks: [{ type: 'bold' }], text: '@' },
+						{ type: 'text', text: ' for a date — or ' },
+						{ type: 'text', marks: [{ type: 'code' }], text: '@tomorrow' },
+						{ type: 'text', text: ' straight out, like ' },
+						{ type: 'dateRef', attrs: { day: relativeDayKey(1) } },
+						{ type: 'text', text: '.' }
+					]
+				},
+				{
+					type: 'paragraph',
+					content: [
+						{
+							type: 'text',
+							marks: [{ type: 'italic' }],
+							text: 'Any day you mention shows up on the timeline, waiting for you.'
+						}
+					]
+				}
+			]
+		}),
+		metadata: { title: 'Mention a day', tutorial: true }
 	},
 	{
 		offsetMs: DAY,
@@ -310,10 +363,11 @@ export async function seedTutorialEntries(): Promise<void> {
 	await Promise.all(
 		TUTORIAL_SEEDS.map((seed) => {
 			const ts = seed.at ?? base - (seed.offsetMs ?? 0);
+			const content = typeof seed.content === 'function' ? seed.content() : seed.content;
 			const entry: Entry = {
 				id: crypto.randomUUID(),
-				content: plain(seed.content),
-				metadata: { ...plain(seed.metadata), wordCount: wordCount(seed.content) },
+				content: plain(content),
+				metadata: applyDerived({ ...plain(seed.metadata) }, content),
 				createdAt: ts,
 				updatedAt: ts
 			};

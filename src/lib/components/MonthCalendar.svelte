@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Entry } from '$lib/db';
 	import { gFade } from '$lib/transitions';
+	import { dayKeyOf } from '$lib/day';
+	import { DOW, monthCells, monthTitle, stepMonth } from '$lib/calendar';
 	import gsap from 'gsap';
 
 	// Desktop-only month grid in the right gutter (CSS hides it < 1240px).
@@ -9,39 +11,44 @@
 	// user just paged with the arrows.
 	let { entries, onJump }: { entries: Entry[]; onJump: (dayKey: string) => void } = $props();
 
-	// UTC ISO keys throughout — must match the timeline's dayKey() grouping
-	const todayKey = new Date().toISOString().slice(0, 10);
+	// UTC ISO keys throughout — dayKeyOf is the same helper the timeline groups
+	// by and the editor's date chips store, so the three can't drift apart
+	const todayKey = dayKeyOf();
 	let viewMonth = $state(todayKey.slice(0, 7)); // 'YYYY-MM'
 	let manualUntil = 0; // arrow navigation pauses scroll-sync briefly
+
+	// Days a date chip points at that hold no entry of their own — the calendar's
+	// echo of the timeline's ghost rows. Mirrors the timeline's rule exactly: a
+	// chip pointing at its own entry's day says nothing new.
+	const ghostDays = $derived.by(() => {
+		const s = new Set<string>();
+		for (const e of entries) {
+			const own = dayKeyOf(e.createdAt);
+			for (const d of e.metadata.dates ?? []) if (d !== own) s.add(d);
+		}
+		return s;
+	});
+
+	function cellTitle(count: number, ghost: boolean): string {
+		const parts: string[] = [];
+		if (count > 0) parts.push(`${count} ${count === 1 ? 'entry' : 'entries'}`);
+		if (ghost) parts.push('planned');
+		return parts.join(' · ');
+	}
 
 	const dayCounts = $derived.by(() => {
 		const m = new Map<string, number>();
 		for (const e of entries) {
-			const k = new Date(e.createdAt).toISOString().slice(0, 10);
+			const k = dayKeyOf(e.createdAt);
 			m.set(k, (m.get(k) ?? 0) + 1);
 		}
 		return m;
 	});
 
-	const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-	const cells = $derived.by(() => {
-		const y = Number(viewMonth.slice(0, 4));
-		const mo = Number(viewMonth.slice(5, 7));
-		const lead = new Date(Date.UTC(y, mo - 1, 1)).getUTCDay(); // Sunday-first
-		const days = new Date(Date.UTC(y, mo, 0)).getUTCDate();
-		const out: ({ key: string; n: number } | null)[] = Array(lead).fill(null);
-		for (let d = 1; d <= days; d++)
-			out.push({ key: `${viewMonth}-${String(d).padStart(2, '0')}`, n: d });
-		return out;
-	});
-
-	const title = $derived.by(() => {
-		// construct from parts — new Date('2026-06') parses as UTC midnight and
-		// could render the previous month in negative-offset timezones
-		const d = new Date(Number(viewMonth.slice(0, 4)), Number(viewMonth.slice(5, 7)) - 1, 1);
-		return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-	});
+	// grid + heading math lives in calendar.ts — the editor's `@date` picker
+	// renders the same month, and a second copy here would be free to drift
+	const cells = $derived(monthCells(viewMonth));
+	const title = $derived(monthTitle(viewMonth));
 
 	// direction of the last month change, for the title's slide: 1 = forward
 	// in time, -1 = back — set before every viewMonth write
@@ -53,10 +60,7 @@
 	}
 
 	function step(delta: number) {
-		const d = new Date(
-			Date.UTC(Number(viewMonth.slice(0, 4)), Number(viewMonth.slice(5, 7)) - 1 + delta, 1)
-		);
-		setMonth(d.toISOString().slice(0, 7));
+		setMonth(stepMonth(viewMonth, delta));
 		manualUntil = performance.now() + 3000;
 	}
 
@@ -171,12 +175,16 @@
 				<span class="cal-day blank"></span>
 			{:else}
 				{@const count = dayCounts.get(cell.key) ?? 0}
-				{#if count > 0}
+				{@const ghost = ghostDays.has(cell.key)}
+				{#if count > 0 || ghost}
+					<!-- a ghost-only day is still a real group on the timeline, so it
+					     stays clickable and jumpToDay resolves it unchanged -->
 					<button
 						type="button"
-						class="cal-day has heat-{Math.min(count, 4)}"
+						class="cal-day {count > 0 ? `has heat-${Math.min(count, 4)}` : ''}"
+						class:ghost
 						class:today={cell.key === todayKey}
-						title={`${count} ${count === 1 ? 'entry' : 'entries'}`}
+						title={cellTitle(count, ghost)}
 						aria-label={`Jump to ${cell.key}`}
 						onclick={() => onJump(cell.key)}
 					>
