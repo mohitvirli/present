@@ -16,7 +16,7 @@
 	} from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
 	import { aiSettings, micSettings, spellcheckSettings } from '$lib/settings.svelte';
-	import { extractText } from '$lib/tiptap';
+	import { extractText, extractTags } from '$lib/tiptap';
 	import { createDictation } from '$lib/dictation.svelte';
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { suggestionKey } from '$lib/tiptap-suggestion';
@@ -234,7 +234,12 @@
 				createdAt = e.createdAt;
 				// pinned notes are living documents — open them straight into edit mode
 				readonly = !e.metadata.pinned;
-				openContext = !!(e.metadata.title?.trim() || (e.metadata.tags && e.metadata.tags.length));
+				// Tags written in the body as `#` chips are visible where they were
+				// written, so they don't earn an open panel — only a title or a tag
+				// typed into the Context header itself does.
+				const inBody = new Set(extractTags(content).map((t) => t.toLowerCase()));
+				const headerTags = (e.metadata.tags ?? []).filter((t) => !inBody.has(t.toLowerCase()));
+				openContext = !!(e.metadata.title?.trim() || headerTags.length);
 				composer.pinned = !!meta.pinned;
 				composer.pin = togglePin;
 				// count this open as a view — metadata-only write, so the entry's
@@ -305,6 +310,15 @@
 	$effect(() => {
 		meta.tags = [...tags];
 	});
+
+	// A tag picked from the editor's `#` menu joins the chip list — quietly. The
+	// chip is already visible in the prose where it was written, so the Context
+	// panel stays however the writer left it.
+	function addTagFromBody(tag: string) {
+		const t = tag.trim();
+		if (!t || tags.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+		tags = [...tags, t];
+	}
 
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -774,6 +788,9 @@
 				editable={!readonly}
 				{placeholder}
 				onChange={onEditorChange}
+				tagVocabulary={allTags}
+				entryTags={tags}
+				onTag={addTagFromBody}
 			/>
 		{/if}
 	</section>

@@ -10,6 +10,8 @@
 	import { Quirks, QuirkTime, QuirkDate } from '$lib/tiptap-quirks';
 	import { DateRef } from '$lib/tiptap-date';
 	import { AtMenu } from '$lib/tiptap-at-menu';
+	import { TagRef } from '$lib/tiptap-tag';
+	import { TagMenu } from '$lib/tiptap-tag-menu';
 	import { ListDragHandle } from '$lib/tiptap-list-drag';
 	import {
 		Tables,
@@ -27,12 +29,21 @@
 		editable = true,
 		placeholder = '',
 		onChange,
+		tagVocabulary = [],
+		entryTags = [],
+		onTag,
 		editor = $bindable()
 	}: {
 		content?: JSONContent | string | null;
 		editable?: boolean;
 		placeholder?: string;
 		onChange?: (doc: JSONContent, text: string) => void;
+		/** Tags the journal already knows, offered by the `#` menu. */
+		tagVocabulary?: { tag: string; count: number }[];
+		/** Tags already on this entry, so the `#` menu can mark them as added. */
+		entryTags?: string[];
+		/** A tag picked from the `#` menu, to mirror into the entry's chip list. */
+		onTag?: (tag: string) => void;
 		editor?: Editor;
 	} = $props();
 
@@ -89,7 +100,15 @@
 				QuirkDate,
 				DateRef,
 				Quirks,
-				AtMenu
+				AtMenu,
+				TagRef,
+				// getters, not values: the vocabulary loads async and the entry's own
+				// tags change while typing, but the extension is built once
+				TagMenu.configure({
+					vocabulary: () => tagVocabulary,
+					current: () => entryTags,
+					onPick: (tag: string) => onTag?.(tag)
+				})
 			],
 			content: content ?? '',
 			editable,

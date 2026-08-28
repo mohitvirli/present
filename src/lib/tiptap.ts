@@ -21,6 +21,7 @@ export function extractText(doc: JSONContent | string | null | undefined): strin
 		// dateRef is an atom with a generated label and no text child — previews,
 		// word counts and the search index would otherwise see a blank gap
 		else if (node.type === 'dateRef') out += dateRefLabel(node.attrs?.day);
+		else if (node.type === 'tagRef') out += `#${node.attrs?.tag ?? ''}`;
 		node.content?.forEach(walk);
 		if (node.type && blocks.includes(node.type)) out += '\n';
 	};
@@ -36,6 +37,22 @@ export function extractDates(doc: JSONContent | string | null | undefined): stri
 	const found = new Set<string>();
 	const walk = (node: JSONContent) => {
 		if (node.type === 'dateRef' && isDayKey(node.attrs?.day)) found.add(node.attrs!.day);
+		node.content?.forEach(walk);
+	};
+	walk(doc);
+	return [...found].sort();
+}
+
+// Tags written into the prose as `tagRef` chips (tiptap-tag-menu.ts). The entry's
+// own `metadata.tags` stays the source of truth for the chip list — this is only
+// used to tell a body-written tag from one typed into the Context header, which
+// decides whether that header opens on load.
+export function extractTags(doc: JSONContent | string | null | undefined): string[] {
+	if (doc == null || typeof doc === 'string') return []; // legacy entries predate chips
+	const found = new Set<string>();
+	const walk = (node: JSONContent) => {
+		const tag = typeof node.attrs?.tag === 'string' ? node.attrs.tag.trim() : '';
+		if (node.type === 'tagRef' && tag) found.add(tag);
 		node.content?.forEach(walk);
 	};
 	walk(doc);

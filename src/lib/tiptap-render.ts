@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { TaskList, TaskItemBracket } from './tiptap-task';
 import { QuirkTime, QuirkDate } from './tiptap-quirks';
 import { DateRef } from './tiptap-date';
+import { TagRef } from './tiptap-tag';
 import { TablesStatic, TextAlignment } from './tiptap-table';
 
 // Same schema the editor uses, so timeline previews render exactly as written
@@ -15,6 +16,7 @@ const RENDER_EXTENSIONS = [
 	QuirkTime,
 	QuirkDate,
 	DateRef,
+	TagRef,
 	TablesStatic,
 	TextAlignment
 ];
