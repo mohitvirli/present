@@ -2,6 +2,7 @@ import type { JSONContent } from '@tiptap/core';
 import { toBlob } from 'html-to-image';
 import { tagStyle } from './tag-color';
 import { renderEntryHTML } from './tiptap-render';
+import { downloadBlob } from './download';
 
 function esc(s: string): string {
 	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -12,15 +13,6 @@ export type ShareResult = 'shared' | 'dismissed' | 'copied' | 'downloaded';
 // The last rendered capture, kept so a follow-up "download" action can reuse
 // it without re-rendering the card.
 let lastCapture: { blob: Blob; name: string } | null = null;
-
-function downloadBlob(blob: Blob, name: string) {
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = name;
-	a.click();
-	URL.revokeObjectURL(url);
-}
 
 // Downloads the most recent capture (e.g. when the header button morphs into
 // a download affordance after a copy). Returns false if nothing is cached.
