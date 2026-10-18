@@ -3855,7 +3855,14 @@ body:has(dialog[open]) .cursor-rail {
 	animation: dictation-spin 0.8s linear infinite;
 }
 
-/* data card — export / import */
+/* data card — export / import. Three actions and two lines of copy in the same
+   footprint as the sync card above it, so the section reads as one block
+   rather than a wall: smaller type, tighter rows, buttons on one line. */
+.data-card {
+	gap: 0.45rem;
+	padding: 0.75rem 0.85rem 0.8rem;
+}
+
 .data-card .sync-card-icon {
 	color: var(--color-text-muted);
 }
@@ -3864,11 +3871,31 @@ body:has(dialog[open]) .cursor-rail {
 	border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
 }
 
-.data-card-warn {
-	margin: -0.3rem 0 0;
-	font-size: 0.73rem;
+.data-card .sync-card-title {
+	font-size: 0.86rem;
+}
+
+.data-card .sync-card-desc {
+	font-size: 0.74rem;
 	line-height: 1.4;
+}
+
+.data-card-warn {
+	margin: -0.15rem 0 0;
+	font-size: 0.7rem;
+	line-height: 1.35;
 	color: color-mix(in srgb, var(--color-danger) 70%, var(--color-text-muted));
+}
+
+.data-card .sync-card-actions {
+	gap: 0.4rem;
+	margin-top: 0.15rem;
+}
+
+.data-card .sync-btn {
+	padding: 0.34rem 0.6rem;
+	font-size: 0.74rem;
+	white-space: nowrap;
 }
 
 /* the Import button clicks this; it is never shown */

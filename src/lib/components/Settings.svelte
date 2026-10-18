@@ -357,13 +357,11 @@
 			{#if dataNote}
 				{dataNote}
 			{:else}
-				Every entry in one file — JSON to restore from, Markdown to read.{#if syncState.enabled}
-					Export syncs first, so your other devices are included.{/if}
+				Every entry in one file — JSON restores, Markdown reads.{#if syncState.enabled}
+					Syncs first.{/if}
 			{/if}
 		</p>
-		<p class="data-card-warn">
-			The file isn't encrypted — anyone who opens it can read your journal.
-		</p>
+		<p class="data-card-warn">Not encrypted — keep the file somewhere safe.</p>
 
 		<div class="sync-card-actions">
 			<button
