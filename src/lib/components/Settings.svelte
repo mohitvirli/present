@@ -155,11 +155,21 @@
 		dataNote = '';
 		const planned = plan.create.length + plan.update.length;
 		try {
-			const { applied, failed } = await applyImport(plan, { clearSeeded });
-			if (!planned) note('idle', 'Everything in that file was already here.');
-			else if (failed)
+			const { applied, failed, purged } = await applyImport(plan, { clearSeeded });
+			const removed = purged
+				? `${purged} welcome ${purged === 1 ? 'entry' : 'entries'} removed`
+				: '';
+			if (failed)
 				note('error', `${applied} of ${planned} restored — ${failed} could not be written.`);
-			else note('idle', `${plan.create.length} added, ${plan.update.length} updated.`);
+			else if (!planned)
+				note('idle', removed ? `${removed}.` : 'Everything in that file was already here.');
+			else
+				note(
+					'idle',
+					[`${plan.create.length} added`, `${plan.update.length} updated`, removed]
+						.filter(Boolean)
+						.join(', ') + '.'
+				);
 		} catch (e) {
 			note('error', message(e, 'Could not restore that file.'));
 		}
@@ -518,7 +528,7 @@
 			<strong>{pending.create.length} new</strong>,
 			<strong>{pending.update.length} updated</strong>,
 			{pending.skip} already up to date{#if pending.rejected}, {pending.rejected} unreadable{/if}.
-			Entries are added or updated — nothing is deleted.
+			Entries are added or updated — nothing of yours is deleted.
 		</p>
 		{#if seededCount > 0}
 			<label class="ai-toggle data-seeded">

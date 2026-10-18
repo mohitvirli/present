@@ -155,8 +155,10 @@ function blocks(nodes: Nodes): string[] {
 
 export function renderEntryMarkdown(content: JSONContent | string | null | undefined): string {
 	if (content == null) return '';
-	// legacy plain/markdown entries are already text
-	if (typeof content === 'string') return content.trim();
+	// legacy plain/markdown entries are already text — but a bare `---` line in
+	// one would read as the next entry's frontmatter fence, so rewrite it the way
+	// horizontalRule is written
+	if (typeof content === 'string') return content.trim().replace(/^[ \t]*---+[ \t]*$/gm, '***');
 	try {
 		return blocks(content.content).join('\n\n').trim();
 	} catch {

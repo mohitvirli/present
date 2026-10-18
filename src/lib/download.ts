@@ -13,7 +13,9 @@ export function downloadBlob(blob: Blob, name: string): void {
 	a.href = url;
 	a.download = name;
 	a.click();
-	URL.revokeObjectURL(url);
+	// some browsers read the blob asynchronously after the click; revoking in the
+	// same tick can cut a large export short
+	setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 // Hands the file to the OS. On touch devices the native sheet is the natural

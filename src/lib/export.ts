@@ -70,7 +70,12 @@ export async function buildJSONExport(): Promise<ExportFile> {
 async function syncFirst(): Promise<boolean | null> {
 	if (!syncState.enabled) return null;
 	try {
+		// no-ops when a pass is already in flight (e.g. the one initSync starts),
+		// so wait that pass out rather than reporting a sync we didn't do
 		await fullSync();
+		for (let i = 0; i < 300 && syncState.status === 'syncing'; i++) {
+			await new Promise((r) => setTimeout(r, 100));
+		}
 	} catch {
 		return false;
 	}

@@ -36,6 +36,7 @@ export interface ImportPlan {
 export interface ImportOutcome {
 	applied: number;
 	failed: number;
+	purged: number; // seeded welcome entries removed
 }
 
 // The sync clock: any write bumps touchedAt, while updatedAt only tracks content
@@ -152,7 +153,8 @@ export async function applyImport(
 ): Promise<ImportOutcome> {
 	// before the writes: a seed sharing an id with a row in the file is already
 	// excluded from removableSeeded, so nothing the file carries is lost
-	if (opts.clearSeeded) await purgeEntries(plan.removableSeeded);
+	const purged = opts.clearSeeded ? plan.removableSeeded.length : 0;
+	if (purged) await purgeEntries(plan.removableSeeded);
 
 	let applied = 0;
 	let failed = 0;
@@ -167,9 +169,9 @@ export async function applyImport(
 		}
 	}
 
-	if (applied) {
-		syncState.rev += 1; // open views re-read, same signal pull() uses
-		queueSync(); // push the restored entries to the account, if sync is on
-	}
-	return { applied, failed };
+	// a purge with no writes still changed the store — without the bump the
+	// timeline keeps rendering entries that no longer exist
+	if (applied || purged) syncState.rev += 1; // same signal pull() uses
+	if (applied) queueSync(); // push the restored entries, if sync is on
+	return { applied, failed, purged };
 }
