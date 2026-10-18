@@ -12,6 +12,7 @@
 
 import { dayKeyOf } from './day';
 import { listEntries, type Entry } from './db';
+import { entryFrontmatter, renderEntryMarkdown } from './tiptap-markdown';
 import { saveFile, type SaveResult } from './download';
 import { fullSync, syncState } from './sync.svelte';
 
@@ -19,8 +20,7 @@ import { fullSync, syncState } from './sync.svelte';
 // and must keep reading every version that ever shipped.
 export const EXPORT_FORMAT_VERSION = 1;
 
-// Markdown joins in phase 2.
-export type ExportFormat = 'json';
+export type ExportFormat = 'json' | 'markdown';
 
 export interface ExportBundle {
 	app: 'present';
@@ -78,8 +78,27 @@ async function syncFirst(): Promise<boolean | null> {
 	return syncState.status !== 'error';
 }
 
+// One file, every entry, newest first. Markdown carries no ids and cannot be
+// imported back — it's the readable copy, not the restore format.
+export async function buildMarkdownExport(): Promise<ExportFile> {
+	const entries = await listEntries();
+	const docs = entries.map((entry) => {
+		const front = entryFrontmatter({
+			...entry.metadata,
+			day: dayKeyOf(entry.createdAt),
+			created: entry.createdAt,
+			updated: entry.updatedAt
+		});
+		const body = renderEntryMarkdown(entry.content);
+		return `---\n${front}\n---\n\n${body}`;
+	});
+	const blob = new Blob([`${docs.join('\n\n')}\n`], { type: 'text/markdown' });
+	return { blob, name: `present-export-${dayKeyOf()}.md`, entryCount: entries.length };
+}
+
 const BUILDERS: Record<ExportFormat, () => Promise<ExportFile>> = {
-	json: buildJSONExport
+	json: buildJSONExport,
+	markdown: buildMarkdownExport
 };
 
 export async function exportAll(format: ExportFormat = 'json'): Promise<ExportResult> {
