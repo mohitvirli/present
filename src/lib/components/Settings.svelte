@@ -1,13 +1,6 @@
 <script lang="ts">
 	import gsap from 'gsap';
-	import {
-		THEMES,
-		THEME_BY_ID,
-		PALETTES,
-		theme,
-		setTheme,
-		setAutoTheme
-	} from '$lib/theme.svelte';
+	import { THEMES, THEME_BY_ID, PALETTES, theme, setTheme, setAutoTheme } from '$lib/theme.svelte';
 	import {
 		aiSettings,
 		micSettings,
@@ -26,6 +19,8 @@
 		disableSync,
 		deleteSyncAccount
 	} from '$lib/sync.svelte';
+	import { exportAll, type ExportFormat } from '$lib/export';
+	import { applyImport, planImport, type ImportPlan } from '$lib/import';
 
 	let deleteDialog = $state<HTMLDialogElement | null>(null);
 
@@ -34,9 +29,9 @@
 		if (ok) closeDeleteDialog();
 	}
 	let dialog = $state<HTMLDialogElement | null>(null);
+	let importDialog = $state<HTMLDialogElement | null>(null);
 
-	function open() {
-		const d = dialog;
+	function show(d: HTMLDialogElement | null) {
 		if (!d) return;
 		d.showModal();
 		gsap.fromTo(
@@ -46,8 +41,7 @@
 		);
 	}
 
-	function close() {
-		const d = dialog;
+	function hide(d: HTMLDialogElement | null, done?: () => void) {
 		if (!d) return;
 		gsap.to(d, {
 			autoAlpha: 0,
@@ -58,36 +52,15 @@
 			onComplete: () => {
 				d.close();
 				gsap.set(d, { clearProps: 'all' });
+				done?.();
 			}
 		});
 	}
 
-	function openDeleteDialog() {
-		const d = deleteDialog;
-		if (!d) return;
-		d.showModal();
-		gsap.fromTo(
-			d,
-			{ autoAlpha: 0, y: 10, scale: 0.97 },
-			{ autoAlpha: 1, y: 0, scale: 1, duration: 0.24, ease: 'power3.out' }
-		);
-	}
-
-	function closeDeleteDialog() {
-		const d = deleteDialog;
-		if (!d) return;
-		gsap.to(d, {
-			autoAlpha: 0,
-			y: 10,
-			scale: 0.97,
-			duration: 0.16,
-			ease: 'power2.in',
-			onComplete: () => {
-				d.close();
-				gsap.set(d, { clearProps: 'all' });
-			}
-		});
-	}
+	const open = () => show(dialog);
+	const close = () => hide(dialog);
+	const openDeleteDialog = () => show(deleteDialog);
+	const closeDeleteDialog = () => hide(deleteDialog);
 
 	async function handleEnableSync() {
 		await enableSync();
@@ -100,6 +73,105 @@
 		await signInSync();
 		if (syncState.status !== 'error') {
 			close();
+		}
+	}
+
+	// --- data: export / import ---
+
+	// The card's description line doubles as the status line, the way the sync
+	// card's does — there is no toast primitive in the app.
+	let dataState = $state<'idle' | 'working' | 'error'>('idle');
+	let dataNote = $state('');
+	let noteTimer: ReturnType<typeof setTimeout> | null = null;
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let pending = $state<ImportPlan | null>(null);
+	let seededCount = $state(0);
+	let clearSeeded = $state(false);
+
+	function note(state: 'idle' | 'error', text: string) {
+		dataState = state;
+		dataNote = text;
+		if (noteTimer) clearTimeout(noteTimer);
+		noteTimer = setTimeout(() => {
+			dataState = 'idle';
+			dataNote = '';
+		}, 6000);
+	}
+
+	function message(e: unknown, fallback: string): string {
+		return e instanceof Error && e.message ? e.message : fallback;
+	}
+
+	const entryCount = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
+
+	async function handleExport(format: ExportFormat) {
+		if (dataState === 'working') return;
+		dataState = 'working';
+		dataNote = '';
+		try {
+			const res = await exportAll(format);
+			// a dismissed share sheet is a choice, not a failure
+			if (res.saved === 'dismissed') note('idle', '');
+			else
+				note(
+					'idle',
+					`${entryCount(res.entryCount)} saved${res.synced === false ? ' — this device only, sync failed' : ''}.`
+				);
+		} catch (e) {
+			note('error', message(e, 'Could not export your entries.'));
+		}
+	}
+
+	async function handleImportFile(event: Event & { currentTarget: HTMLInputElement }) {
+		const input = event.currentTarget;
+		const file = input.files?.[0];
+		// reset first, or picking the same file twice does nothing the second time
+		input.value = '';
+		if (!file) return;
+		dataState = 'working';
+		dataNote = '';
+		try {
+			const plan = await planImport(file);
+			seededCount = plan.removableSeeded.length;
+			clearSeeded = seededCount > 0;
+			pending = plan;
+			dataState = 'idle';
+			show(importDialog);
+		} catch (e) {
+			note('error', message(e, 'Could not read that file.'));
+		}
+	}
+
+	function cancelImport() {
+		// the dialog reads from `pending`, so clear it only once it's gone
+		hide(importDialog, () => (pending = null));
+	}
+
+	async function confirmImport() {
+		const plan = pending;
+		if (!plan) return;
+		hide(importDialog, () => (pending = null));
+		dataState = 'working';
+		dataNote = '';
+		const planned = plan.create.length + plan.update.length;
+		try {
+			const { applied, failed, purged } = await applyImport(plan, { clearSeeded });
+			const removed = purged
+				? `${purged} welcome ${purged === 1 ? 'entry' : 'entries'} removed`
+				: '';
+			if (failed)
+				note('error', `${applied} of ${planned} restored — ${failed} could not be written.`);
+			else if (!planned)
+				note('idle', removed ? `${removed}.` : 'Everything in that file was already here.');
+			else
+				note(
+					'idle',
+					[`${plan.create.length} added`, `${plan.update.length} updated`, removed]
+						.filter(Boolean)
+						.join(', ') + '.'
+				);
+		} catch (e) {
+			note('error', message(e, 'Could not restore that file.'));
 		}
 	}
 </script>
@@ -266,13 +338,82 @@
 		{/if}
 	</section>
 
+	<h3 class="settings-subhead">Data</h3>
+	<section class="sync-card data-card" class:is-error={dataState === 'error'}>
+		<header class="sync-card-head">
+			<span class="sync-card-icon" aria-hidden="true">
+				<svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+					<path d="M7 10l5 5 5-5" />
+					<path d="M12 15V3" />
+				</svg>
+			</span>
+			<span class="sync-card-title">Your journal</span>
+			{#if dataState === 'working'}
+				<span class="sync-pill sync-pill-muted">Working…</span>
+			{/if}
+		</header>
+
+		<p class="sync-card-desc" aria-live="polite">
+			{#if dataNote}
+				{dataNote}
+			{:else}
+				Every entry in one file — JSON restores, Markdown reads.{#if syncState.enabled}
+					Syncs first.{/if}
+			{/if}
+		</p>
+		<p class="data-card-warn">Not encrypted — keep the file somewhere safe.</p>
+
+		<div class="sync-card-actions">
+			<button
+				class="sync-btn primary"
+				onclick={() => handleExport('json')}
+				disabled={dataState === 'working'}
+			>
+				Export JSON
+			</button>
+			<button
+				class="sync-btn ghost"
+				onclick={() => handleExport('markdown')}
+				disabled={dataState === 'working'}
+			>
+				Export Markdown
+			</button>
+			<button
+				class="sync-btn ghost"
+				onclick={() => fileInput?.click()}
+				disabled={dataState === 'working'}
+			>
+				Import JSON
+			</button>
+		</div>
+
+		<!-- the button above is the control; this only carries the file -->
+		<input
+			bind:this={fileInput}
+			class="data-file"
+			type="file"
+			accept="application/json,.json"
+			tabindex="-1"
+			aria-hidden="true"
+			onchange={handleImportFile}
+		/>
+	</section>
+
 	<h3 class="settings-subhead">Theme</h3>
 	<label class="ai-toggle theme-auto-row">
 		<span class="ai-toggle-text">
 			<span class="ai-toggle-title">Auto day &amp; night</span>
-			<span class="ai-toggle-sub">
-				Same palette all day — light from 6am, dark from 6pm.
-			</span>
+			<span class="ai-toggle-sub"> Same palette all day — light from 6am, dark from 6pm. </span>
 		</span>
 		<input
 			type="checkbox"
@@ -369,5 +510,40 @@
 	<div class="sync-confirm-actions">
 		<button class="sync-btn ghost" type="button" onclick={closeDeleteDialog}>Cancel</button>
 		<button class="sync-btn danger" type="button" onclick={handleDelete}>Yes, delete</button>
+	</div>
+</dialog>
+
+<dialog
+	bind:this={importDialog}
+	class="confirm-dialog"
+	aria-labelledby="import-title"
+	oncancel={(e) => {
+		e.preventDefault();
+		cancelImport();
+	}}
+>
+	<h2 id="import-title">Restore from this file?</h2>
+	{#if pending}
+		<p class="sync-confirm-text">
+			<strong>{pending.create.length} new</strong>,
+			<strong>{pending.update.length} updated</strong>,
+			{pending.skip} already up to date{#if pending.rejected}, {pending.rejected} unreadable{/if}.
+			Entries are added or updated — nothing of yours is deleted.
+		</p>
+		{#if seededCount > 0}
+			<label class="ai-toggle data-seeded">
+				<span class="ai-toggle-text">
+					<span class="ai-toggle-title">Remove the welcome entries</span>
+					<span class="ai-toggle-sub">
+						Clears the {seededCount} example {seededCount === 1 ? 'entry' : 'entries'} this app seeded.
+					</span>
+				</span>
+				<input type="checkbox" role="switch" class="switch" bind:checked={clearSeeded} />
+			</label>
+		{/if}
+	{/if}
+	<div class="sync-confirm-actions">
+		<button class="sync-btn ghost" type="button" onclick={cancelImport}>Cancel</button>
+		<button class="sync-btn primary" type="button" onclick={confirmImport}>Restore</button>
 	</div>
 </dialog>

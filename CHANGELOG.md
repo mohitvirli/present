@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Export your journal**: a Data section in Settings writes every entry out as
+  one file — JSON to restore from, or Markdown to read. With sync on it pulls
+  first, so the file holds the whole account rather than one device's copy.
+  The file is plain and unencrypted, which the card says in as many words.
+- **Import a JSON export**: the restore path for a dead device or a cleared
+  browser profile, since sync is not a backup — the server only ever holds
+  ciphertext keyed to your passkey. Picking a file shows what it would do
+  (new, updated, already up to date) before anything is written, and an import
+  only ever adds or updates: it never deletes. Entries that exist on both sides
+  resolve the way sync resolves them, newest write wins.
+- Restoring into a fresh install can clear the seeded welcome entries, but only
+  the ones your backup doesn't contain.
+
 ## [1.1.0] - 2026-06-09
 
 ### Added
