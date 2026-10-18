@@ -376,6 +376,16 @@ export async function seedTutorialEntries(): Promise<void> {
 	);
 }
 
+// Hard-delete by id, no tombstone. Only for entries the user never wrote — the
+// seeded tutorial examples an import is clearing out — because a tombstone
+// would propagate the deletion to every other device.
+export async function purgeEntries(ids: string[]): Promise<void> {
+	if (!ids.length) return;
+	const db = await getDB();
+	const tx = db.transaction('entries', 'readwrite');
+	await Promise.all([...ids.map((id) => tx.store.delete(id)), tx.done]);
+}
+
 export async function clearTutorialEntries(): Promise<void> {
 	const db = await getDB();
 	const all = await db.getAll('entries');

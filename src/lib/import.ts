@@ -14,7 +14,7 @@
 // planImport() is pure: it reads, validates and counts, and writes nothing, so
 // the UI can show what a file would do before anything happens.
 
-import { getEntry, listForSync, putRemote, clearTutorialEntries, type Entry } from './db';
+import { getEntry, listForSync, purgeEntries, putRemote, type Entry } from './db';
 import { EXPORT_FORMAT_VERSION } from './export';
 import { queueSync, syncState } from './sync.svelte';
 
@@ -27,6 +27,10 @@ export interface ImportPlan {
 	update: Entry[]; // id present, the file's copy is newer
 	skip: number; // id present, local copy is same-or-newer
 	rejected: number; // rows that failed validation, or tombstones
+	// Seeded welcome entries the file doesn't contain, so clearing them loses
+	// nothing. Seeds the file DOES carry are left alone: a skipped row isn't
+	// rewritten, so deleting it here would delete it for good.
+	removableSeeded: string[];
 }
 
 export interface ImportOutcome {
@@ -97,8 +101,11 @@ export async function planImport(file: File): Promise<ImportPlan> {
 		create: [],
 		update: [],
 		skip: 0,
-		rejected: 0
+		rejected: 0,
+		removableSeeded: []
 	};
+
+	const fileIds = new Set<string>();
 
 	for (const row of bundle.entries) {
 		const result = entrySchema.safeParse(row);
@@ -123,29 +130,29 @@ export async function planImport(file: File): Promise<ImportPlan> {
 			updatedAt,
 			...(touchedAt === undefined ? {} : { touchedAt })
 		};
+		fileIds.add(id);
 		const local = await getEntry(id);
 		if (!local) plan.create.push(incoming);
 		else if (clock(incoming) > clock(local)) plan.update.push(incoming);
 		else plan.skip += 1;
 	}
 
-	return plan;
-}
+	plan.removableSeeded = (await listForSync())
+		.filter((e) => !e.deleted && e.metadata?.tutorial && !fileIds.has(e.id))
+		.map((e) => e.id);
 
-// Live entries seeded by the first-run tutorial. A restore into a fresh install
-// would otherwise leave the welcome entries mixed into a real journal.
-export async function countTutorialEntries(): Promise<number> {
-	const all = await listForSync();
-	return all.filter((e) => !e.deleted && e.metadata?.tutorial).length;
+	return plan;
 }
 
 // Writes the plan. Idempotent: running the same file twice leaves the second run
 // with nothing to do.
 export async function applyImport(
 	plan: ImportPlan,
-	opts: { clearTutorial?: boolean } = {}
+	opts: { clearSeeded?: boolean } = {}
 ): Promise<ImportOutcome> {
-	if (opts.clearTutorial) await clearTutorialEntries();
+	// before the writes: a seed sharing an id with a row in the file is already
+	// excluded from removableSeeded, so nothing the file carries is lost
+	if (opts.clearSeeded) await purgeEntries(plan.removableSeeded);
 
 	let applied = 0;
 	let failed = 0;

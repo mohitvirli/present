@@ -3854,3 +3854,28 @@ body:has(dialog[open]) .cursor-rail {
 .header-action .spin {
 	animation: dictation-spin 0.8s linear infinite;
 }
+
+/* data card — export / import */
+.data-card .sync-card-icon {
+	color: var(--color-text-muted);
+}
+
+.data-card.is-error {
+	border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+}
+
+.data-card-warn {
+	margin: -0.3rem 0 0;
+	font-size: 0.73rem;
+	line-height: 1.4;
+	color: color-mix(in srgb, var(--color-danger) 70%, var(--color-text-muted));
+}
+
+/* the Import button clicks this; it is never shown */
+.data-file {
+	display: none;
+}
+
+.data-seeded {
+	margin: -0.6rem 0 1.2rem;
+}
