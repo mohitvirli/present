@@ -6,11 +6,14 @@
 		micSettings,
 		calendarSettings,
 		spellcheckSettings,
+		locationSettings,
 		setAiEnabled,
 		setMicEnabled,
 		setCalendarEnabled,
-		setSpellcheckEnabled
+		setSpellcheckEnabled,
+		setLocationEnabled
 	} from '$lib/settings.svelte';
+	import { currentPosition, geolocationSupported, permissionState } from '$lib/location';
 	import {
 		syncState,
 		syncSupported,
@@ -23,6 +26,20 @@
 	import { applyImport, planImport, type ImportPlan } from '$lib/import';
 
 	let deleteDialog = $state<HTMLDialogElement | null>(null);
+
+	// Turning location on is the moment to ask — a click with clear intent — so
+	// the composer's first silent capture finds permission already granted.
+	let locationNote = $state('');
+	async function handleLocationToggle(on: boolean) {
+		locationNote = '';
+		setLocationEnabled(on);
+		if (!on) return;
+		await currentPosition({ prompt: true });
+		if ((await permissionState()) === 'denied') {
+			setLocationEnabled(false);
+			locationNote = 'Location is blocked for this site in your browser settings.';
+		}
+	}
 
 	async function handleDelete() {
 		const ok = await deleteSyncAccount();
@@ -252,6 +269,24 @@
 				onchange={(e) => setCalendarEnabled(e.currentTarget.checked)}
 			/>
 		</label>
+
+		{#if geolocationSupported()}
+			<label class="ai-toggle">
+				<span class="ai-toggle-text">
+					<span class="ai-toggle-title">Add location</span>
+					<span class="ai-toggle-sub"
+						>{locationNote || 'Quietly note where each new entry was written.'}</span
+					>
+				</span>
+				<input
+					type="checkbox"
+					role="switch"
+					class="switch"
+					checked={locationSettings.enabled}
+					onchange={(e) => handleLocationToggle(e.currentTarget.checked)}
+				/>
+			</label>
+		{/if}
 
 		<label class="ai-toggle">
 			<span class="ai-toggle-text">

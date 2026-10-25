@@ -4,6 +4,7 @@ const AI_KEY = 'present:ai-enabled';
 const MIC_KEY = 'present:mic-enabled';
 const CAL_KEY = 'present:calendar-enabled';
 const SPELL_KEY = 'present:spellcheck-enabled';
+const LOC_KEY = 'present:location-enabled';
 
 // AI features are opt-in: off unless the user explicitly enabled them before.
 function initialAi(): boolean {
@@ -29,7 +30,14 @@ function initialSpellcheck(): boolean {
 	return localStorage.getItem(SPELL_KEY) !== '0';
 }
 
-export const aiSettings = $state<{ enabled: boolean }>({ enabled: initialAi() });
+// Silent location capture defaults on: the browser asks once, on the first new
+// entry, and stays quiet after that.
+function initialLocation(): boolean {
+	if (!browser) return true;
+	return localStorage.getItem(LOC_KEY) !== '0';
+}
+
+export const aiSettings =$state<{ enabled: boolean }>({ enabled: initialAi() });
 export const micSettings = $state<{ enabled: boolean }>({ enabled: initialMic() });
 export const calendarSettings = $state<{ enabled: boolean }>({ enabled: initialCalendar() });
 export const spellcheckSettings = $state<{ enabled: boolean }>({ enabled: initialSpellcheck() });
@@ -52,4 +60,11 @@ export function setCalendarEnabled(on: boolean): void {
 export function setSpellcheckEnabled(on: boolean): void {
 	spellcheckSettings.enabled = on;
 	if (browser) localStorage.setItem(SPELL_KEY, on ? '1' : '0');
+}
+
+export const locationSettings = $state<{ enabled: boolean }>({ enabled: initialLocation() });
+
+export function setLocationEnabled(on: boolean): void {
+	locationSettings.enabled = on;
+	if (browser) localStorage.setItem(LOC_KEY, on ? '1' : '0');
 }
