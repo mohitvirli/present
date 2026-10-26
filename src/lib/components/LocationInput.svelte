@@ -195,8 +195,13 @@
 	function commitRename() {
 		if (!renaming || !place) return;
 		const name = renameDraft.trim();
-		if (name && name !== place.name) place = { ...place, name, source: 'manual' };
 		renaming = false;
+		// clearing the name removes the place — the only way out for a hand-typed
+		// one, which has no city or coordinates to click into the picker
+		if (!name) {
+			place = undefined;
+			onremove?.();
+		} else if (name !== place.name) place = { ...place, name, source: 'manual' };
 	}
 
 	function optionLabel(o: Option): string {
@@ -339,12 +344,11 @@
 			{/if}
 		</div>
 	{:else if place}
-		<!-- [pin] Name, City · lat, lon — the name renames, everything else re-picks -->
+		<!-- Name, City · lat, lon — the name renames, the rest re-picks -->
 		<!-- name + city never split across lines; only the coordinates wrap -->
 		<div class="loc-line" in:gIn={{ y: -3, duration: 0.36 }}>
 			{#if readonly}
 				<span class="loc-main">
-					<span class="loc-icon">{@render pinIcon()}</span>
 					{#if href}
 						<!-- external Google Maps link, not an app route -->
 						<!-- eslint-disable svelte/no-navigation-without-resolve -->
@@ -364,12 +368,6 @@
 				{#if coords}<span class="loc-coords">{coords}</span>{/if}
 			{:else}
 				<span class="loc-main">
-					<button
-						type="button"
-						class="loc-icon loc-change"
-						aria-label="Change place"
-						onclick={openPicker}>{@render pinIcon()}</button
-					>
 					{#if renaming}
 						<input
 							bind:this={renameEl}
@@ -485,14 +483,8 @@
 		text-align: left;
 	}
 
-	.loc-icon {
-		display: inline-flex;
-		align-self: center;
-		margin-right: 0.4rem;
-		color: var(--color-accent);
-	}
-
-	.loc-name {
+	/* .loc-line prefix: outranks the button reset, so editing stays bold too */
+	.loc-line .loc-name {
 		max-width: 16rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -570,9 +562,6 @@
 	@media (max-width: 480px) {
 		.loc-line .loc-coords::before {
 			content: none;
-		}
-		.loc-line .loc-coords {
-			padding-left: calc(13px + 0.4rem); /* under the name, past the pin */
 		}
 	}
 
