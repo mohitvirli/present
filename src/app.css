@@ -2627,10 +2627,17 @@ body:has(dialog[open]) .cursor-rail {
 	color: var(--color-text);
 }
 
+/* one line, always: the place is the only part that gives way (ellipsis) */
 .entry-card .entry-meta {
 	display: flex;
 	align-items: baseline;
 	gap: 0.5rem;
+	min-width: 0;
+	white-space: nowrap;
+}
+
+.entry-card .entry-meta > * {
+	flex: none;
 }
 
 .entry-card time {
@@ -2645,21 +2652,10 @@ body:has(dialog[open]) .cursor-rail {
 	color: var(--color-accent);
 }
 
-.entry-card .duration {
-	font-size: 0.72rem;
-	font-weight: 500;
-	color: var(--color-text-muted);
-	opacity: 0.75;
-}
-
-.entry-card .duration::before {
-	content: '·';
-	margin-right: 0.5rem;
-	opacity: 0.7;
-}
-
-.entry-card .place {
-	max-width: 12rem;
+.entry-card .entry-meta > .place {
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 14rem;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -2676,6 +2672,10 @@ body:has(dialog[open]) .cursor-rail {
 }
 
 .entry-card .views {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	font-variant-numeric: tabular-nums;
 	font-size: 0.72rem;
 	font-weight: 500;
 	color: var(--color-text-muted);
@@ -2684,7 +2684,7 @@ body:has(dialog[open]) .cursor-rail {
 
 .entry-card .views::before {
 	content: '·';
-	margin-right: 0.5rem;
+	margin-right: 0.25rem; /* + the flex gap = the other separators' 0.5rem */
 	opacity: 0.7;
 }
 
