@@ -22,11 +22,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		metadata: e.metadata ?? {},
 		created_at: new Date(e.createdAt).toISOString(),
 		updated_at: new Date(e.updatedAt).toISOString(),
+		touched_at: new Date(e.touchedAt ?? e.updatedAt).toISOString(),
 		deleted: !!e.deleted
 	}));
 
 	// Guarded upsert (server-side last-write-wins): a row is only written when its
-	// updated_at is newer than what's stored, so a stale device can't resurrect an
+	// touched_at is newer than what's stored, so a stale device can't resurrect an
 	// entry another device tombstoned. See sync_push_entries in supabase/schema.sql.
 	const { error: dbErr } = await supabaseAdmin().rpc('sync_push_entries', {
 		p_user_id: userId,

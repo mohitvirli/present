@@ -69,7 +69,9 @@ function plain<T>(value: T): T {
 
 // wordCount and dates are read *out of* the content on every content write —
 // callers never supply them, and metadata-only writes must leave them alone.
-function applyDerived(meta: EntryMetadata, content: EntryContent): EntryMetadata {
+// Exported for sync's merge, which can pair one side's content with the
+// other's metadata.
+export function applyDerived(meta: EntryMetadata, content: EntryContent): EntryMetadata {
 	meta.wordCount = wordCount(content);
 	const dates = extractDates(content);
 	// absent rather than empty: the repo's convention is that a missing key means
@@ -172,11 +174,87 @@ export async function listForSync(): Promise<Entry[]> {
 	return db.getAll('entries');
 }
 
-// Apply a remote entry verbatim into the local store (pull/merge owns the
-// decision of whether the remote copy wins).
+// Apply an entry verbatim into the local store (the caller owns the decision of
+// whether it wins). Used by import — it leaves the entry dirty for sync, unlike
+// putSynced.
 export async function putRemote(entry: Entry): Promise<void> {
 	const db = await getDB();
 	await db.put('entries', plain(entry));
+}
+
+export async function getEntries(ids: string[]): Promise<Map<string, Entry>> {
+	const db = await getDB();
+	const tx = db.transaction('entries');
+	const found = await Promise.all(ids.map((id) => tx.store.get(id)));
+	await tx.done;
+	return new Map(found.filter((e): e is Entry => !!e).map((e) => [e.id, e]));
+}
+
+// The sync clock: any write bumps touchedAt; seeded and pre-touchedAt entries
+// only have updatedAt.
+export const clockOf = (e: Pick<Entry, 'touchedAt' | 'updatedAt'>): number =>
+	e.touchedAt ?? e.updatedAt;
+
+// --- sync bookkeeping ---
+// Per entry, the clock of the copy the server is known to hold. An entry whose
+// clock differs is dirty and gets pushed. Kept in its own database so the
+// entries schema (and the export, which dumps Entry records) stays untouched,
+// and so this needs no version bump on a database other tabs may hold open.
+
+interface SyncMarksDB extends DBSchema {
+	marks: { key: string; value: number };
+}
+
+let marksPromise: Promise<IDBPDatabase<SyncMarksDB>> | null = null;
+
+function getMarksDB() {
+	if (!marksPromise) {
+		marksPromise = openDB<SyncMarksDB>('present-sync', 1, {
+			upgrade(db) {
+				db.createObjectStore('marks');
+			}
+		});
+	}
+	return marksPromise;
+}
+
+// Entries (incl. tombstones) the server doesn't have in their current state.
+export async function listDirty(): Promise<Entry[]> {
+	const [db, marksDB] = await Promise.all([getDB(), getMarksDB()]);
+	// keys and values from one transaction, so the two arrays line up
+	const tx = marksDB.transaction('marks');
+	const [all, ids, clocks] = await Promise.all([
+		db.getAll('entries'),
+		tx.store.getAllKeys(),
+		tx.store.getAll(),
+		tx.done
+	]);
+	const marks = new Map(ids.map((id, i) => [id, clocks[i]]));
+	return all.filter((e) => marks.get(e.id) !== clockOf(e));
+}
+
+// Record that the server holds these entries as given. Pass the snapshot that
+// was pushed: an entry edited mid-push now has a newer clock, so it stays dirty.
+export async function markSynced(entries: Pick<Entry, 'id' | 'touchedAt' | 'updatedAt'>[]) {
+	if (!entries.length) return;
+	const marksDB = await getMarksDB();
+	const tx = marksDB.transaction('marks', 'readwrite');
+	await Promise.all([...entries.map((e) => tx.store.put(clockOf(e), e.id)), tx.done]);
+}
+
+// Write entries pulled from the server and mark them clean in one go.
+export async function putSynced(entries: Entry[]): Promise<void> {
+	if (!entries.length) return;
+	const db = await getDB();
+	const tx = db.transaction('entries', 'readwrite');
+	await Promise.all([...entries.map((e) => tx.store.put(plain(e))), tx.done]);
+	await markSynced(entries);
+}
+
+// Forget what the server holds — a new or different account starts clean.
+export async function clearSyncMarks(): Promise<void> {
+	const marksDB = await getMarksDB();
+	await marksDB.clear('marks');
 }
 
 // --- first-run tutorial -------------------------------------------------------
