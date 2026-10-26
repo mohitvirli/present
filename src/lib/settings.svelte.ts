@@ -30,14 +30,14 @@ function initialSpellcheck(): boolean {
 	return localStorage.getItem(SPELL_KEY) !== '0';
 }
 
-// Silent location capture defaults on: the browser asks once, on the first new
-// entry, and stays quiet after that.
+// Silent location capture is opt-in: off until enabled in Settings, which is
+// also where the browser's one-time permission prompt happens.
 function initialLocation(): boolean {
-	if (!browser) return true;
-	return localStorage.getItem(LOC_KEY) !== '0';
+	if (!browser) return false;
+	return localStorage.getItem(LOC_KEY) === '1';
 }
 
-export const aiSettings =$state<{ enabled: boolean }>({ enabled: initialAi() });
+export const aiSettings = $state<{ enabled: boolean }>({ enabled: initialAi() });
 export const micSettings = $state<{ enabled: boolean }>({ enabled: initialMic() });
 export const calendarSettings = $state<{ enabled: boolean }>({ enabled: initialCalendar() });
 export const spellcheckSettings = $state<{ enabled: boolean }>({ enabled: initialSpellcheck() });

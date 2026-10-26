@@ -34,7 +34,7 @@
 		<meta name="twitter:image:alt" content="be present. — a mindful journal for everyday moments" />
 		<link rel="manifest" href="/manifest.webmanifest" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-		<meta name="theme-color" content="#f9fcff" />
+		<meta name="theme-color" content="#f4f5f0" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -61,10 +61,11 @@
 					};
 					var isDark = { dark: 1, deep: 1, 'sage-dark': 1 };
 					var t = localStorage.getItem('present:theme');
+					// defaults — keep in step with DEFAULT and initialAuto() in theme.svelte.ts
 					if (!bg[t]) {
-						t = 'sky';
+						t = 'sage';
 					}
-					if (localStorage.getItem('present:theme-auto') === '1') {
+					if (localStorage.getItem('present:theme-auto') !== '0') {
 						// day runs 06:00–17:59 local — keep in step with isNight() in theme.svelte.ts
 						var h = new Date().getHours();
 						var night = h < 6 || h >= 18;
