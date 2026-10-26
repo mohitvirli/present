@@ -24,17 +24,6 @@
 		});
 	}
 
-	// time spent writing: updatedAt − createdAt, shown only when meaningful
-	const duration = $derived.by(() => {
-		const ms = entry.updatedAt - entry.createdAt;
-		if (ms < 60_000) return ''; // under a minute → skip
-		const mins = Math.round(ms / 60_000);
-		if (mins < 60) return `${mins} min`;
-		const h = Math.floor(mins / 60);
-		const m = mins % 60;
-		return m ? `${h}h ${m}m` : `${h}h`;
-	});
-
 	const place = $derived(placeOf(entry.metadata.location));
 	const heading = $derived(firstHeading(entry.content));
 	const displayTitle = $derived(entry.metadata.title || heading);
@@ -67,11 +56,28 @@
 <a class="entry-card" href="/entry?id={entry.id}">
 	<span class="entry-meta">
 		<time>{time(entry.createdAt)}</time>
-		{#if duration}<span class="duration">{duration}</span>{/if}
 		{#if place}<span class="place" title={place.city ?? place.name}>{place.name}</span>{/if}
-		{#if entry.metadata.views}<span class="views"
-				>{entry.metadata.views} {entry.metadata.views === 1 ? 'view' : 'views'}</span
-			>{/if}
+		{#if entry.metadata.views}
+			{@const v = entry.metadata.views}
+			<span class="views" aria-label="{v} {v === 1 ? 'view' : 'views'}"
+				>{v}<svg
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+					><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle
+						cx="12"
+						cy="12"
+						r="3"
+					/></svg
+				></span
+			>
+		{/if}
 	</span>
 
 	{#if displayTitle}

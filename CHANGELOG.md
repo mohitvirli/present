@@ -53,6 +53,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A fresh install now opens in **Sage**, with **Auto day & night** on — light
   from 6am, dark from 6pm. A theme you already picked is kept, and so is Auto
   if you switched it off; if you never touched Auto, it is now on.
+- Timeline cards keep their details on one line — time, place, and views
+  shown as a count with an eye. A long place name is shortened instead of
+  pushing the rest onto new lines. The writing-time label is gone for now.
 
 ## [1.1.0] - 2026-06-09
 
