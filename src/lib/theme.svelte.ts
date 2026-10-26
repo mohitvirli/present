@@ -52,7 +52,7 @@ export const THEME_BY_ID = new Map<ThemeId, ThemeDef>(THEMES.map((t) => [t.id, t
 const KEY = 'present:theme';
 const AUTO_KEY = 'present:theme-auto';
 
-const DEFAULT: ThemeId = 'sky';
+const DEFAULT: ThemeId = 'sage';
 
 // Day runs 06:00–17:59 local; the rest of the clock is night. Mirrored by the
 // pre-hydration script in app.html — keep the two in step.
@@ -72,9 +72,10 @@ function initialTheme(): ThemeId {
 	return v && IDS.includes(v) ? v : DEFAULT;
 }
 
+// Auto day & night is on unless the writer turned it off.
 function initialAuto(): boolean {
-	if (!browser) return false;
-	return localStorage.getItem(AUTO_KEY) === '1';
+	if (!browser) return true;
+	return localStorage.getItem(AUTO_KEY) !== '0';
 }
 
 const stored = initialTheme();

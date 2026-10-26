@@ -8,15 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Places**: a new entry quietly notes where it was written. The browser asks
-  once, the place lands in the Context panel without opening it, and the
+- **Places**: turn on *Add location* in Settings and each new entry quietly
+  notes where it was written. The browser asks once, when you switch it on;
+  the place lands in the Context panel without opening it, and the
   Context button drops a pin and rolls to the place's name for a moment to say
   so. The location field searches Google Maps (or OpenStreetMap when no key is
   set), offers your recent places, or pins any name you type to where you are.
   Somewhere nothing has a name gets one made from its coordinates — the same
   spot always earns the same name. Rename a place ("Home") and nearby entries
   pick that name up next time, without a network call. Places show on timeline
-  cards and are searchable; turn it off in Settings.
+  cards and are searchable. Adding a place by hand works with the setting off.
 - **Export your journal**: a Data section in Settings writes every entry out as
   one file — JSON to restore from, or Markdown to read. With sync on it pulls
   first, so the file holds the whole account rather than one device's copy.
@@ -46,6 +47,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Every sync re-encrypted and uploaded the entire journal, which made reloads
   slow and would eventually exceed the request size limit. Only changed
   entries go up now, in size-capped batches.
+
+### Changed
+
+- A fresh install now opens in **Sage**, with **Auto day & night** on — light
+  from 6am, dark from 6pm. A theme you already picked is kept, and so is Auto
+  if you switched it off; if you never touched Auto, it is now on.
 
 ## [1.1.0] - 2026-06-09
 

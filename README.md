@@ -10,10 +10,10 @@ Built with SvelteKit + Svelte 5 (runes), TipTap, and IndexedDB. Local-first by d
 - **Timeline** — entries grouped by day on a vertical rail, with rich in-place previews, collapsible day groups, and a rolling clock in the header.
 - **Private sync** — end-to-end encrypted sync across devices using a **passkey** (FaceID / fingerprint). No account, no password. The encryption key is derived from the passkey's PRF and never leaves your device, so the server only ever stores ciphertext.
 - **AI assist** (opt-in) — title & tag suggestions, mood analysis, and a short summary, plus **Reflection mode**: a gentle ghost follow-up question at your caret as you write.
-- **Places** — each new entry quietly notes where it was written; search for a place, pick a recent one, or name your own spot.
+- **Places** (opt-in) — each new entry quietly notes where it was written; search for a place, pick a recent one, or name your own spot.
 - **Voice dictation** — live speech-to-text via Deepgram, streamed into the editor.
 - **Markdown + rich text** — headings, lists, todo checkboxes, links, blockquotes, code.
-- **Themes** — light/dark plus Sage, Sky, and Deep Blue.
+- **Themes** — Sage (default), Claude and Sky palettes, each with a light and dark half; auto day & night is on by default.
 - **Time-aware placeholders** — the composer greets you differently by time of day, weekend, and first run.
 
 ## Tech stack
