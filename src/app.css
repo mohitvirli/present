@@ -509,6 +509,7 @@ html::-webkit-scrollbar {
 	font-size: 0.92rem;
 	font-weight: 600;
 	color: var(--color-text);
+	white-space: nowrap;
 }
 
 .sync-pill {
@@ -525,18 +526,6 @@ html::-webkit-scrollbar {
 	white-space: nowrap;
 }
 
-.sync-pill-on {
-	border-color: transparent;
-	background: var(--color-accent);
-	color: var(--color-accent-text);
-}
-
-.sync-pill-error {
-	border-color: transparent;
-	background: var(--color-danger);
-	color: var(--color-accent-text, #fff);
-}
-
 .sync-card-desc {
 	margin: 0;
 	font-size: 0.78rem;
@@ -546,6 +535,87 @@ html::-webkit-scrollbar {
 
 .sync-card.is-on .sync-card-desc {
 	color: var(--color-text);
+}
+
+.sync-card-heading {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
+.sync-card-state {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.66rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.07em;
+	color: var(--color-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.sync-card-state.is-error {
+	color: var(--color-danger);
+}
+
+.sync-now {
+	margin-left: auto;
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.18rem 0.55rem;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	background: var(--color-accent);
+	color: var(--color-accent-text);
+	font-family: var(--font-sans);
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: filter 0.14s ease;
+}
+
+.sync-now:hover:not(:disabled) {
+	filter: brightness(1.08);
+}
+
+.sync-now:disabled {
+	opacity: 0.7;
+	cursor: default;
+}
+
+/* phone width: the time beside the title gets the room, the button keeps its icon */
+@media (max-width: 420px) {
+	.sync-now {
+		padding: 0.3rem;
+	}
+
+	.sync-now-label,
+	.sync-card-state-verb {
+		display: none;
+	}
+}
+
+.sync-now.is-spinning svg {
+	animation: sync-spin 0.9s linear infinite;
+}
+
+@keyframes sync-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sync-now.is-spinning svg {
+		animation: none;
+	}
 }
 
 .sync-card-actions {

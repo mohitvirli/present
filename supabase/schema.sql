@@ -15,47 +15,21 @@ create index if not exists credentials_user_id_idx on public.credentials (user_i
 create table if not exists public.entries (
 	user_id     uuid not null,
 	id          text not null,            -- client entry id (Entry.id)
-	content     jsonb not null,           -- Phase 4: switches to text ciphertext
+	content     jsonb not null,           -- E2E envelope when the passkey has PRF
 	metadata    jsonb not null default '{}',
 	created_at  timestamptz not null,
-	updated_at  timestamptz not null,
+	updated_at  timestamptz not null,     -- last content edit (client clock)
+	touched_at  timestamptz,              -- last write of any kind — the LWW clock
 	deleted     boolean not null default false,
+	synced_at   timestamptz not null default now(), -- server write time — pull cursor
 	primary key (user_id, id)
 );
-create index if not exists entries_user_updated_idx on public.entries (user_id, updated_at);
+create index if not exists entries_user_synced_idx on public.entries (user_id, synced_at, id);
 
 alter table public.credentials enable row level security; -- no policy → service-role only
 alter table public.entries     enable row level security; -- no policy → service-role only
 
--- Guarded bulk upsert: apply each incoming row ONLY when it is newer than the
--- stored one (last-write-wins by updated_at). Without this guard, a device that
--- still holds a stale copy would clobber a newer row on push — e.g. resurrecting
--- an entry another device just tombstoned. push() sends the full local set every
--- sync, so the guard must live server-side.
-create or replace function public.sync_push_entries(p_user_id uuid, p_entries jsonb)
-returns integer
-language plpgsql
-as $$
-declare
-	affected integer;
-begin
-	insert into public.entries (user_id, id, content, metadata, created_at, updated_at, deleted)
-	select
-		p_user_id,
-		e->>'id',
-		e->'content',
-		coalesce(e->'metadata', '{}'::jsonb),
-		(e->>'created_at')::timestamptz,
-		(e->>'updated_at')::timestamptz,
-		coalesce((e->>'deleted')::boolean, false)
-	from jsonb_array_elements(p_entries) as e
-	on conflict (user_id, id) do update
-		set content    = excluded.content,
-		    metadata   = excluded.metadata,
-		    updated_at = excluded.updated_at,
-		    deleted    = excluded.deleted
-		where excluded.updated_at > public.entries.updated_at;
-	get diagnostics affected = row_count;
-	return affected;
-end;
-$$;
+-- Functions: run supabase/migrations/20261026_sync_cursor.sql after this file.
+-- sync_push_entries is the guarded bulk upsert (last-write-wins on touched_at,
+-- server-side, so a stale device can't resurrect a row another device
+-- tombstoned); sync_pull_entries pages rows by the (synced_at, id) cursor.
