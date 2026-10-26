@@ -20,6 +20,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resolve the way sync resolves them, newest write wins.
 - Restoring into a fresh install can clear the seeded welcome entries, but only
   the ones your backup doesn't contain.
+- **Sync now**: the Private Sync card shows when this device last synced and
+  has a button to sync on demand.
+
+### Fixed
+
+- Sync could miss an edit for good: pulls paged by each device's own clock, so a
+  change pushed just after another device's pull (or from a device whose clock
+  ran behind) fell before its cursor. Pulls now page by the time the server
+  stored each row.
+- Pins, titles and tags didn't sync. Only content edits moved the clock the
+  server compared, so metadata-only changes were refused. A text edit on one
+  device and a pin on another now both survive.
+- A failed push still showed "Synced". Errors now surface on the sync card.
+- Pulls stopped at 1000 entries; they now page through the whole account.
+- Every sync re-encrypted and uploaded the entire journal, which made reloads
+  slow and would eventually exceed the request size limit. Only changed
+  entries go up now, in size-capped batches.
 
 ## [1.1.0] - 2026-06-09
 
