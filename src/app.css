@@ -537,19 +537,28 @@ html::-webkit-scrollbar {
 	color: var(--color-text);
 }
 
+.sync-card-heading {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
 .sync-card-state {
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-size: 0.78rem;
+	font-size: 0.66rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.07em;
 	color: var(--color-text-muted);
 	font-variant-numeric: tabular-nums;
 }
 
 .sync-card-state.is-error {
 	color: var(--color-danger);
-	font-weight: 600;
 }
 
 .sync-now {

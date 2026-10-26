@@ -306,16 +306,19 @@
 					<path d="M7 11V7a5 5 0 0 1 10 0v4" />
 				</svg>
 			</span>
-			<span class="sync-card-title">Private Sync</span>
-			<span
-				class="sync-card-state"
-				class:is-error={syncState.status === 'error'}
-				title={syncStateLabel()}
-			>
-				– {#if syncState.enabled && syncState.status === 'synced' && syncState.syncedAt}<span
-						class="sync-card-state-verb">Synced</span
-					>
-					{syncedTime(syncState.syncedAt)}{:else}{syncStateLabel()}{/if}
+			<!-- one baseline: the small caps state would otherwise ride high -->
+			<span class="sync-card-heading">
+				<span class="sync-card-title">Private Sync</span>
+				<span
+					class="sync-card-state"
+					class:is-error={syncState.status === 'error'}
+					title={syncStateLabel()}
+				>
+					{#if syncState.enabled && syncState.status === 'synced' && syncState.syncedAt}<span
+							class="sync-card-state-verb">Synced</span
+						>
+						{syncedTime(syncState.syncedAt)}{:else}{syncStateLabel()}{/if}
+				</span>
 			</span>
 			{#if syncSupported && syncState.enabled}
 				<button
@@ -340,7 +343,7 @@
 						<path d="M21 12a9 9 0 1 1-2.64-6.36" />
 						<path d="M21 3v6h-6" />
 					</svg>
-					<span class="sync-now-label">Sync now</span>
+					<span class="sync-now-label">Sync</span>
 				</button>
 			{/if}
 		</header>
