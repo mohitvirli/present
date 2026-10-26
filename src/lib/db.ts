@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { relativeDayKey } from './day';
+import { hasCoords, placeOf, type Place } from './place';
 import { extractDates, wordCount } from './tiptap';
 
 export type Mood = 'great' | 'good' | 'neutral' | 'low' | 'bad';
@@ -12,7 +13,7 @@ export interface EntryMetadata {
 	title?: string;
 	mood?: Mood;
 	tags?: string[]; // free-form labels
-	location?: string; // optional, user-typed for now
+	location?: Place | string; // string = legacy; always read through placeOf()
 	wordCount?: number; // derived on save
 	dates?: string[]; // derived on save — day keys referenced by @date chips
 	// reserved for future AI integration (Phase 7)
@@ -155,6 +156,32 @@ export async function getAllTags(): Promise<{ tag: string; count: number }[]> {
 		}
 	}
 	return [...counts.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}
+
+export interface KnownPlace extends Place {
+	count: number;
+}
+
+// Every distinct place across live entries, most-used first — the location
+// field's "Your places" and the silent capture's first guess before any
+// network call. Keyed by name, so a rename ("Koramangala" → "Office") becomes
+// its own place; the newest entry's copy wins, carrying its coordinates.
+export async function getAllPlaces(): Promise<KnownPlace[]> {
+	const entries = await listEntries(); // newest first
+	const byName = new Map<string, KnownPlace>();
+	for (const e of entries) {
+		const p = placeOf(e.metadata.location);
+		if (!p) continue;
+		const key = p.name.toLowerCase();
+		const hit = byName.get(key);
+		if (!hit) byName.set(key, { ...p, count: 1 });
+		else {
+			hit.count++;
+			// an older copy with coordinates beats a newer hand-typed one
+			if (!hasCoords(hit) && hasCoords(p)) Object.assign(hit, { ...p, count: hit.count });
+		}
+	}
+	return [...byName.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
 export async function deleteEntry(id: string): Promise<void> {

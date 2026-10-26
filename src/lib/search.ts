@@ -1,6 +1,7 @@
 import Fuse from 'fuse.js';
 import type { Entry } from './db';
 import { extractText, firstHeading } from './tiptap';
+import { placeOf } from './place';
 import type { Tone } from './search.svelte';
 
 // Flattened, fuse-indexable view of an entry. Body text comes from the same
@@ -10,6 +11,7 @@ interface SearchRecord {
 	title: string;
 	text: string;
 	tags: string; // joined so tag tokens fuzzy-match too
+	place: string; // name + city, so "goa" finds entries written there
 }
 
 function toRecord(e: Entry): SearchRecord {
@@ -17,7 +19,11 @@ function toRecord(e: Entry): SearchRecord {
 		id: e.id,
 		title: e.metadata.title || firstHeading(e.content),
 		text: extractText(e.content),
-		tags: (e.metadata.tags ?? []).join(' ')
+		tags: (e.metadata.tags ?? []).join(' '),
+		place: (() => {
+			const p = placeOf(e.metadata.location);
+			return p ? [p.name, p.city].filter(Boolean).join(' ') : '';
+		})()
 	};
 }
 
@@ -29,9 +35,10 @@ const FUSE_OPTS: ConstructorParameters<typeof Fuse<SearchRecord>>[1] = {
 	threshold: 0.35,
 	minMatchCharLength: 2,
 	keys: [
-		{ name: 'title', weight: 0.5 },
-		{ name: 'tags', weight: 0.3 },
-		{ name: 'text', weight: 0.2 }
+		{ name: 'title', weight: 0.45 },
+		{ name: 'tags', weight: 0.25 },
+		{ name: 'place', weight: 0.12 },
+		{ name: 'text', weight: 0.18 }
 	]
 };
 

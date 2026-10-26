@@ -12,10 +12,14 @@
 		getEntry,
 		clearTutorialEntries,
 		getAllTags,
-		type EntryMetadata
+		getAllPlaces,
+		type EntryMetadata,
+		type KnownPlace
 	} from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
-	import { aiSettings, micSettings, spellcheckSettings } from '$lib/settings.svelte';
+	import { aiSettings, micSettings, spellcheckSettings, locationSettings } from '$lib/settings.svelte';
+	import { placeOf, toPlace, type Place } from '$lib/place';
+	import { currentPosition, resolvePlace } from '$lib/location';
 	import { extractText, extractTags } from '$lib/tiptap';
 	import { createDictation } from '$lib/dictation.svelte';
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
@@ -27,6 +31,7 @@
 	import Editor from '$lib/components/Editor.svelte';
 	import RollingNumber from '$lib/components/RollingNumber.svelte';
 	import TagInput from '$lib/components/TagInput.svelte';
+	import LocationInput from '$lib/components/LocationInput.svelte';
 
 	// Picked once per entry (the page remounts on each new entry). A brand-new
 	// user writing their first entry gets a dedicated welcoming placeholder.
@@ -38,6 +43,8 @@
 	let meta = $state<EntryMetadata>({});
 	let tags = $state<string[]>([]); // chip list, mirrored into meta.tags
 	let allTags = $state<{ tag: string; count: number }[]>([]); // autocomplete vocabulary
+	let place = $state<Place | undefined>(); // mirrored into meta.location
+	let allPlaces = $state<KnownPlace[]>([]); // "Your places" + nearby matching
 	let entryId = $state<string | null>(null);
 	let saving = $state(false);
 	let savedAt = $state<number | null>(null);
@@ -229,6 +236,7 @@
 				text = extractText(content);
 				meta = { ...e.metadata };
 				tags = [...(e.metadata.tags ?? [])];
+				place = placeOf(e.metadata.location);
 				entryId = e.id;
 				savedAt = e.updatedAt;
 				createdAt = e.createdAt;
@@ -250,6 +258,7 @@
 		}
 		ready = true;
 		void getAllTags().then((t) => (allTags = t));
+		void getAllPlaces().then((p) => (allPlaces = p));
 		await tick();
 
 		const contentDelay = openContext ? 0.55 : 0.1;
@@ -311,6 +320,12 @@
 		meta.tags = [...tags];
 	});
 
+	// mirror the place chip into the saved metadata — undefined (not deleted) so
+	// plain() drops the key, the repo's "removed" convention
+	$effect(() => {
+		meta.location = place ? { ...place } : undefined;
+	});
+
 	// A tag picked from the editor's `#` menu joins the chip list — quietly. The
 	// chip is already visible in the prose where it was written, so the Context
 	// panel stays however the writer left it.
@@ -344,6 +359,7 @@
 				entryId = e.id;
 				replaceState(`/entry?id=${e.id}`, {});
 				markEntryWritten(); // first-run placeholder won't show again
+				if (locationSettings.enabled && !place && !locDismissed) void autoLocate(e.id);
 				// first real entry → clear the seeded tutorial examples
 				void clearTutorialEntries();
 			} else {
@@ -504,6 +520,8 @@
 	});
 
 	onDestroy(() => {
+		destroyed = true;
+		beatTl?.kill();
 		dictation.unmount();
 		if (saveTimer) clearTimeout(saveTimer);
 		if (reflectTimer) clearTimeout(reflectTimer);
@@ -533,7 +551,7 @@
 
 	let hasContent = $derived(text.trim().length > 0);
 	let hasMeta = $derived(
-		!!(meta.title?.trim() || (meta.tags && meta.tags.length) || meta.mood || meta.location?.trim())
+		!!(meta.title?.trim() || (meta.tags && meta.tags.length) || meta.mood || placeOf(meta.location))
 	);
 	let showContext = $derived(hasContent || hasMeta);
 	let showContextBtn = $derived(readonly ? hasMeta : showContext);
@@ -612,6 +630,108 @@
 		void updateEntry(entryId, { metadata: meta });
 	}
 
+	// ----- Location: silent capture + the Context button's "pin drop" -----
+	let locating = $state(false);
+	let locDismissed = false; // removed by hand → don't put it back
+	let destroyed = false;
+	let locAnnounce = $state(''); // screen-reader line
+	let beatLabel = $state('');
+	let pendingBeat = $state<string | null>(null);
+	let beatTl: gsap.core.Timeline | null = null;
+	let ctxBtn = $state<HTMLButtonElement>();
+	let chevronEl = $state<SVGSVGElement>();
+	let pinEl = $state<SVGSVGElement>();
+	let ringEl = $state<HTMLSpanElement>();
+	let labelBox = $state<HTMLSpanElement>();
+	let labelA = $state<HTMLSpanElement>();
+	let labelB = $state<HTMLSpanElement>();
+
+	// Runs once, on a new entry's first save. Never blocks writing and never
+	// complains: no permission, no fix, no network → simply no place.
+	async function autoLocate(id: string) {
+		locating = true;
+		try {
+			const at = await currentPosition({ prompt: true });
+			if (!at) return;
+			const hit = await resolvePlace(at, allPlaces);
+			if (place || locDismissed) return; // the writer picked one meanwhile
+			const found = toPlace(hit, 'auto');
+			if (destroyed) {
+				// navigated away before the fix arrived — the final save already
+				// ran, so write the place onto the stored entry directly
+				const e = await getEntry(id);
+				if (e && !e.deleted && !placeOf(e.metadata.location)) {
+					await updateEntry(id, { metadata: { ...e.metadata, location: found } });
+					queueSync();
+				}
+				return;
+			}
+			place = found;
+			locAnnounce = `Location added: ${found.name}`;
+			// panel open → the line's own entrance is the announcement
+			if (!showMeta) pendingBeat = found.name;
+		} finally {
+			locating = false;
+		}
+	}
+
+	// the button may still be on its way in — play once it exists
+	$effect(() => {
+		if (!pendingBeat || !ctxBtn) return;
+		const name = pendingBeat;
+		pendingBeat = null;
+		void playBeat(name);
+	});
+
+	// The chevron drops out, a pin lands with a ping, and the label rolls to the
+	// place's name — holds a beat — then everything rolls back to "Context".
+	async function playBeat(name: string) {
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return; // the panel says it
+		beatLabel = name;
+		await tick();
+		if (!chevronEl || !pinEl || !ringEl || !labelBox || !labelA || !labelB) return;
+		beatTl?.kill();
+		const wA = labelA.offsetWidth;
+		const wB = labelB.offsetWidth;
+		const roll = { duration: 0.42, ease: 'power3.inOut' };
+		gsap.set(labelBox, { width: wA });
+		beatTl = gsap
+			.timeline({ delay: 0.15, onComplete: resetBeat })
+			.to(chevronEl, { scale: 0.2, rotate: -90, opacity: 0, duration: 0.18, ease: 'power2.in' })
+			.fromTo(
+				pinEl,
+				{ y: -9, scale: 0.5, opacity: 0 },
+				{ y: 0, scale: 1, opacity: 1, duration: 0.55, ease: 'back.out(3)' }
+			)
+			.fromTo(
+				ringEl,
+				{ scale: 0.4, opacity: 0.6 },
+				{ scale: 2.8, opacity: 0, duration: 0.9, ease: 'power2.out' },
+				'<0.3'
+			)
+			.to(labelBox, { width: wB, ...roll }, '<-0.1')
+			.to(labelA, { yPercent: -110, opacity: 0, ...roll }, '<')
+			.fromTo(labelB, { yPercent: 110, opacity: 0 }, { yPercent: 0, opacity: 1, ...roll }, '<')
+			.addLabel('back', '+=1.8')
+			.to(labelB, { yPercent: -110, opacity: 0, ...roll }, 'back')
+			.fromTo(labelA, { yPercent: 110 }, { yPercent: 0, opacity: 1, ...roll }, 'back')
+			.to(labelBox, { width: wA, ...roll }, 'back')
+			.to(pinEl, { y: -4, scale: 0.6, opacity: 0, duration: 0.2, ease: 'power2.in' }, 'back+=0.1')
+			.to(chevronEl, { scale: 1, rotate: 0, opacity: 1, duration: 0.35, ease: 'back.out(2)' }, '>-0.05');
+	}
+
+	function resetBeat() {
+		beatTl?.kill();
+		beatTl = null;
+		const els = [chevronEl, pinEl, ringEl, labelBox, labelA, labelB].filter((el) => !!el);
+		if (els.length) gsap.set(els, { clearProps: 'all' });
+	}
+
+	function toggleContext() {
+		if (beatTl) resetBeat(); // the chevron's CSS rotation needs its transform back
+		showMeta = !showMeta;
+	}
+
 	function toggleSummary() {
 		meta.aiSummaryHidden = !meta.aiSummaryHidden;
 		// autosave only runs in edit mode; persist directly when viewing
@@ -629,27 +749,50 @@
 				class="meta-toggle"
 				aria-expanded={showMeta}
 				aria-controls="details-panel"
-				onclick={() => (showMeta = !showMeta)}
+				bind:this={ctxBtn}
+				onclick={toggleContext}
 				in:gIn={{ y: -4, duration: 0.6, delay: ctxBtnDelay }}
 				out:gOut={{ y: -4, duration: 0.16 }}
 			>
-				<svg
-					class="chevron"
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.4"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<polyline points="9 6 15 12 9 18" />
-				</svg>
-				<span>Context</span>
+				<span class="ctx-icon" aria-hidden="true">
+					<svg
+						bind:this={chevronEl}
+						class="chevron"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.4"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<polyline points="9 6 15 12 9 18" />
+					</svg>
+					<svg
+						bind:this={pinEl}
+						class="ctx-pin"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.4"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
+						<circle cx="12" cy="9.5" r="2.4" />
+					</svg>
+					<span bind:this={ringEl} class="ctx-ring"></span>
+				</span>
+				<span class="ctx-label" bind:this={labelBox}>
+					<span class="ctx-label-a" bind:this={labelA}>Context</span>
+					<span class="ctx-label-b" bind:this={labelB} aria-hidden="true">{beatLabel}</span>
+				</span>
 			</button>
 		{/if}
+		<span class="sr-only" aria-live="polite">{locAnnounce}</span>
 	</div>
 
 	<div id="details-panel" class="details-collapse" class:open={showMeta}>
@@ -664,6 +807,9 @@
 				{#if tags.length}
 					<TagInput bind:tags suggestions={allTags} readonly placeholder="Add tags" />
 				{/if}
+				{#if place}
+					<LocationInput bind:place readonly />
+				{/if}
 			{:else}
 				<div class="title-row">
 					<input
@@ -674,6 +820,12 @@
 					/>
 				</div>
 				<TagInput bind:tags suggestions={allTags} placeholder="Add tags" />
+				<LocationInput
+					bind:place
+					known={allPlaces}
+					{locating}
+					onremove={() => (locDismissed = true)}
+				/>
 			{/if}
 
 			{#if !readonly}

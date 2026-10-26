@@ -2658,6 +2658,23 @@ body:has(dialog[open]) .cursor-rail {
 	opacity: 0.7;
 }
 
+.entry-card .place {
+	max-width: 12rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.72rem;
+	font-weight: 500;
+	color: var(--color-text-muted);
+	opacity: 0.75;
+}
+
+.entry-card .place::before {
+	content: '·';
+	margin-right: 0.5rem;
+	opacity: 0.7;
+}
+
 .entry-card .views {
 	font-size: 0.72rem;
 	font-weight: 500;
@@ -2921,6 +2938,54 @@ body:has(dialog[open]) .cursor-rail {
 	transform: rotate(90deg);
 	color: var(--color-accent);
 }
+
+/* the chevron shares its slot with the location "pin drop" (see playBeat) */
+.composer .ctx-icon {
+	position: relative;
+	display: inline-flex;
+	width: 14px;
+	height: 14px;
+}
+
+.composer .ctx-pin,
+.composer .ctx-ring {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.composer .ctx-pin {
+	color: var(--color-accent);
+	transform-origin: 50% 100%;
+}
+
+.composer .ctx-ring {
+	margin: auto;
+	width: 12px;
+	height: 12px;
+	border-radius: 999px;
+	border: 1.5px solid var(--color-accent);
+}
+
+.composer .ctx-label {
+	position: relative;
+	display: inline-flex;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.composer .ctx-label-b {
+	position: absolute;
+	top: 0;
+	left: 0;
+	max-width: 14rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--color-accent);
+	opacity: 0;
+}
+
 
 .status-dock {
 	position: fixed;

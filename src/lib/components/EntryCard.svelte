@@ -4,6 +4,7 @@
 	import { firstHeading } from '$lib/tiptap';
 	import { renderEntryHTML } from '$lib/tiptap-render';
 	import { tagStyle } from '$lib/tag-color';
+	import { placeOf } from '$lib/place';
 
 	let { entry }: { entry: Entry } = $props();
 
@@ -34,6 +35,7 @@
 		return m ? `${h}h ${m}m` : `${h}h`;
 	});
 
+	const place = $derived(placeOf(entry.metadata.location));
 	const heading = $derived(firstHeading(entry.content));
 	const displayTitle = $derived(entry.metadata.title || heading);
 
@@ -66,6 +68,7 @@
 	<span class="entry-meta">
 		<time>{time(entry.createdAt)}</time>
 		{#if duration}<span class="duration">{duration}</span>{/if}
+		{#if place}<span class="place" title={place.city ?? place.name}>{place.name}</span>{/if}
 		{#if entry.metadata.views}<span class="views"
 				>{entry.metadata.views} {entry.metadata.views === 1 ? 'view' : 'views'}</span
 			>{/if}

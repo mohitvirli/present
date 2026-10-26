@@ -10,6 +10,7 @@
 // file the user is keeping as a backup.
 
 import type { JSONContent } from '@tiptap/core';
+import { hasCoords, placeOf } from './place';
 
 type Nodes = JSONContent[] | undefined;
 
@@ -183,6 +184,16 @@ function yamlLine(key: string, value: unknown): string | null {
 	return `${key}: ${yamlString(String(value))}`;
 }
 
+function placeLines(raw: unknown): (string | null)[] {
+	const p = placeOf(raw);
+	if (!p) return [];
+	return [
+		yamlLine('location', p.name),
+		yamlLine('city', p.city),
+		hasCoords(p) ? `coords: [${p.lat}, ${p.lon}]` : null
+	];
+}
+
 // Keys are omitted when absent, the same convention the stored metadata follows.
 export function entryFrontmatter(meta: {
 	title?: string;
@@ -198,7 +209,7 @@ export function entryFrontmatter(meta: {
 		yamlLine('updated', new Date(meta.updated).toISOString()),
 		yamlLine('tags', meta.tags),
 		yamlLine('mood', meta.mood),
-		yamlLine('location', meta.location),
+		...placeLines(meta.location),
 		yamlLine('words', meta.wordCount),
 		yamlLine('views', meta.views),
 		yamlLine('pinned', meta.pinned),
