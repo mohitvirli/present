@@ -17,7 +17,8 @@
 		enableSync,
 		signInSync,
 		disableSync,
-		deleteSyncAccount
+		deleteSyncAccount,
+		fullSync
 	} from '$lib/sync.svelte';
 	import { exportAll, type ExportFormat } from '$lib/export';
 	import { applyImport, planImport, type ImportPlan } from '$lib/import';
@@ -67,6 +68,25 @@
 		if (syncState.status !== 'error') {
 			close();
 		}
+	}
+
+	// The state beside the card title. The synced time is absolute, so it needs
+	// no ticking while the panel stays open.
+	function syncStateLabel(): string {
+		if (!syncSupported) return 'Requires HTTPS';
+		if (syncState.status === 'error') return 'Error';
+		if (!syncState.enabled) return 'Off';
+		if (syncState.status === 'syncing') return 'Syncing…';
+		if (!syncState.syncedAt) return 'On';
+		return `Synced ${syncedTime(syncState.syncedAt)}`;
+	}
+
+	function syncedTime(ms: number): string {
+		const at = new Date(ms);
+		const time = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+		if (at.toDateString() === new Date().toDateString()) return time;
+		const day = at.toLocaleDateString([], { month: 'short', day: 'numeric' });
+		return `${day}, ${time}`;
 	}
 
 	async function handleSignInSync() {
@@ -287,17 +307,41 @@
 				</svg>
 			</span>
 			<span class="sync-card-title">Private Sync</span>
-			{#if !syncSupported}
-				<span class="sync-pill sync-pill-muted">Requires HTTPS</span>
-			{:else if syncState.status === 'error'}
-				<span class="sync-pill sync-pill-error">! Error</span>
-			{:else if syncState.enabled}
-				<span class="sync-pill sync-pill-on">
-					{#if syncState.status === 'syncing'}Syncing…{:else if syncState.status === 'synced'}✓
-						Synced{:else}On{/if}
-				</span>
-			{:else}
-				<span class="sync-pill sync-pill-muted">Off</span>
+			<span
+				class="sync-card-state"
+				class:is-error={syncState.status === 'error'}
+				title={syncStateLabel()}
+			>
+				– {#if syncState.enabled && syncState.status === 'synced' && syncState.syncedAt}<span
+						class="sync-card-state-verb">Synced</span
+					>
+					{syncedTime(syncState.syncedAt)}{:else}{syncStateLabel()}{/if}
+			</span>
+			{#if syncSupported && syncState.enabled}
+				<button
+					class="sync-now"
+					class:is-spinning={syncState.status === 'syncing'}
+					type="button"
+					aria-label="Sync now"
+					onclick={() => fullSync()}
+					disabled={syncState.status === 'syncing'}
+				>
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M21 12a9 9 0 1 1-2.64-6.36" />
+						<path d="M21 3v6h-6" />
+					</svg>
+					<span class="sync-now-label">Sync now</span>
+				</button>
 			{/if}
 		</header>
 
@@ -367,8 +411,7 @@
 			{#if dataNote}
 				{dataNote}
 			{:else}
-				Every entry in one file — JSON restores, Markdown reads.{#if syncState.enabled}
-					Syncs first.{/if}
+				Every entry in one file — JSON restores, Markdown reads. {#if syncState.enabled}Syncs first.{/if}
 			{/if}
 		</p>
 		<p class="data-card-warn">Not encrypted — keep the file somewhere safe.</p>
