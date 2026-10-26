@@ -13,6 +13,7 @@
 	import EntryCard from './EntryCard.svelte';
 	import MonthCalendar from './MonthCalendar.svelte';
 	import PinnedPanel from './PinnedPanel.svelte';
+	import PinnedStrip from './PinnedStrip.svelte';
 
 	// height + opacity collapse: fading as it shrinks keeps the rail dots from
 	// looking clipped when the list height animates to zero
@@ -612,36 +613,6 @@
 		</div>
 	{/if}
 {:else}
-	{#snippet pinToggle(entry: Entry)}
-		<!-- sibling of the card's <a>, overlaid on its top-right — a button
-		     inside the anchor would be invalid HTML and hijack navigation -->
-		<button
-			class="pin-toggle"
-			aria-pressed={!!entry.metadata.pinned}
-			aria-label={entry.metadata.pinned ? 'Unpin entry' : 'Pin entry'}
-			title={entry.metadata.pinned ? 'Unpin entry' : 'Pin entry'}
-			onclick={(e) => {
-				e.stopPropagation();
-				onTogglePin(entry);
-			}}
-		>
-			<svg
-				width="14"
-				height="14"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<path d="M12 17v5" />
-				<path d="M9 3h6v5l2 3v2H7v-2l2-3Z" />
-			</svg>
-		</button>
-	{/snippet}
-
 	<div class="cursor-rail" bind:this={cursorEl} aria-hidden="true"></div>
 	{#if calendarSettings.enabled || pinned.length > 0}
 		<div class="timeline-gutter">
@@ -655,6 +626,12 @@
 	{/if}
 	<ol class="timeline" bind:this={timelineEl}>
 		<li class="rail" aria-hidden="true" in:gScaleY={{ duration: 0.8 }}></li>
+		<!-- the desktop gutter has its own Pinned panel; this is everyone else's -->
+		{#if pinned.length > 0}
+			<li class="pinned-mobile" aria-label="Pinned entries">
+				<PinnedStrip entries={pinned} />
+			</li>
+		{/if}
 		{#if hasAhead}
 			<li class="ahead-divider"><span>Ahead</span></li>
 		{/if}
@@ -721,7 +698,6 @@
 						{#each bucket.entries as entry (entry.id)}
 							<li class="entry-row">
 								<EntryCard {entry} />
-								{@render pinToggle(entry)}
 							</li>
 						{/each}
 						<!-- ghosts sort after the day's real entries: they carry no time -->
