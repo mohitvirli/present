@@ -189,7 +189,7 @@ function placeLines(raw: unknown): (string | null)[] {
 	if (!p) return [];
 	return [
 		yamlLine('location', p.name),
-		yamlLine('area', p.area),
+		yamlLine('city', p.city),
 		hasCoords(p) ? `coords: [${p.lat}, ${p.lon}]` : null
 	];
 }

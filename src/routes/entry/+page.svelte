@@ -18,7 +18,7 @@
 	} from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
 	import { aiSettings, micSettings, spellcheckSettings, locationSettings } from '$lib/settings.svelte';
-	import { placeOf, type Place } from '$lib/place';
+	import { placeOf, toPlace, type Place } from '$lib/place';
 	import { currentPosition, resolvePlace } from '$lib/location';
 	import { extractText, extractTags } from '$lib/tiptap';
 	import { createDictation } from '$lib/dictation.svelte';
@@ -634,7 +634,6 @@
 	let locating = $state(false);
 	let locDismissed = false; // removed by hand → don't put it back
 	let destroyed = false;
-	let locUnseen = $state(false); // dot on the Context button until it's opened
 	let locAnnounce = $state(''); // screen-reader line
 	let beatLabel = $state('');
 	let pendingBeat = $state<string | null>(null);
@@ -656,7 +655,7 @@
 			if (!at) return;
 			const hit = await resolvePlace(at, allPlaces);
 			if (place || locDismissed) return; // the writer picked one meanwhile
-			const found: Place = { ...hit, source: 'auto' };
+			const found = toPlace(hit, 'auto');
 			if (destroyed) {
 				// navigated away before the fix arrived — the final save already
 				// ran, so write the place onto the stored entry directly
@@ -669,11 +668,8 @@
 			}
 			place = found;
 			locAnnounce = `Location added: ${found.name}`;
-			// panel open → the chip's own entrance is the announcement
-			if (!showMeta) {
-				locUnseen = true;
-				pendingBeat = found.name;
-			}
+			// panel open → the line's own entrance is the announcement
+			if (!showMeta) pendingBeat = found.name;
 		} finally {
 			locating = false;
 		}
@@ -687,14 +683,10 @@
 		void playBeat(name);
 	});
 
-	$effect(() => {
-		if (showMeta) locUnseen = false;
-	});
-
 	// The chevron drops out, a pin lands with a ping, and the label rolls to the
 	// place's name — holds a beat — then everything rolls back to "Context".
 	async function playBeat(name: string) {
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return; // the dot says it
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return; // the panel says it
 		beatLabel = name;
 		await tick();
 		if (!chevronEl || !pinEl || !ringEl || !labelBox || !labelA || !labelB) return;
@@ -793,7 +785,6 @@
 						<circle cx="12" cy="9.5" r="2.4" />
 					</svg>
 					<span bind:this={ringEl} class="ctx-ring"></span>
-					{#if locUnseen && !showMeta}<span class="ctx-dot" out:gFade={{ duration: 0.2 }}></span>{/if}
 				</span>
 				<span class="ctx-label" bind:this={labelBox}>
 					<span class="ctx-label-a" bind:this={labelA}>Context</span>

@@ -68,7 +68,7 @@
 	<span class="entry-meta">
 		<time>{time(entry.createdAt)}</time>
 		{#if duration}<span class="duration">{duration}</span>{/if}
-		{#if place}<span class="place" title={place.area ?? place.name}>{place.name}</span>{/if}
+		{#if place}<span class="place" title={place.city ?? place.name}>{place.name}</span>{/if}
 		{#if entry.metadata.views}<span class="views"
 				>{entry.metadata.views} {entry.metadata.views === 1 ? 'view' : 'views'}</span
 			>{/if}

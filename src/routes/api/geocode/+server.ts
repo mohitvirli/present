@@ -73,6 +73,7 @@ function gPart(components: GComponent[] | undefined, ...types: string[]): string
 }
 
 const NEIGHBOURHOOD = ['neighborhood', 'sublocality_level_1', 'sublocality'];
+const CITY = ['locality', 'postal_town', 'administrative_area_level_2'];
 
 async function googleReverse(key: string, lat: number, lon: number): Promise<PlaceHit | null> {
 	// 1. the closest named place (a café, a park) — Nearby Search, Pro tier
@@ -101,10 +102,7 @@ async function googleReverse(key: string, lat: number, lon: number): Promise<Pla
 	if (p?.displayName?.text) {
 		return {
 			name: p.displayName.text,
-			area: joinArea(
-				gPart(p.addressComponents, ...NEIGHBOURHOOD),
-				gPart(p.addressComponents, 'locality')
-			),
+			city: gPart(p.addressComponents, ...CITY),
 			placeId: p.id
 		};
 	}
@@ -116,10 +114,10 @@ async function googleReverse(key: string, lat: number, lon: number): Promise<Pla
 	)) as { results?: { address_components?: GComponent[]; place_id?: string }[] };
 	const r = geo.results?.[0];
 	const hood = gPart(r?.address_components, ...NEIGHBOURHOOD);
-	const city = gPart(r?.address_components, 'locality', 'administrative_area_level_2');
+	const city = gPart(r?.address_components, ...CITY);
 	const name = hood ?? city;
 	if (!name) return null;
-	return { name, area: hood ? city : gPart(r?.address_components, 'administrative_area_level_1') };
+	return { name, city };
 }
 
 async function googleSearch(
@@ -162,15 +160,20 @@ async function googleSearch(
 }
 
 // Closes the autocomplete session (which makes its keystrokes free) and asks
-// only for `location`, the cheapest Place Details tier.
+// only for coordinates + address parts (for the city) — both in the cheapest
+// Place Details tier, Essentials.
 async function googleDetails(key: string, placeId: string, session: string | undefined) {
 	const qs = session ? `?sessionToken=${encodeURIComponent(session)}` : '';
 	const res = (await getJSON(
 		`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}${qs}`,
-		{ headers: { 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': 'location' } }
-	)) as { location?: { latitude: number; longitude: number } };
+		{ headers: { 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': 'location,addressComponents' } }
+	)) as { location?: { latitude: number; longitude: number }; addressComponents?: GComponent[] };
 	if (!res.location) return null;
-	return { lat: roundCoord(res.location.latitude), lon: roundCoord(res.location.longitude) };
+	return {
+		lat: roundCoord(res.location.latitude),
+		lon: roundCoord(res.location.longitude),
+		city: gPart(res.addressComponents, ...CITY)
+	};
 }
 
 // --- Photon (OpenStreetMap) -------------------------------------------------------
@@ -191,7 +194,8 @@ function photonHit(f: PhotonFeature): PlaceHit | null {
 	if (!name) return null;
 	const hit: PlaceHit = {
 		name,
-		area: joinArea(name === hood ? undefined : hood, city === name ? p.state : city)
+		area: joinArea(name === hood ? undefined : hood, city === name ? p.state : city),
+		city: city ?? p.state
 	};
 	if (typeof lat === 'number' && typeof lon === 'number') {
 		hit.lat = roundCoord(lat);

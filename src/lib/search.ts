@@ -11,7 +11,7 @@ interface SearchRecord {
 	title: string;
 	text: string;
 	tags: string; // joined so tag tokens fuzzy-match too
-	place: string; // name + area, so "goa" finds entries written there
+	place: string; // name + city, so "goa" finds entries written there
 }
 
 function toRecord(e: Entry): SearchRecord {
@@ -22,7 +22,7 @@ function toRecord(e: Entry): SearchRecord {
 		tags: (e.metadata.tags ?? []).join(' '),
 		place: (() => {
 			const p = placeOf(e.metadata.location);
-			return p ? [p.name, p.area].filter(Boolean).join(' ') : '';
+			return p ? [p.name, p.city].filter(Boolean).join(' ') : '';
 		})()
 	};
 }

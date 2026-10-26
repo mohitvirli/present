@@ -3,8 +3,8 @@
 // pull in the browser-only geolocation code in location.ts to get it.
 
 export interface Place {
-	name: string; // what the chip shows — the writer can rename it
-	area?: string; // muted second line, e.g. "Indiranagar, Bengaluru"
+	name: string; // the writer can rename it ("Home")
+	city?: string; // "Bengaluru" — never the neighbourhood; absent when it'd repeat the name
 	lat?: number; // absent = a name typed by hand, pinned nowhere
 	lon?: number;
 	placeId?: string; // Google place id, when the name came from Google
@@ -14,7 +14,8 @@ export interface Place {
 // A search / reverse-geocode hit, before it becomes an entry's Place.
 export interface PlaceHit {
 	name: string;
-	area?: string;
+	area?: string; // dropdown-only context, e.g. "Indiranagar, Bengaluru, Karnataka"
+	city?: string;
 	lat?: number;
 	lon?: number;
 	placeId?: string;
@@ -44,7 +45,11 @@ export function placeOf(raw: unknown): Place | undefined {
 	const name = typeof r.name === 'string' ? r.name.trim() : '';
 	if (!name) return undefined;
 	const place: Place = { name, source: r.source === 'auto' ? 'auto' : 'manual' };
-	if (typeof r.area === 'string' && r.area.trim()) place.area = r.area.trim();
+	if (typeof r.city === 'string' && r.city.trim()) place.city = r.city.trim();
+	// early builds stored "Neighbourhood, City" as area — the city is its tail
+	else if (typeof r.area === 'string' && r.area.trim())
+		place.city = r.area.split(',').pop()!.trim();
+	if (place.city?.toLowerCase() === name.toLowerCase()) delete place.city;
 	if (isCoord(r.lat, 90) && isCoord(r.lon, 180)) {
 		place.lat = r.lat;
 		place.lon = r.lon;
@@ -57,11 +62,26 @@ export function hasCoords(p: { lat?: number; lon?: number }): p is { lat: number
 	return typeof p.lat === 'number' && typeof p.lon === 'number';
 }
 
-// 12.9716° N · 77.5946° E
+// 12.942° N, 77.703° E — shown at 3 dp (~110m) though stored at 4: a
+// browser's fix is usually only good to tens of metres, so a fourth digit on
+// screen would claim a precision the reading doesn't have.
 export function formatCoords(lat: number, lon: number): string {
 	const ns = lat >= 0 ? 'N' : 'S';
 	const ew = lon >= 0 ? 'E' : 'W';
-	return `${Math.abs(lat).toFixed(4)}° ${ns} · ${Math.abs(lon).toFixed(4)}° ${ew}`;
+	return `${Math.abs(lat).toFixed(3)}° ${ns}, ${Math.abs(lon).toFixed(3)}° ${ew}`;
+}
+
+// A hit becomes an entry's place: the dropdown-only area is dropped, and a
+// city that just repeats the name ("Bengaluru, Bengaluru") goes too.
+export function toPlace(h: PlaceHit, source: Place['source']): Place {
+	const p: Place = { name: h.name, source };
+	if (h.city && h.city.toLowerCase() !== h.name.toLowerCase()) p.city = h.city;
+	if (hasCoords(h)) {
+		p.lat = h.lat;
+		p.lon = h.lon;
+	}
+	if (h.placeId) p.placeId = h.placeId;
+	return p;
 }
 
 export function mapsUrl(p: Place): string | null {

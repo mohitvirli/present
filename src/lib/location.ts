@@ -83,7 +83,7 @@ async function api<T>(params: Record<string, string | number | undefined>): Prom
 // writer's own, and a generated name stands in when nothing else knows the spot.
 export async function resolvePlace(at: Coords, known: KnownPlace[]): Promise<PlaceHit> {
 	const mine = nearestKnown(at, known);
-	if (mine) return { name: mine.name, area: mine.area, placeId: mine.placeId, ...at };
+	if (mine) return { name: mine.name, city: mine.city, placeId: mine.placeId, ...at };
 	const res = await api<{ hit: PlaceHit | null }>({ lat: at.lat, lon: at.lon });
 	if (res?.hit) return { ...res.hit, ...at };
 	return { name: generatedName(at.lat, at.lon), ...at };
@@ -97,8 +97,11 @@ export async function searchPlaces(
 	return api({ q, session, lat: near?.lat, lon: near?.lon });
 }
 
-// A Google suggestion carries no coordinates until it's picked.
-export async function placeCoords(placeId: string, session: string): Promise<Coords | null> {
-	const res = await api<{ hit: Coords | null }>({ place: placeId, session });
+// A Google suggestion carries no coordinates (or city) until it's picked.
+export async function placeCoords(
+	placeId: string,
+	session: string
+): Promise<(Coords & { city?: string }) | null> {
+	const res = await api<{ hit: (Coords & { city?: string }) | null }>({ place: placeId, session });
 	return res?.hit ?? null;
 }
