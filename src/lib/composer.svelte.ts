@@ -4,6 +4,7 @@ export const composer = $state<{
 	entryId: string | null;
 	readonly: boolean; // true while viewing an existing entry (not editing)
 	createdAt: number | null; // existing entry's created time (header clock)
+	recapMonth: string | null; // 'YYYY-MM' when viewing a monthly recap — the header shows the month, not the time
 	delete: (() => void) | null;
 	edit: (() => void) | null;
 	share: (() => void) | null; // captures the entry as an image (set while it has content)
@@ -20,6 +21,7 @@ export const composer = $state<{
 	entryId: null,
 	readonly: false,
 	createdAt: null,
+	recapMonth: null,
 	delete: null,
 	edit: null,
 	share: null,
