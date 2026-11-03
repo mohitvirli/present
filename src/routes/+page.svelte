@@ -20,12 +20,17 @@
 	const filtered = $derived(runSearch(entries, index, search.query, search.tags, search.tone));
 	const searching = $derived(searchActive());
 
+	// the topbar search panel shows "N of M entries"
+	$effect(() => {
+		search.matches = filtered.length;
+		search.total = entries.length;
+	});
+
 	// filtering changes document height under Lenis's cached layout — re-measure
 	$effect(() => {
 		void filtered;
 		tick().then(() => scroll.lenis?.resize());
 	});
-
 
 	onMount(async () => {
 		// Installed PWA: on cold launch, returning users start in the composer
