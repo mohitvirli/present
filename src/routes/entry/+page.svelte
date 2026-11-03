@@ -23,7 +23,7 @@
 	import { currentPosition, resolvePlace } from '$lib/location';
 	import { extractText, extractTags } from '$lib/tiptap';
 	import { dayKeyOf } from '$lib/day';
-	import { statsOf, type RecapStats } from '$lib/recap';
+	import { monthName, statsOf, type RecapStats } from '$lib/recap';
 	import { createDictation } from '$lib/dictation.svelte';
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { suggestionKey } from '$lib/tiptap-suggestion';
@@ -326,8 +326,14 @@
 		// TipTap fires onUpdate while loading content, which would otherwise bump
 		// updatedAt on every open (inflating the timeline's writing-duration).
 		if (readonly && entryId) {
+			// a letter has nothing to toggle — its text is never written back
+			if (isLetter) return;
 			const docStr = JSON.stringify(doc);
 			if (docStr === loadedContentStr) return; // no real edit, e.g. initial load
+			// Viewing never empties an entry. An editor that couldn't read the doc
+			// (a node this build doesn't know, a hot reload mid-load) shows it
+			// blank — saving that would wipe the entry here and, via sync, everywhere.
+			if (!txt.trim() && loadedContentStr && extractText(JSON.parse(loadedContentStr)).trim()) return;
 			if (saveTimer) clearTimeout(saveTimer);
 			saveTimer = setTimeout(async () => {
 				if (!entryId) return;
@@ -409,6 +415,7 @@
 		composer.entryId = entryId;
 		composer.readonly = readonly;
 		composer.createdAt = createdAt;
+		composer.recapMonth = meta.recap ?? null;
 		composer.edit = isLetter ? null : startEditing; // letters have no edit mode
 		// offer the reflection toggle only while writing a new/editable entry with AI on
 		composer.canReflect = ready && !readonly && aiSettings.enabled;
@@ -563,6 +570,7 @@
 		composer.entryId = null;
 		composer.readonly = false;
 		composer.createdAt = null;
+		composer.recapMonth = null;
 		composer.delete = null;
 		composer.edit = null;
 		composer.share = null;
@@ -964,8 +972,9 @@
 	<!-- double-click to edit has a keyboard equivalent: the E shortcut -->
 	{#if isLetter && letterStats}
 		<p class="letter-byline">
-			Read back from {letterStats.entries}
-			{letterStats.entries === 1 ? 'entry' : 'entries'}{#if createdAt}{' · '}{new Date(
+			Recap of {monthName(letterStats.month)}
+			{letterStats.month.slice(0, 4)} · from {letterStats.entries}
+			{letterStats.entries === 1 ? 'entry' : 'entries'}{#if createdAt}{' · written '}{new Date(
 					createdAt
 				).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{/if}
 		</p>

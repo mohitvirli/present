@@ -5,6 +5,7 @@
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import Settings from '$lib/components/Settings.svelte';
 	import { composer } from '$lib/composer.svelte';
+	import { monthName } from '$lib/recap';
 	import { scroll } from '$lib/scroll.svelte';
 	import {
 		search,
@@ -220,8 +221,12 @@
 	}
 
 	// single source of truth for the tab title: a saved entry shows its
-	// date + time, everything else shows the app name
+	// date + time (a recap, the month it covers), everything else the app name
 	let docTitle = $derived.by(() => {
+		if (page.url.pathname === '/entry' && composer.recapMonth) {
+			const m = composer.recapMonth;
+			return `${monthName(m)} ${m.slice(0, 4)} · Recap`;
+		}
 		if (page.url.pathname === '/entry' && composer.readonly && composer.createdAt != null) {
 			const d = new Date(composer.createdAt);
 			const date = d.toLocaleDateString(undefined, {
@@ -361,7 +366,10 @@
 					aria-label="present — home"
 					in:gFade={{ duration: 1.1, delay: 0.7 }}
 				>
-					<Clock at={composer.readonly ? composer.createdAt : null} />
+					<Clock
+						at={composer.readonly ? composer.createdAt : null}
+						month={composer.recapMonth}
+					/>
 				</a>
 			{:else}
 				<a class="cta" href="/entry" in:gFade={{ duration: 0.3 }}>

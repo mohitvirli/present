@@ -1371,6 +1371,19 @@ a {
 	color: var(--color-text-muted);
 }
 
+/* recap: the month it covers, set like the clock's digits */
+.recap-clock .time {
+	color: var(--color-text);
+	letter-spacing: -0.01em;
+}
+
+.recap-clock .date {
+	font-variant-caps: all-small-caps;
+	font-size: 0.78rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+}
+
 .clock .digits {
 	color: var(--color-text);
 }
