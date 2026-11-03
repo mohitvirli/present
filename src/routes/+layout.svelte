@@ -6,7 +6,16 @@
 	import Settings from '$lib/components/Settings.svelte';
 	import { composer } from '$lib/composer.svelte';
 	import { scroll } from '$lib/scroll.svelte';
-	import { search, searchActive, clearSearch, type Tone } from '$lib/search.svelte';
+	import {
+		search,
+		searchActive,
+		clearSearch,
+		recents,
+		rememberSearch,
+		applySearch,
+		type RecentSearch,
+		type Tone
+	} from '$lib/search.svelte';
 	import { getAllTags } from '$lib/db';
 	import { tagStyle } from '$lib/tag-color';
 	import { gFade, gIn, gOut } from '$lib/transitions';
@@ -114,22 +123,100 @@
 		tick().then(() => searchInput?.focus({ preventScroll: true }));
 	});
 
+	const TOP_TAGS = 8;
+	const MAX_SUGGESTIONS = 6;
+	let showAllTags = $state(false);
+	let activeSuggestion = $state(-1);
+
+	// a leading # switches the input into tag-only lookup
+	const tagMode = $derived(search.query.trimStart().startsWith('#'));
+	const tagNeedle = $derived(search.query.trim().replace(/^#/, '').toLowerCase());
+
+	// unselected tags, already most-used first (getAllTags sorts by count)
+	const freeTags = $derived(
+		allTags.filter(({ tag }) => !search.tags.has(tag.trim().toLowerCase()))
+	);
+	const visibleTags = $derived(showAllTags ? freeTags : freeTags.slice(0, TOP_TAGS));
+
+	// typing narrows the tag vocabulary: prefix matches first, then substrings
+	const suggestions = $derived.by(() => {
+		if (!tagNeedle) return tagMode ? freeTags.slice(0, MAX_SUGGESTIONS) : [];
+		const lower = (t: string) => t.toLowerCase();
+		const prefix = freeTags.filter(({ tag }) => lower(tag).startsWith(tagNeedle));
+		const inner = freeTags.filter(
+			({ tag }) => !lower(tag).startsWith(tagNeedle) && lower(tag).includes(tagNeedle)
+		);
+		return [...prefix, ...inner].slice(0, MAX_SUGGESTIONS);
+	});
+
+	// # mode pre-highlights the first match so ↵ adds it; a plain query keeps
+	// ↵ for text search until the user arrows into the list
+	$effect(() => {
+		void suggestions;
+		activeSuggestion = tagMode && suggestions.length ? 0 : -1;
+	});
+
+	const hasQuery = $derived(search.query.trim().length > 0);
+
 	function onSearchKeydown(e: KeyboardEvent) {
-		if (e.key !== 'Escape') return;
-		e.preventDefault();
-		// first Esc clears an active search, second closes the bar
-		if (searchActive()) clearSearch();
-		else search.open = false;
+		const n = suggestions.length;
+		if (e.key === 'ArrowDown' && n) {
+			e.preventDefault();
+			activeSuggestion = (activeSuggestion + 1) % n;
+		} else if (e.key === 'ArrowUp' && n) {
+			e.preventDefault();
+			activeSuggestion = activeSuggestion <= 0 ? n - 1 : activeSuggestion - 1;
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			const pick = suggestions[activeSuggestion];
+			if (pick) addTagFromQuery(pick.tag);
+			else rememberSearch();
+		} else if (e.key === 'Backspace' && !search.query && searchInput?.selectionStart === 0) {
+			// empty input: peel the last filter token off
+			const last = [...search.tags].at(-1);
+			if (last) search.tags.delete(last);
+			else if (search.tone) search.tone = null;
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			// first Esc clears an active search, second closes the bar
+			if (searchActive()) clearAndRemember();
+			else search.open = false;
+		}
+	}
+
+	function addTagFromQuery(tag: string) {
+		search.tags.add(tag.trim().toLowerCase());
+		search.query = '';
+		searchInput?.focus({ preventScroll: true });
 	}
 
 	function toggleTag(tag: string) {
 		const key = tag.trim().toLowerCase();
 		if (search.tags.has(key)) search.tags.delete(key);
 		else search.tags.add(key);
+		searchInput?.focus({ preventScroll: true });
 	}
 
-	function toggleTone(tone: Tone) {
-		search.tone = search.tone === tone ? null : tone;
+	function setTone(tone: Tone | null) {
+		search.tone = tone;
+		searchInput?.focus({ preventScroll: true });
+	}
+
+	function clearAndRemember() {
+		rememberSearch();
+		clearSearch();
+		searchInput?.focus({ preventScroll: true });
+	}
+
+	function recentLabel(r: RecentSearch): string {
+		return [r.query, ...r.tags.map((t) => `#${t}`), r.tone ?? ''].filter(Boolean).join(' · ');
+	}
+
+	// split a tag label around the typed needle so the match can be emphasized
+	function splitMatch(tag: string): [string, string, string] {
+		const i = tagNeedle ? tag.toLowerCase().indexOf(tagNeedle) : -1;
+		if (i < 0) return [tag, '', ''];
+		return [tag.slice(0, i), tag.slice(i, i + tagNeedle.length), tag.slice(i + tagNeedle.length)];
 	}
 
 	// single source of truth for the tab title: a saved entry shows its
@@ -542,54 +629,171 @@
 								<circle cx="11" cy="11" r="7" />
 								<path d="m20 20-3.5-3.5" />
 							</svg>
+							{#if search.tone}
+								{@const tone = search.tone}
+								<button
+									class="search-token tone-token"
+									data-tone={tone}
+									onclick={() => setTone(null)}
+									aria-label="Remove {tone} mood filter"
+								>
+									<span class="tone-dot" aria-hidden="true"></span>
+									{TONES.find((t) => t.value === tone)?.label}
+									<span class="token-x" aria-hidden="true">×</span>
+								</button>
+							{/if}
+							{#each [...search.tags] as tag (tag)}
+								<button
+									class="search-token tag-token"
+									style={tagStyle(tag)}
+									onclick={() => toggleTag(tag)}
+									aria-label="Remove tag {tag}"
+								>
+									#{tag}<span class="token-x" aria-hidden="true">×</span>
+								</button>
+							{/each}
 							<input
 								bind:this={searchInput}
 								bind:value={search.query}
 								onkeydown={onSearchKeydown}
 								class="search-input"
 								type="search"
-								placeholder="Search entries…"
+								placeholder={searchActive() ? 'Add words or #tags…' : 'Search words or #tags…'}
 								aria-label="Search entries"
+								aria-controls="search-suggestions"
+								aria-activedescendant={activeSuggestion >= 0
+									? `search-suggestion-${activeSuggestion}`
+									: undefined}
 								autocomplete="off"
 								spellcheck="false"
 							/>
 							{#if searchActive()}
-								<button
-									class="search-clear"
-									onclick={clearSearch}
-									transition:gFade={{ duration: 0.15 }}
-								>
-									Clear
-								</button>
+								<button class="search-clear" onclick={clearAndRemember}>Clear</button>
+							{:else}
+								<kbd class="search-kbd" aria-hidden="true">esc</kbd>
 							{/if}
 						</div>
-						<div class="search-filters">
-							{#each TONES as t (t.value)}
-								<button
-									class="filter-chip tone-chip"
-									class:on={search.tone === t.value}
-									data-tone={t.value}
-									onclick={() => toggleTone(t.value)}
-									aria-pressed={search.tone === t.value}
-								>
-									<span class="tone-dot" aria-hidden="true"></span>{t.label}
-								</button>
-							{/each}
-							{#if allTags.length}
-								<span class="filter-sep" aria-hidden="true"></span>
-								{#each allTags as { tag } (tag.toLowerCase())}
-									<button
-										class="filter-chip tag-chip"
-										class:on={search.tags.has(tag.trim().toLowerCase())}
-										style={tagStyle(tag)}
-										onclick={() => toggleTag(tag)}
-										aria-pressed={search.tags.has(tag.trim().toLowerCase())}
-									>
-										{tag}
-									</button>
-								{/each}
+
+						{#if suggestions.length}
+							<div class="search-section">
+								<p class="search-label">
+									{tagNeedle ? `Tags matching “${tagNeedle}”` : 'Tags'}
+								</p>
+								<ul class="search-suggestions" id="search-suggestions" role="listbox">
+									{#each suggestions as { tag, count }, i (tag.toLowerCase())}
+										{@const [pre, hit, post] = splitMatch(tag)}
+										<li
+											id="search-suggestion-{i}"
+											role="option"
+											aria-selected={i === activeSuggestion}
+										>
+											<button
+												class="suggestion"
+												class:active={i === activeSuggestion}
+												style={tagStyle(tag)}
+												onclick={() => addTagFromQuery(tag)}
+												onpointerenter={() => (activeSuggestion = i)}
+												tabindex="-1"
+											>
+												<span class="suggestion-dot" aria-hidden="true"></span>
+												<span class="suggestion-name">#{pre}<mark>{hit}</mark>{post}</span>
+												<span class="suggestion-meta">
+													{#if i === activeSuggestion}↵ filter{:else}{count}{/if}
+												</span>
+											</button>
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{:else if !hasQuery}
+							<div class="search-section">
+								<p class="search-label">Mood</p>
+								<div class="mood-seg" role="radiogroup" aria-label="Mood">
+									{#each [{ value: null, label: 'Any' }, ...TONES] as t (t.value ?? 'any')}
+										<button
+											class="mood-opt"
+											class:on={search.tone === t.value}
+											data-tone={t.value}
+											role="radio"
+											aria-checked={search.tone === t.value}
+											onclick={() => setTone(t.value)}
+										>
+											{#if t.value}<span class="tone-dot" aria-hidden="true"></span>{/if}{t.label}
+										</button>
+									{/each}
+								</div>
+							</div>
+							{#if freeTags.length}
+								<div class="search-section">
+									<p class="search-label">{showAllTags ? 'All tags' : 'Frequent tags'}</p>
+									<div class="search-filters">
+										{#each visibleTags as { tag, count } (tag.toLowerCase())}
+											<button
+												class="filter-chip tag-chip"
+												style={tagStyle(tag)}
+												onclick={() => toggleTag(tag)}
+											>
+												{tag}<span class="chip-count">{count}</span>
+											</button>
+										{/each}
+										{#if freeTags.length > TOP_TAGS}
+											<button
+												class="filter-chip more-chip"
+												onclick={() => (showAllTags = !showAllTags)}
+												aria-expanded={showAllTags}
+											>
+												{showAllTags ? 'Show less' : `+ ${freeTags.length - TOP_TAGS} more`}
+											</button>
+										{/if}
+									</div>
+								</div>
 							{/if}
-						</div>
+							{#if !searchActive() && recents.list.length}
+								<div class="search-section">
+									<p class="search-label">Recent</p>
+									<div class="search-recents">
+										{#each recents.list as r (recentLabel(r))}
+											<button class="recent" onclick={() => applySearch(r)}>
+												<svg
+													width="13"
+													height="13"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													aria-hidden="true"
+												>
+													<path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+													<path d="M3 3v5h5" />
+													<path d="M12 7v5l3 2" />
+												</svg>
+												{recentLabel(r)}
+											</button>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						{/if}
+
+						{#if searchActive()}
+							<div class="search-foot" role="status">
+								<span>
+									{#if search.matches === 0}
+										No entries match
+									{:else}
+										{search.matches} of {search.total}
+										{search.total === 1 ? 'entry' : 'entries'}
+									{/if}
+								</span>
+								<span class="search-hints" aria-hidden="true">
+									{#if suggestions.length}<kbd>↑↓</kbd> pick <kbd>↵</kbd> add{:else}<kbd>⌫</kbd> remove
+										filter{/if}
+									<kbd>esc</kbd> clear
+								</span>
+							</div>
+						{/if}
 					</div>
 				</div>
 			</div>
