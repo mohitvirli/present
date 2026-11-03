@@ -13,6 +13,8 @@
 	import EntryCard from './EntryCard.svelte';
 	import MonthCalendar from './MonthCalendar.svelte';
 	import PinnedPanel from './PinnedPanel.svelte';
+	import RecapCard from './RecapCard.svelte';
+	import { isRecap, monthName } from '$lib/recap';
 
 	// height + opacity collapse: fading as it shrinks keeps the rail dots from
 	// looking clipped when the list height animates to zero
@@ -37,13 +39,43 @@
 		entries,
 		loaded,
 		searching = false,
-		onTogglePin
+		onTogglePin,
+		recapOffers = [],
+		onWriteRecap
 	}: {
 		entries: Entry[];
 		loaded: boolean;
 		searching?: boolean; // a search/filter is active — changes the empty state
 		onTogglePin: (entry: Entry) => void;
+		// past months with enough writing for a letter and none yet, newest first
+		recapOffers?: { month: string; count: number }[];
+		onWriteRecap?: (month: string) => Promise<void>;
 	} = $props();
+
+	// recap letters live at the head of the month they read back, not in the
+	// day they were written — and they're never a dot, a ghost or a heat cell
+	const recaps = $derived(new Map(entries.filter(isRecap).map((e) => [e.metadata.recap!, e])));
+	const dayEntries = $derived(entries.filter((e) => !isRecap(e)));
+
+	const offers = $derived(new Map(recapOffers.map((o) => [o.month, o.count])));
+	// the newest offered month gets the full card; older months a quiet one-liner
+	const leadOffer = $derived(recapOffers[0]?.month);
+
+	// one letter at a time — each is a long model call
+	let recapBusy = $state<string | null>(null);
+	let recapError = $state<{ month: string; message: string } | null>(null);
+	async function writeRecap(month: string) {
+		if (recapBusy || !onWriteRecap) return;
+		recapBusy = month;
+		recapError = null;
+		try {
+			await onWriteRecap(month);
+		} catch (e) {
+			recapError = { month, message: e instanceof Error ? e.message : 'Could not write the letter.' };
+		} finally {
+			recapBusy = null;
+		}
+	}
 
 	// pinned entries surface in the gutter panel below the calendar (the
 	// entry also stays in its day group). listEntries order — no special sort.
@@ -95,7 +127,7 @@
 
 	const ghosts = $derived.by(() => {
 		const out: Ghost[] = [];
-		for (const e of entries) {
+		for (const e of dayEntries) {
 			const own = dayKeyOf(e.createdAt);
 			for (const day of e.metadata.dates ?? []) {
 				// a chip pointing at its own day adds nothing the entry doesn't already say
@@ -133,7 +165,7 @@
 			if (!b) map.set(k, (b = { entries: [], ghosts: [] }));
 			return b;
 		};
-		for (const e of entries) bucket(dayKeyOf(e.createdAt)).entries.push(e);
+		for (const e of dayEntries) bucket(dayKeyOf(e.createdAt)).entries.push(e);
 		for (const g of ghosts) bucket(g.day).ghosts.push(g);
 		// entries arrive newest-first, so insertion order used to be enough — but a
 		// ghost-only day has no entry to seed its position, so the keys need a real
@@ -171,7 +203,14 @@
 			m.ghosts += b.ghosts.length;
 			for (const e of b.entries) m.words += e.metadata.wordCount ?? 0;
 		}
-		return out;
+		// a letter (or the offer to write one) still needs its month on screen,
+		// even when a search has filtered every day of that month away
+		const extra = [...recaps.keys(), ...offers.keys()];
+		for (const key of extra) {
+			if (key === currentMonth || out.some((m) => m.key === key)) continue;
+			out.push({ key, current: false, count: 0, ghosts: 0, words: 0, days: [] });
+		}
+		return out.sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0));
 	});
 
 	function monthLabel(key: string): { name: string; year: string } {
@@ -383,7 +422,7 @@
 				ease: 'power3.out',
 				delay: 0.15
 			});
-			gsap.from(root.querySelectorAll('.entry-row'), {
+			gsap.from(root.querySelectorAll('.entry-row, .recap-slot'), {
 				y: 14,
 				opacity: 0,
 				duration: 0.55,
@@ -646,7 +685,7 @@
 	{#if calendarSettings.enabled || pinned.length > 0}
 		<div class="timeline-gutter">
 			{#if calendarSettings.enabled}
-				<MonthCalendar bind:this={calRef} {entries} onJump={jumpToDay} />
+				<MonthCalendar bind:this={calRef} entries={dayEntries} onJump={jumpToDay} />
 			{/if}
 			{#if pinned.length > 0}
 				<PinnedPanel entries={pinned} {onTogglePin} />
@@ -770,6 +809,34 @@
 						<!-- height animation paced to the dot flight: expand matches the
 						     0.45s pour-out, collapse the 0.38s converge -->
 						<ol class="month-days" in:collapse={{ duration: 450 }} out:collapse={{ duration: 380 }}>
+							{#if recaps.has(m.key)}
+								<li class="recap-slot"><RecapCard entry={recaps.get(m.key)!} /></li>
+							{:else if offers.has(m.key)}
+								{@const name = monthName(m.key)}
+								{@const busy = recapBusy === m.key}
+								<li class="recap-slot">
+									<div class="recap-offer" class:busy class:quiet={m.key !== leadOffer}>
+										{#if m.key === leadOffer}
+											<span class="recap-kicker">{name}, read back</span>
+											<p>
+												Claude reads your {offers.get(m.key)} entries from {name} and writes the month back in your voice
+												as one more entry. Their text is sent to do it.
+											</p>
+										{:else}
+											<p>{offers.get(m.key)} entries from {name}, not yet read back.</p>
+										{/if}
+										<button
+											type="button"
+											class="recap-write"
+											disabled={!!recapBusy}
+											onclick={() => writeRecap(m.key)}
+										>
+											{busy ? `Reading ${name}…` : 'Write my letter'}
+										</button>
+										{#if recapError?.month === m.key}<span class="recap-error">{recapError.message}</span>{/if}
+									</div>
+								</li>
+							{/if}
 							{#each m.days as [day, bucket] (day)}
 								{@render dayGroup(day, bucket)}
 							{/each}

@@ -11,6 +11,7 @@
 
 import type { JSONContent } from '@tiptap/core';
 import { hasCoords, placeOf } from './place';
+import { recapStatsMarkdown } from './tiptap-recap-stats';
 
 type Nodes = JSONContent[] | undefined;
 
@@ -141,6 +142,8 @@ function block(node: JSONContent): string {
 			return '***'; // not `---`, which would read as a frontmatter fence
 		case 'table':
 			return table(node);
+		case 'recapStats':
+			return recapStatsMarkdown(node);
 		case 'listItem':
 		case 'taskItem':
 			// only reachable from a malformed doc — render it as a bullet anyway
@@ -219,6 +222,7 @@ export function entryFrontmatter(meta: {
 		yamlLine('aiEmotion', meta.aiEmotion),
 		yamlLine('aiEmotion2', meta.aiEmotion2),
 		yamlLine('aiTone', meta.aiTone),
+		yamlLine('recap', meta.recap),
 		yamlLine('tutorial', meta.tutorial)
 	].filter((l): l is string => l !== null);
 	return lines.join('\n');

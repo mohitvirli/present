@@ -557,7 +557,7 @@
 							</svg>
 						</button>
 					{/if}
-					{#if composer.readonly}
+					{#if composer.readonly && composer.edit}
 						<button
 							class="header-action"
 							onclick={() => composer.edit?.()}

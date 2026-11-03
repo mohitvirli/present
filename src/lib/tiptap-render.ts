@@ -5,6 +5,7 @@ import { QuirkTime, QuirkDate } from './tiptap-quirks';
 import { DateRef } from './tiptap-date';
 import { TagRef } from './tiptap-tag';
 import { TablesStatic, TextAlignment } from './tiptap-table';
+import { RecapStatsNode } from './tiptap-recap-stats';
 
 // Same schema the editor uses, so timeline previews render exactly as written
 // (headings, lists, todos, links, marks, quirk timestamps) rather than
@@ -18,7 +19,8 @@ const RENDER_EXTENSIONS = [
 	DateRef,
 	TagRef,
 	TablesStatic,
-	TextAlignment
+	TextAlignment,
+	RecapStatsNode
 ];
 
 function escapeHtml(s: string): string {

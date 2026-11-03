@@ -13,6 +13,7 @@
 		clearTutorialEntries,
 		getAllTags,
 		getAllPlaces,
+		listEntries,
 		type EntryMetadata,
 		type KnownPlace
 	} from '$lib/db';
@@ -21,6 +22,8 @@
 	import { placeOf, toPlace, type Place } from '$lib/place';
 	import { currentPosition, resolvePlace } from '$lib/location';
 	import { extractText, extractTags } from '$lib/tiptap';
+	import { dayKeyOf } from '$lib/day';
+	import { statsOf, type RecapStats } from '$lib/recap';
 	import { createDictation } from '$lib/dictation.svelte';
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { suggestionKey } from '$lib/tiptap-suggestion';
@@ -58,6 +61,11 @@
 	let editor = $state<TiptapEditor>();
 	let writingEl: HTMLElement;
 	let lastFocusWasTitleOrTags = false;
+
+	// Monthly recap letters: a byline over the text, and never editable — the
+	// letter is a reading of the month, not a draft.
+	const isLetter = $derived(!!meta.recap);
+	let letterStats = $state<RecapStats | undefined>();
 
 	function focusEditor() {
 		editor?.commands.focus('end');
@@ -241,7 +249,7 @@
 				savedAt = e.updatedAt;
 				createdAt = e.createdAt;
 				// pinned notes are living documents — open them straight into edit mode
-				readonly = !e.metadata.pinned;
+				readonly = !e.metadata.pinned || !!e.metadata.recap;
 				// Tags written in the body as `#` chips are visible where they were
 				// written, so they don't earn an open panel — only a title or a tag
 				// typed into the Context header itself does.
@@ -253,6 +261,10 @@
 				// count this open as a view — metadata-only write, so the entry's
 				// visible "updated" time stays put (only content edits move it)
 				meta.views = (meta.views ?? 0) + 1;
+				if (e.metadata.recap) {
+					letterStats = statsOf(e.content);
+					meta.recapSeen = true;
+				}
 				void updateEntry(e.id, { metadata: meta });
 			}
 		}
@@ -291,6 +303,18 @@
 	onDestroy(() => {
 		document.removeEventListener('focusin', onFocusIn);
 	});
+
+	// a date chip in a letter is a citation — follow it to that day's entry
+	async function onLetterClick(e: MouseEvent) {
+		if (!isLetter || !readonly) return;
+		const chip = (e.target as HTMLElement | null)?.closest<HTMLElement>('.date-ref');
+		const day = chip?.dataset.dateRef;
+		if (!day) return;
+		const hit = (await listEntries())
+			.filter((x) => !x.metadata.recap && dayKeyOf(x.createdAt) === day)
+			.at(-1); // newest-first list → the day's first entry
+		if (hit) void goto(`/entry?id=${hit.id}`);
+	}
 
 	function onEditorChange(doc: JSONContent, txt: string) {
 		content = doc;
@@ -385,6 +409,7 @@
 		composer.entryId = entryId;
 		composer.readonly = readonly;
 		composer.createdAt = createdAt;
+		composer.edit = isLetter ? null : startEditing; // letters have no edit mode
 		// offer the reflection toggle only while writing a new/editable entry with AI on
 		composer.canReflect = ready && !readonly && aiSettings.enabled;
 	});
@@ -439,6 +464,7 @@
 	});
 
 	function startEditing(pos?: number) {
+		if (isLetter) return;
 		readonly = false;
 		tick().then(() => {
 			if (pos != null && editor) editor.commands.focus(pos);
@@ -741,7 +767,11 @@
 
 <svelte:window onkeydown={onReadonlyKeydown} />
 
-<div class="composer" class:readonly>
+<div
+	class="composer"
+	class:readonly
+	class:letter={isLetter}
+>
 	<div class="details-row">
 		{#if showContextBtn}
 			<button
@@ -932,7 +962,15 @@
 	</div>
 
 	<!-- double-click to edit has a keyboard equivalent: the E shortcut -->
-	<section class="writing" bind:this={writingEl} ondblclick={onWritingDblClick}>
+	{#if isLetter && letterStats}
+		<p class="letter-byline">
+			Read back from {letterStats.entries}
+			{letterStats.entries === 1 ? 'entry' : 'entries'}{#if createdAt}{' · '}{new Date(
+					createdAt
+				).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{/if}
+		</p>
+	{/if}
+	<section class="writing" bind:this={writingEl} ondblclick={onWritingDblClick} onclick={onLetterClick}>
 		{#if ready}
 			<Editor
 				bind:editor
@@ -993,7 +1031,7 @@
 			<span class="sr-only">{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
 			<span aria-hidden="true"><RollingNumber value={wordCount} /> {wordCount === 1 ? 'word' : 'words'}</span>
 		</span>
-		{#if saving || savedAt}
+		{#if (saving || savedAt) && !isLetter}
 			<span class="save-line">{saving ? 'Saving…' : `Saved ${fmtTime(savedAt!)}`}</span>
 		{/if}
 	</div>

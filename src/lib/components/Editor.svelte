@@ -12,6 +12,7 @@
 	import { AtMenu } from '$lib/tiptap-at-menu';
 	import { TagRef } from '$lib/tiptap-tag';
 	import { TagMenu } from '$lib/tiptap-tag-menu';
+	import { RecapStatsNode } from '$lib/tiptap-recap-stats';
 	import { ListDragHandle } from '$lib/tiptap-list-drag';
 	import {
 		Tables,
@@ -102,6 +103,7 @@
 				Quirks,
 				AtMenu,
 				TagRef,
+				RecapStatsNode,
 				// getters, not values: the vocabulary loads async and the entry's own
 				// tags change while typing, but the extension is built once
 				TagMenu.configure({
