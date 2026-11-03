@@ -26,6 +26,8 @@ export interface EntryMetadata {
 	tutorial?: boolean; // seeded example entry shown to first-time users
 	pinned?: boolean; // surfaced in the timeline's Pinned section
 	views?: number; // times the entry was opened from the timeline
+	recap?: string; // 'YYYY-MM' — this entry is the monthly recap letter for that month
+	recapSeen?: boolean; // the letter has been opened once (its reveal has played)
 }
 
 export interface Entry {
@@ -90,6 +92,28 @@ export async function addEntry(
 	const now = Date.now();
 	const entry: Entry = {
 		id: crypto.randomUUID(),
+		content: plain(content),
+		metadata: applyDerived({ ...plain(metadata) }, content),
+		createdAt: now,
+		updatedAt: now,
+		touchedAt: now
+	};
+	await db.put('entries', entry);
+	return entry;
+}
+
+// Write (or rewrite) a month's recap letter under its stable id. A rewrite
+// starts the letter fresh — new timestamps, unopened again — so the reveal plays
+// for the new text.
+export async function putRecap(
+	id: string,
+	content: EntryContent,
+	metadata: EntryMetadata
+): Promise<Entry> {
+	const db = await getDB();
+	const now = Date.now();
+	const entry: Entry = {
+		id,
 		content: plain(content),
 		metadata: applyDerived({ ...plain(metadata) }, content),
 		createdAt: now,

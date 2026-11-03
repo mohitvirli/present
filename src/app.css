@@ -4259,3 +4259,397 @@ body:has(dialog[open]) .cursor-rail {
 .data-seeded {
 	margin: -0.6rem 0 1.2rem;
 }
+
+/* ---------- Monthly recap ----------
+   A letter about a month, kept as an entry. On the timeline it sits at the head
+   of the month it reads back: an envelope (flap + wax seal) until first opened,
+   plain letter paper after. Paper is the surface tinted a breath toward the
+   accent, so it holds in every theme. */
+.recap-slot {
+	position: relative;
+	list-style: none;
+	padding-left: 36px;
+	margin-bottom: 2rem;
+}
+
+/* its rail mark: a small diamond, not a dot — it isn't a day's entry */
+.recap-slot::before {
+	content: '';
+	position: absolute;
+	left: 1px;
+	top: 1.1rem;
+	width: 9px;
+	height: 9px;
+	transform: translateX(-50%) rotate(45deg);
+	background: var(--color-accent);
+	border-radius: 2px;
+	box-shadow: 0 0 0 3px var(--color-bg);
+	z-index: 1;
+}
+
+@media (max-width: 640px) {
+	.recap-slot {
+		padding-left: 20px;
+	}
+	.recap-slot::before {
+		left: -6px;
+		z-index: 11;
+	}
+}
+
+.recap-card,
+.recap-offer {
+	--paper: color-mix(in srgb, var(--color-surface) 94%, var(--color-accent));
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+	padding: 1.1rem 1.25rem 1rem;
+	border: 1px solid var(--color-border-strong);
+	border-radius: 10px;
+	background: var(--paper);
+	color: var(--color-text);
+	text-decoration: none;
+	box-shadow: var(--shadow-sm);
+	transition:
+		box-shadow 0.25s ease,
+		transform 0.25s ease,
+		border-color 0.25s ease;
+}
+
+.recap-card:hover {
+	box-shadow: var(--shadow-md);
+	transform: translateY(-1px);
+	border-color: color-mix(in srgb, var(--color-border-strong) 60%, var(--color-accent));
+}
+
+.recap-card:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 3px;
+}
+
+.recap-card.sealed {
+	padding-top: 2.4rem;
+}
+
+/* envelope flap: a V from both top corners to the seal */
+.recap-flap {
+	position: absolute;
+	inset: 0 0 auto;
+	width: 100%;
+	height: 28px;
+	stroke: var(--color-border-strong);
+	stroke-width: 1;
+	pointer-events: none;
+}
+
+.recap-seal {
+	position: absolute;
+	left: 50%;
+	top: 28px;
+	width: 26px;
+	height: 26px;
+	margin: -13px 0 0 -13px;
+	display: flex;
+	filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18));
+	pointer-events: none;
+}
+
+.seal-half {
+	width: 13px;
+	height: 26px;
+	background: radial-gradient(circle at 100% 50%, color-mix(in srgb, var(--color-accent) 80%, white) 0 3px, var(--color-accent) 3.5px);
+	border-radius: 13px 0 0 13px;
+}
+
+.seal-half + .seal-half {
+	border-radius: 0 13px 13px 0;
+	background: radial-gradient(circle at 0% 50%, color-mix(in srgb, var(--color-accent) 80%, white) 0 3px, var(--color-accent) 3.5px);
+}
+
+/* postmark: a dashed ring, tilted, top right */
+.recap-postmark {
+	position: absolute;
+	right: 0.9rem;
+	top: 0.75rem;
+	width: 46px;
+	height: 46px;
+	border: 1.5px dashed color-mix(in srgb, var(--color-accent) 55%, transparent);
+	border-radius: 50%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	transform: rotate(-12deg);
+	color: color-mix(in srgb, var(--color-accent) 75%, var(--color-text-muted));
+	font-size: 0.58rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	line-height: 1.15;
+	text-transform: uppercase;
+	font-variant-numeric: tabular-nums;
+}
+
+.recap-card.sealed .recap-postmark {
+	top: 2.1rem;
+}
+
+.recap-kicker {
+	font-variant-caps: all-small-caps;
+	font-size: 0.82rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	color: var(--color-text-muted);
+}
+
+.recap-title {
+	margin: 0;
+	padding-right: 3.4rem; /* clear the postmark */
+	font-size: 1.2rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	line-height: 1.25;
+}
+
+/* a caret rides the title while it types itself out on arrival; the untyped
+   rest is laid out but invisible, so the card never reflows as it types */
+.type-rest {
+	color: transparent;
+}
+
+.type-caret {
+	display: inline-block;
+	width: 0;
+	border-left: 2px solid var(--color-accent);
+	height: 0.95em;
+	margin: 0 -1px;
+	vertical-align: -0.1em;
+}
+
+.recap-excerpt {
+	margin: 0;
+	font-size: 0.95rem;
+	line-height: 1.5;
+	color: var(--color-text-muted);
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.recap-byline {
+	font-size: 0.72rem;
+	color: var(--color-text-muted);
+	opacity: 0.85;
+}
+
+/* the month's shape: one tick per day, coloured by its tone */
+.recap-card-spine,
+.recap-spine {
+	display: flex;
+	align-items: flex-end;
+	gap: 2px;
+	height: 16px;
+	margin-top: 0.3rem;
+}
+
+.spine-day {
+	flex: 1;
+	max-width: 7px;
+	height: 4px;
+	border-radius: 1px;
+	background: var(--color-border);
+}
+
+.spine-day.t-written {
+	height: 10px;
+	background: var(--color-border-strong);
+}
+.spine-day.t-positive {
+	height: 14px;
+	background: var(--mood-great);
+}
+.spine-day.t-neutral {
+	height: 10px;
+	background: var(--mood-neutral);
+}
+.spine-day.t-negative {
+	height: 14px;
+	background: var(--mood-bad);
+}
+
+/* ---- the offer to write one ---- */
+.recap-offer {
+	border-style: dashed;
+	box-shadow: none;
+}
+
+/* older months: one line and a small button, so a long history doesn't turn
+   into a wall of invitations */
+.recap-offer.quiet {
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.6rem 0.9rem;
+	background: none;
+}
+
+.recap-offer.quiet p {
+	font-size: 0.9rem;
+}
+
+.recap-offer.quiet .recap-write {
+	margin: 0;
+	flex: none;
+	background: none;
+	color: var(--color-accent);
+	border: 1px solid color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.recap-offer.quiet.busy .recap-write {
+	color: var(--color-accent-text);
+}
+
+.recap-offer.quiet .recap-error {
+	flex-basis: 100%;
+}
+
+.recap-offer p {
+	margin: 0;
+	font-size: 0.95rem;
+	line-height: 1.5;
+	color: var(--color-text-muted);
+}
+
+.recap-write {
+	align-self: flex-start;
+	margin-top: 0.35rem;
+	padding: 0.45rem 0.95rem;
+	border: none;
+	border-radius: 999px;
+	background: var(--color-accent);
+	color: var(--color-accent-text);
+	font: inherit;
+	font-size: 0.82rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: opacity 0.2s ease;
+}
+
+.recap-write:disabled {
+	cursor: progress;
+	opacity: 0.75;
+}
+
+.recap-offer.busy .recap-write {
+	background: linear-gradient(
+		90deg,
+		var(--color-accent) 0%,
+		color-mix(in srgb, var(--color-accent) 70%, white) 50%,
+		var(--color-accent) 100%
+	);
+	background-size: 200% 100%;
+	animation: recap-shimmer 1.4s linear infinite;
+}
+
+@keyframes recap-shimmer {
+	to {
+		background-position: -200% 0;
+	}
+}
+
+.recap-error {
+	font-size: 0.78rem;
+	color: var(--color-danger);
+}
+
+/* ---- the stats card inside the letter (editor + timeline preview) ---- */
+.recap-stats {
+	margin: 0.4em 0 1.6em;
+	padding: 0.9rem 1.1rem;
+	border: 1px solid var(--color-border);
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+	font-family: var(--font-sans);
+	user-select: none;
+}
+
+.recap-figures {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.6rem;
+	margin: 0.75rem 0 0.4rem;
+}
+
+.recap-fig dd {
+	margin: 0;
+	font-size: 1.35rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.1;
+}
+
+.recap-of {
+	font-size: 0.7em;
+	font-weight: 500;
+	color: var(--color-text-muted);
+}
+
+.recap-fig dt {
+	font-variant-caps: all-small-caps;
+	font-size: 0.82rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	color: var(--color-text-muted);
+}
+
+.composer .writing .tiptap .recap-line,
+.recap-line {
+	margin: 0.15rem 0 0;
+	font-size: 0.8rem;
+	line-height: 1.45;
+	color: var(--color-text-muted);
+}
+
+@media (max-width: 520px) {
+	.recap-figures {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+/* ---- the letter itself ---- */
+.letter-byline {
+	margin: 0 0 1.1rem;
+	font-variant-caps: all-small-caps;
+	font-size: 0.9rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	color: var(--color-text-muted);
+}
+
+.composer.letter .writing .tiptap blockquote {
+	margin: 1.6em 0 0;
+	padding: 0.2em 0 0.2em 1em;
+	border-left: 2px solid var(--color-accent);
+	color: var(--color-text-muted);
+}
+
+.composer.letter.readonly .writing .date-ref {
+	cursor: pointer;
+}
+
+.composer.letter.readonly .writing .date-ref:hover {
+	background: var(--color-accent);
+	color: var(--color-accent-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.recap-card,
+	.recap-offer.busy .recap-write {
+		transition: none;
+		animation: none;
+	}
+}

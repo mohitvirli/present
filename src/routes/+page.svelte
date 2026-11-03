@@ -2,10 +2,12 @@
 	import { onMount, tick } from 'svelte';
 	import { onNavigate, goto } from '$app/navigation';
 	import gsap from 'gsap';
-	import { listEntries, seedTutorialEntries, updateEntry, type Entry } from '$lib/db';
+	import { listEntries, putRecap, seedTutorialEntries, updateEntry, type Entry } from '$lib/db';
 	import { hasOnboarded, markOnboarded, hasWrittenEntry } from '$lib/onboarding';
 	import { isStandalone, consumeLaunch } from '$lib/pwa';
-	import { syncState } from '$lib/sync.svelte';
+	import { queueSync, syncState } from '$lib/sync.svelte';
+	import { aiSettings } from '$lib/settings.svelte';
+	import { isRecap, recapId, recapOffers, writeRecap } from '$lib/recap';
 	import { scroll } from '$lib/scroll.svelte';
 	import { search, searchActive } from '$lib/search.svelte';
 	import { buildIndex, runSearch } from '$lib/search';
@@ -16,15 +18,35 @@
 
 	// fuse index rebuilds only when the entry set changes; the filtered list
 	// re-derives per keystroke/filter against it
-	const index = $derived(buildIndex(entries));
-	const filtered = $derived(runSearch(entries, index, search.query, search.tags, search.tone));
+	// recap letters are an AI feature: with AI off they're not shown anywhere —
+	// not on the timeline, in search, the calendar or the pinned panel
+	const shown = $derived(aiSettings.enabled ? entries : entries.filter((e) => !isRecap(e)));
+	const index = $derived(buildIndex(shown));
+	const filtered = $derived(runSearch(shown, index, search.query, search.tags, search.tone));
 	const searching = $derived(searchActive());
 
 	// the topbar search panel shows "N of M entries"
 	$effect(() => {
 		search.matches = filtered.length;
-		search.total = entries.length;
+		search.total = shown.length;
 	});
+
+	// A letter is offered for every past month with enough to read back. Never
+	// written unasked: a month's text leaves the device only on a tap.
+	const offers = $derived(!aiSettings.enabled || searching ? [] : recapOffers(entries));
+
+	async function writeMonthRecap(month: string) {
+		const { content, letter } = await writeRecap(entries, month);
+		await putRecap(recapId(month), content, {
+			title: letter.title,
+			recap: month,
+			aiEmotion: letter.emotions[0],
+			aiEmotion2: letter.secondaryEmotion ?? undefined,
+			aiTone: letter.tone
+		});
+		entries = await listEntries();
+		queueSync();
+	}
 
 	// filtering changes document height under Lenis's cached layout — re-measure
 	$effect(() => {
@@ -100,7 +122,7 @@
 		// reads as the page being unresponsive. The animation is a desktop
 		// nicety; on touch, navigate immediately.
 		if (window.matchMedia('(pointer: coarse)').matches) return;
-		const rows = Array.from(document.querySelectorAll('.entry-row'));
+		const rows = Array.from(document.querySelectorAll('.entry-row, .recap-slot'));
 		// month headers too — a pinned one would otherwise stay put (sticky, own
 		// bg) while everything else fades, then pop on unmount
 		const labels = Array.from(document.querySelectorAll('.day-label, .month-label'));
@@ -130,5 +152,12 @@
 </script>
 
 <div class="home">
-	<Timeline entries={filtered} {loaded} {searching} onTogglePin={togglePin} />
+	<Timeline
+		entries={filtered}
+		{loaded}
+		{searching}
+		onTogglePin={togglePin}
+		recapOffers={offers}
+		onWriteRecap={writeMonthRecap}
+	/>
 </div>
