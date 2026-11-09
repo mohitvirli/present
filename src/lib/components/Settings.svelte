@@ -75,6 +75,48 @@
 		});
 	}
 
+	// --- sections ---
+
+	const TABS = [
+		{ id: 'writing', label: 'Writing' },
+		{ id: 'appearance', label: 'Appearance' },
+		{ id: 'sync', label: 'Sync' },
+		{ id: 'data', label: 'Data' }
+	] as const;
+	type TabId = (typeof TABS)[number]['id'];
+
+	let tab = $state<TabId>('writing');
+	let panel = $state<HTMLDivElement | null>(null);
+	let tabEls = $state<(HTMLButtonElement | null)[]>([]);
+
+	function selectTab(id: TabId) {
+		if (id === tab) return;
+		tab = id;
+		if (panel) {
+			panel.scrollTop = 0;
+			gsap.fromTo(
+				panel,
+				{ autoAlpha: 0, y: 4 },
+				{ autoAlpha: 1, y: 0, duration: 0.2, ease: 'power2.out' }
+			);
+		}
+	}
+
+	// roving focus: arrows move between tabs, the way a tablist should
+	function tabKey(e: KeyboardEvent, i: number) {
+		const step =
+			e.key === 'ArrowDown' || e.key === 'ArrowRight'
+				? 1
+				: e.key === 'ArrowUp' || e.key === 'ArrowLeft'
+					? -1
+					: 0;
+		if (!step) return;
+		e.preventDefault();
+		const next = (i + step + TABS.length) % TABS.length;
+		selectTab(TABS[next].id);
+		tabEls[next]?.focus();
+	}
+
 	const open = () => show(dialog);
 	const close = () => hide(dialog);
 	const openDeleteDialog = () => show(deleteDialog);
@@ -241,338 +283,459 @@
 		close();
 	}}
 >
-	<div class="settings-head">
-		<h2 id="settings-title">Settings</h2>
-		<button class="settings-close" onclick={close} aria-label="Close">✕</button>
-	</div>
-
-	<div class="settings-toggles">
-		<label class="ai-toggle">
-			<span class="ai-toggle-text">
-				<span class="ai-toggle-title">Enable AI suggestions</span>
-				<span class="ai-toggle-sub">Analyze entries for title, tags, mood &amp; summary.</span>
-			</span>
-			<input
-				type="checkbox"
-				role="switch"
-				class="switch"
-				checked={aiSettings.enabled}
-				onchange={(e) => setAiEnabled(e.currentTarget.checked)}
-			/>
-		</label>
-
-		<label class="ai-toggle">
-			<span class="ai-toggle-text">
-				<span class="ai-toggle-title">Enable mic</span>
-				<span class="ai-toggle-sub">Show the live dictation mic button while editing.</span>
-			</span>
-			<input
-				type="checkbox"
-				role="switch"
-				class="switch"
-				checked={micSettings.enabled}
-				onchange={(e) => setMicEnabled(e.currentTarget.checked)}
-			/>
-		</label>
-
-		<!-- the gutter calendar only exists on wide screens, so hide its switch below -->
-		<label class="ai-toggle calendar-toggle">
-			<span class="ai-toggle-text">
-				<span class="ai-toggle-title">Show calendar</span>
-				<span class="ai-toggle-sub">Month heatmap beside the timeline on wide screens.</span>
-			</span>
-			<input
-				type="checkbox"
-				role="switch"
-				class="switch"
-				checked={calendarSettings.enabled}
-				onchange={(e) => setCalendarEnabled(e.currentTarget.checked)}
-			/>
-		</label>
-
-		{#if geolocationSupported()}
-			<label class="ai-toggle">
-				<span class="ai-toggle-text">
-					<span class="ai-toggle-title">Add location</span>
-					<span class="ai-toggle-sub"
-						>{locationNote || 'Quietly note where each new entry was written.'}</span
-					>
-				</span>
-				<input
-					type="checkbox"
-					role="switch"
-					class="switch"
-					checked={locationSettings.enabled}
-					onchange={(e) => handleLocationToggle(e.currentTarget.checked)}
-				/>
-			</label>
-		{/if}
-
-		<label class="ai-toggle">
-			<span class="ai-toggle-text">
-				<span class="ai-toggle-title">Spell check</span>
-				<span class="ai-toggle-sub">Squiggle misspelled words as you write.</span>
-			</span>
-			<input
-				type="checkbox"
-				role="switch"
-				class="switch"
-				checked={spellcheckSettings.enabled}
-				onchange={(e) => setSpellcheckEnabled(e.currentTarget.checked)}
-			/>
-		</label>
-	</div>
-
-	<h3 class="settings-subhead">Sync</h3>
-	<section class="sync-card" class:is-on={syncState.enabled}>
-		<header class="sync-card-head">
-			<span class="sync-card-icon" aria-hidden="true">
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<rect x="3" y="11" width="18" height="11" rx="2" />
-					<path d="M7 11V7a5 5 0 0 1 10 0v4" />
-				</svg>
-			</span>
-			<!-- one baseline: the small caps state would otherwise ride high -->
-			<span class="sync-card-heading">
-				<span class="sync-card-title">Private Sync</span>
-				<span
-					class="sync-card-state"
-					class:is-error={syncState.status === 'error'}
-					title={syncStateLabel()}
-				>
-					{#if syncState.enabled && syncState.status === 'synced' && syncState.syncedAt}<span
-							class="sync-card-state-verb">Synced</span
-						>
-						{syncedTime(syncState.syncedAt)}{:else}{syncStateLabel()}{/if}
-				</span>
-			</span>
-			{#if syncSupported && syncState.enabled}
-				<button
-					class="sync-now"
-					class:is-spinning={syncState.status === 'syncing'}
-					type="button"
-					aria-label="Sync now"
-					onclick={() => fullSync()}
-					disabled={syncState.status === 'syncing'}
-				>
+	<div class="settings-shell">
+		<aside class="settings-side">
+			<div class="settings-head">
+				<h2 id="settings-title">Settings</h2>
+				<button class="settings-close" onclick={close} aria-label="Close">
 					<svg
-						width="12"
-						height="12"
+						width="14"
+						height="14"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
 						stroke-width="2.2"
 						stroke-linecap="round"
-						stroke-linejoin="round"
 						aria-hidden="true"
 					>
-						<path d="M21 12a9 9 0 1 1-2.64-6.36" />
-						<path d="M21 3v6h-6" />
+						<path d="M18 6 6 18M6 6l12 12" />
 					</svg>
-					<span class="sync-now-label">Sync</span>
 				</button>
-			{/if}
-		</header>
-
-		<p class="sync-card-desc">
-			{#if syncState.status === 'error'}
-				{syncState.error}
-			{:else if syncState.enabled}
-				Your journals stay in sync across devices{#if syncState.encrypted}, end-to-end encrypted{/if}.
-			{:else}
-				Keep your journals across devices, secured by your device's FaceID or fingerprint.
-			{/if}
-		</p>
-
-		{#if syncSupported}
-			<div class="sync-card-actions">
-				{#if syncState.enabled}
-					<button class="sync-btn primary" onclick={() => disableSync()}>Sign out</button>
-					<button class="sync-btn danger-ghost" onclick={openDeleteDialog}>
-						Delete sync account
-					</button>
-				{:else}
-					<button
-						class="sync-btn primary"
-						onclick={handleEnableSync}
-						disabled={syncState.status === 'connecting'}
-					>
-						{syncState.status === 'connecting' ? 'Connecting…' : 'Enable'}
-					</button>
-					<button
-						class="sync-btn ghost"
-						onclick={handleSignInSync}
-						disabled={syncState.status === 'connecting'}
-					>
-						Sign in with existing
-					</button>
-				{/if}
 			</div>
-		{/if}
-	</section>
 
-	<h3 class="settings-subhead">Data</h3>
-	<section class="sync-card data-card" class:is-error={dataState === 'error'}>
-		<header class="sync-card-head">
-			<span class="sync-card-icon" aria-hidden="true">
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
+			<div class="settings-tabs" role="tablist" aria-label="Settings sections">
+				{#each TABS as t, i (t.id)}
+					<button
+						bind:this={tabEls[i]}
+						id="settings-tab-{t.id}"
+						class="settings-tab"
+						class:active={tab === t.id}
+						role="tab"
+						type="button"
+						aria-selected={tab === t.id}
+						aria-controls="settings-panel"
+						tabindex={tab === t.id ? 0 : -1}
+						onclick={() => selectTab(t.id)}
+						onkeydown={(e) => tabKey(e, i)}
+					>
+						<svg
+							class="settings-tab-icon"
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							{#if t.id === 'writing'}
+								<path d="M12 20h9" />
+								<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+							{:else if t.id === 'appearance'}
+								<circle cx="12" cy="12" r="9" />
+								<path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor" />
+							{:else if t.id === 'sync'}
+								<rect x="3" y="11" width="18" height="11" rx="2" />
+								<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+							{:else}
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+								<path d="M7 10l5 5 5-5" />
+								<path d="M12 15V3" />
+							{/if}
+						</svg>
+						<span class="settings-tab-label">{t.label}</span>
+						{#if t.id === 'sync' && syncState.enabled}
+							<span
+								class="settings-tab-dot"
+								class:is-error={syncState.status === 'error'}
+								aria-hidden="true"
+							></span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+
+			<footer class="settings-foot">
+				<a
+					class="settings-repo"
+					href="https://github.com/mohitvirli/present"
+					target="_blank"
+					rel="noopener noreferrer"
 				>
-					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-					<path d="M7 10l5 5 5-5" />
-					<path d="M12 15V3" />
-				</svg>
-			</span>
-			<span class="sync-card-title">Your journal</span>
-			{#if dataState === 'working'}
-				<span class="sync-pill sync-pill-muted">Working…</span>
-			{/if}
-		</header>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+						<path
+							d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.3-1.7-1.3-1.7-1.06-.72.08-.71.08-.71 1.17.08 1.79 1.2 1.79 1.2 1.04 1.79 2.73 1.27 3.4.97.1-.75.41-1.27.74-1.56-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.41-5.25 5.69.42.37.8 1.1.8 2.22v3.29c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"
+						/>
+					</svg>
+					<span>GitHub</span>
+				</a>
+				<span class="settings-version">v{__APP_VERSION__}</span>
+			</footer>
+		</aside>
 
-		<p class="sync-card-desc" aria-live="polite">
-			{#if dataNote}
-				{dataNote}
-			{:else}
-				Every entry in one file — JSON restores, Markdown reads. {#if syncState.enabled}Syncs first.{/if}
-			{/if}
-		</p>
-		<p class="data-card-warn">Not encrypted — keep the file somewhere safe.</p>
-
-		<div class="sync-card-actions">
-			<button
-				class="sync-btn primary"
-				onclick={() => handleExport('json')}
-				disabled={dataState === 'working'}
-			>
-				Export JSON
-			</button>
-			<button
-				class="sync-btn ghost"
-				onclick={() => handleExport('markdown')}
-				disabled={dataState === 'working'}
-			>
-				Export Markdown
-			</button>
-			<button
-				class="sync-btn ghost"
-				onclick={() => fileInput?.click()}
-				disabled={dataState === 'working'}
-			>
-				Import JSON
-			</button>
-		</div>
-
-		<!-- the button above is the control; this only carries the file -->
-		<input
-			bind:this={fileInput}
-			class="data-file"
-			type="file"
-			accept="application/json,.json"
-			tabindex="-1"
-			aria-hidden="true"
-			onchange={handleImportFile}
-		/>
-	</section>
-
-	<h3 class="settings-subhead">Theme</h3>
-	<label class="ai-toggle theme-auto-row">
-		<span class="ai-toggle-text">
-			<span class="ai-toggle-title">Auto day &amp; night</span>
-			<span class="ai-toggle-sub"> Same palette all day — light from 6am, dark from 6pm. </span>
-		</span>
-		<input
-			type="checkbox"
-			role="switch"
-			class="switch"
-			checked={theme.auto}
-			onchange={(e) => setAutoTheme(e.currentTarget.checked)}
-		/>
-	</label>
-	{#if theme.auto}
-		<!-- auto picks the mode, so the grid picks the palette -->
-		<div class="theme-grid">
-			{#each PALETTES as p (p.id)}
-				{@const light = THEME_BY_ID.get(p.light)!}
-				{@const dark = THEME_BY_ID.get(p.dark)!}
-				{@const on = theme.value === p.light || theme.value === p.dark}
-				<button
-					class="theme-card"
-					class:selected={on}
-					onclick={() => setTheme(p.light)}
-					aria-pressed={on}
-					aria-label={p.name}
-					title={p.name}
-				>
-					<span
-						class="theme-dot"
-						aria-hidden="true"
-						style="background: conic-gradient(from 135deg, {light.swatches[0]} 0 50%, {dark
-							.swatches[4]} 50% 100%); border-color: {dark.swatches[4]};"
-					></span>
-					<span class="theme-name">{p.name}</span>
-					{#if on}
-						<span class="theme-slot" aria-hidden="true">
-							{theme.value === p.dark ? '☾' : '☀'}
-						</span>
-					{/if}
-				</button>
-			{/each}
-		</div>
-	{:else}
-		<div class="theme-grid">
-			{#each THEMES as t (t.id)}
-				<button
-					class="theme-card"
-					class:selected={theme.value === t.id}
-					onclick={() => setTheme(t.id)}
-					aria-pressed={theme.value === t.id}
-					aria-label={t.name}
-					title={t.name}
-				>
-					<span
-						class="theme-dot"
-						aria-hidden="true"
-						style="background: conic-gradient(from 135deg, {t.swatches[1]} 0 50%, {t
-							.swatches[0]} 50% 100%); border-color: {t.swatches[4]};"
-					></span>
-					<span class="theme-name">{t.name}</span>
-				</button>
-			{/each}
-		</div>
-	{/if}
-
-	<footer class="settings-foot">
-		<a
-			class="settings-repo"
-			href="https://github.com/mohitvirli/present"
-			target="_blank"
-			rel="noopener noreferrer"
+		<div
+			bind:this={panel}
+			id="settings-panel"
+			class="settings-panel"
+			role="tabpanel"
+			aria-labelledby="settings-tab-{tab}"
+			data-lenis-prevent
 		>
-			<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-				<path
-					d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.3-1.7-1.3-1.7-1.06-.72.08-.71.08-.71 1.17.08 1.79 1.2 1.79 1.2 1.04 1.79 2.73 1.27 3.4.97.1-.75.41-1.27.74-1.56-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.41-5.25 5.69.42.37.8 1.1.8 2.22v3.29c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"
+			{#if tab === 'writing'}
+				<h3 class="settings-section-title">Writing</h3>
+				<p class="settings-section-sub">What the editor does while you write.</p>
+				<div class="settings-group">
+					<label class="settings-row">
+						<span class="settings-row-text">
+							<span class="settings-row-title">AI suggestions</span>
+							<span class="settings-row-sub"
+								>Title, tags, mood &amp; a short summary per entry.</span
+							>
+						</span>
+						<input
+							type="checkbox"
+							role="switch"
+							class="switch"
+							checked={aiSettings.enabled}
+							onchange={(e) => setAiEnabled(e.currentTarget.checked)}
+						/>
+					</label>
+					<label class="settings-row">
+						<span class="settings-row-text">
+							<span class="settings-row-title">Dictation</span>
+							<span class="settings-row-sub">Show the live mic button while editing.</span>
+						</span>
+						<input
+							type="checkbox"
+							role="switch"
+							class="switch"
+							checked={micSettings.enabled}
+							onchange={(e) => setMicEnabled(e.currentTarget.checked)}
+						/>
+					</label>
+					<label class="settings-row">
+						<span class="settings-row-text">
+							<span class="settings-row-title">Spell check</span>
+							<span class="settings-row-sub">Squiggle misspelled words as you write.</span>
+						</span>
+						<input
+							type="checkbox"
+							role="switch"
+							class="switch"
+							checked={spellcheckSettings.enabled}
+							onchange={(e) => setSpellcheckEnabled(e.currentTarget.checked)}
+						/>
+					</label>
+					{#if geolocationSupported()}
+						<label class="settings-row">
+							<span class="settings-row-text">
+								<span class="settings-row-title">Location</span>
+								<span class="settings-row-sub" class:is-error={!!locationNote}
+									>{locationNote || 'Quietly note where each new entry was written.'}</span
+								>
+							</span>
+							<input
+								type="checkbox"
+								role="switch"
+								class="switch"
+								checked={locationSettings.enabled}
+								onchange={(e) => handleLocationToggle(e.currentTarget.checked)}
+							/>
+						</label>
+					{/if}
+				</div>
+			{:else if tab === 'appearance'}
+				<h3 class="settings-section-title">Appearance</h3>
+				<p class="settings-section-sub">Colours and what sits around the timeline.</p>
+
+				<div class="settings-group">
+					<label class="settings-row">
+						<span class="settings-row-text">
+							<span class="settings-row-title">Auto day &amp; night</span>
+							<span class="settings-row-sub">Light from 6am, dark from 6pm — same palette.</span>
+						</span>
+						<input
+							type="checkbox"
+							role="switch"
+							class="switch"
+							checked={theme.auto}
+							onchange={(e) => setAutoTheme(e.currentTarget.checked)}
+						/>
+					</label>
+					<div class="settings-row settings-row-block">
+						<span class="settings-row-title">{theme.auto ? 'Palette' : 'Theme'}</span>
+						{#if theme.auto}
+							<!-- auto picks the mode, so the grid picks the palette -->
+							<div class="theme-grid">
+								{#each PALETTES as p (p.id)}
+									{@const light = THEME_BY_ID.get(p.light)!}
+									{@const dark = THEME_BY_ID.get(p.dark)!}
+									{@const on = theme.value === p.light || theme.value === p.dark}
+									<button
+										class="theme-card"
+										class:selected={on}
+										onclick={() => setTheme(p.light)}
+										aria-pressed={on}
+										aria-label={p.name}
+										title={p.name}
+									>
+										<span class="theme-preview" aria-hidden="true">
+											<span class="theme-preview-half" data-theme={light.id}></span>
+											<span class="theme-preview-half" data-theme={dark.id}></span>
+										</span>
+										<span class="theme-name">
+											{p.name}
+											{#if on}
+												<span class="theme-slot" aria-hidden="true">
+													{theme.value === p.dark ? '☾' : '☀'}
+												</span>
+											{/if}
+										</span>
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<div class="theme-grid">
+								{#each THEMES as t (t.id)}
+									<button
+										class="theme-card"
+										class:selected={theme.value === t.id}
+										onclick={() => setTheme(t.id)}
+										aria-pressed={theme.value === t.id}
+										aria-label={t.name}
+										title={t.name}
+									>
+										<span class="theme-preview" aria-hidden="true">
+											<span class="theme-preview-half" data-theme={t.id}></span>
+										</span>
+										<span class="theme-name">{t.name}</span>
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<!-- the gutter calendar only exists on wide screens, so hide its switch below -->
+				<div class="settings-group calendar-toggle">
+					<label class="settings-row">
+						<span class="settings-row-text">
+							<span class="settings-row-title">Calendar</span>
+							<span class="settings-row-sub">Month heatmap beside the timeline.</span>
+						</span>
+						<input
+							type="checkbox"
+							role="switch"
+							class="switch"
+							checked={calendarSettings.enabled}
+							onchange={(e) => setCalendarEnabled(e.currentTarget.checked)}
+						/>
+					</label>
+				</div>
+			{:else if tab === 'sync'}
+				<h3 class="settings-section-title">Private Sync</h3>
+				<p class="settings-section-sub">
+					Your journal on every device, unlocked by FaceID or fingerprint.
+				</p>
+
+				<section class="sync-card" class:is-on={syncState.enabled}>
+					<header class="sync-card-head">
+						<span class="sync-card-icon" aria-hidden="true">
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect x="3" y="11" width="18" height="11" rx="2" />
+								<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+							</svg>
+						</span>
+						<span class="sync-card-heading">
+							<span class="sync-card-title">
+								{syncState.enabled ? 'Sync is on' : 'Sync is off'}
+							</span>
+							<span
+								class="sync-card-state"
+								class:is-error={syncState.status === 'error'}
+								title={syncStateLabel()}
+							>
+								{#if syncState.enabled && syncState.status === 'synced' && syncState.syncedAt}<span
+										class="sync-card-state-verb">Synced</span
+									>
+									{syncedTime(
+										syncState.syncedAt
+									)}{:else if syncState.enabled || !syncSupported || syncState.status === 'error'}{syncStateLabel()}{/if}
+							</span>
+						</span>
+						{#if syncSupported && syncState.enabled}
+							<button
+								class="sync-now"
+								class:is-spinning={syncState.status === 'syncing'}
+								type="button"
+								aria-label="Sync now"
+								onclick={() => fullSync()}
+								disabled={syncState.status === 'syncing'}
+							>
+								<svg
+									width="12"
+									height="12"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2.2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M21 12a9 9 0 1 1-2.64-6.36" />
+									<path d="M21 3v6h-6" />
+								</svg>
+								<span class="sync-now-label">Sync now</span>
+							</button>
+						{/if}
+					</header>
+
+					<p class="sync-card-desc" class:is-error={syncState.status === 'error'}>
+						{#if syncState.status === 'error'}
+							{syncState.error}
+						{:else if syncState.enabled}
+							Entries stay in step across your devices{#if syncState.encrypted}, end-to-end
+								encrypted{/if}.
+						{:else}
+							No account or password — a passkey on this device is the key. The server only ever
+							sees ciphertext.
+						{/if}
+					</p>
+
+					{#if syncSupported && !syncState.enabled}
+						<div class="sync-card-actions">
+							<button
+								class="sync-btn primary"
+								onclick={handleEnableSync}
+								disabled={syncState.status === 'connecting'}
+							>
+								{syncState.status === 'connecting' ? 'Connecting…' : 'Turn on sync'}
+							</button>
+							<button
+								class="sync-btn ghost"
+								onclick={handleSignInSync}
+								disabled={syncState.status === 'connecting'}
+							>
+								I already have one
+							</button>
+						</div>
+					{/if}
+				</section>
+
+				{#if syncSupported && syncState.enabled}
+					<div class="settings-group">
+						<div class="settings-row">
+							<span class="settings-row-text">
+								<span class="settings-row-title">Sign out</span>
+								<span class="settings-row-sub">Stop syncing here. Entries stay on this device.</span
+								>
+							</span>
+							<button class="sync-btn" type="button" onclick={() => disableSync()}>
+								Sign out
+							</button>
+						</div>
+						<div class="settings-row">
+							<span class="settings-row-text">
+								<span class="settings-row-title is-danger">Delete sync account</span>
+								<span class="settings-row-sub"
+									>Erase synced entries and passkeys from the server.</span
+								>
+							</span>
+							<button class="sync-btn danger-ghost" type="button" onclick={openDeleteDialog}>
+								Delete
+							</button>
+						</div>
+					</div>
+				{/if}
+			{:else}
+				<h3 class="settings-section-title">Data</h3>
+				<p class="settings-section-sub">
+					Every entry in one file. {#if syncState.enabled}Syncs first, so it holds the whole
+						account.{/if}
+				</p>
+
+				{#if dataNote || dataState === 'working'}
+					<p class="data-status" class:is-error={dataState === 'error'} aria-live="polite">
+						{dataState === 'working' && !dataNote ? 'Working…' : dataNote}
+					</p>
+				{/if}
+
+				<h4 class="settings-group-label">Export</h4>
+				<div class="settings-group">
+					<div class="settings-row">
+						<span class="settings-row-text">
+							<span class="settings-row-title">JSON</span>
+							<span class="settings-row-sub">A backup you can restore from.</span>
+						</span>
+						<button
+							class="sync-btn"
+							type="button"
+							onclick={() => handleExport('json')}
+							disabled={dataState === 'working'}
+						>
+							Export
+						</button>
+					</div>
+					<div class="settings-row">
+						<span class="settings-row-text">
+							<span class="settings-row-title">Markdown</span>
+							<span class="settings-row-sub">Plain text, for reading anywhere.</span>
+						</span>
+						<button
+							class="sync-btn"
+							type="button"
+							onclick={() => handleExport('markdown')}
+							disabled={dataState === 'working'}
+						>
+							Export
+						</button>
+					</div>
+				</div>
+				<p class="data-card-warn">Exports are not encrypted — keep the file somewhere safe.</p>
+
+				<h4 class="settings-group-label">Restore</h4>
+				<div class="settings-group">
+					<div class="settings-row">
+						<span class="settings-row-text">
+							<span class="settings-row-title">Import JSON</span>
+							<span class="settings-row-sub">Adds or updates entries — never deletes.</span>
+						</span>
+						<button
+							class="sync-btn"
+							type="button"
+							onclick={() => fileInput?.click()}
+							disabled={dataState === 'working'}
+						>
+							Choose file
+						</button>
+					</div>
+				</div>
+
+				<!-- the button above is the control; this only carries the file -->
+				<input
+					bind:this={fileInput}
+					class="data-file"
+					type="file"
+					accept="application/json,.json"
+					tabindex="-1"
+					aria-hidden="true"
+					onchange={handleImportFile}
 				/>
-			</svg>
-			<span>GitHub</span>
-		</a>
-		<span class="settings-version">v{__APP_VERSION__}</span>
-	</footer>
+			{/if}
+		</div>
+	</div>
 </dialog>
 <dialog
 	bind:this={deleteDialog}

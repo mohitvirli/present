@@ -6,9 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings, redesigned**: one long scroll became four sections — Writing,
+  Appearance, Sync and Data — in a side rail on wide screens and a tab bar on
+  phones. Every section is built from the same grouped rows, the dialog keeps
+  one height as you switch, and theme cards now preview each theme's real page,
+  ink and accent. The Sync tab carries a dot while sync is on.
+
 ### Added
 
-- **Places**: turn on *Add location* in Settings and each new entry quietly
+- **Places**: turn on _Add location_ in Settings and each new entry quietly
   notes where it was written. The browser asks once, when you switch it on;
   the place lands in the Context panel without opening it, and the
   Context button drops a pin and rolls to the place's name for a moment to say
