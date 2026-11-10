@@ -18,6 +18,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Monthly recap** (opt-in AI): a letter about each past month, written in
+  your own voice, with chips that jump back to the days it mentions.
+- **Search**: a command-bar panel with fuzzy search, plus tag and tone filters.
+  Tag chips anywhere filter the timeline.
+- **Inline quirks**: `@tomorrow` (or any date) drops a ghost entry on that
+  day's timeline, `@time` expands to the current time, and `#` files tags
+  straight from the prose.
+- **Pinned entries**: pin from a card or the entry header; pinned entries get
+  their own panel.
+- **Timeline**: a month heatmap calendar in the desktop gutter, collapsible
+  month groups, a sticky day heading, and view counts on cards.
+- **Editor**: tables with resizable columns and per-column alignment,
+  drag-and-drop list reordering, and a spell check toggle.
 - **Places**: turn on _Add location_ in Settings and each new entry quietly
   notes where it was written. The browser asks once, when you switch it on;
   the place lands in the Context panel without opening it, and the

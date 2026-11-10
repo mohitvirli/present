@@ -4,15 +4,25 @@ A calm, minimal journaling app. Write what's here now — a font-first, distract
 
 Built with SvelteKit + Svelte 5 (runes), TipTap, and IndexedDB. Local-first by default; sync and AI are opt-in.
 
+**Try it:** [present.clevir.li](https://present.clevir.li)
+
+[![Present demo](docs/demo.gif)](docs/demo.mp4)
+
+<sub>Click the preview for the full video.</sub>
+
 ## Features
 
 - **Local-first writing** — entries live in IndexedDB and autosave as you type. Works fully offline.
-- **Timeline** — entries grouped by day on a vertical rail, with rich in-place previews, collapsible day groups, and a rolling clock in the header.
+- **Timeline** — entries grouped by day on a vertical rail, with rich in-place previews, collapsible day and month groups, pinned entries, and a month heatmap calendar on wide screens.
+- **Search** — a command-bar panel with fuzzy search across entries, plus tag and tone filters.
+- **Inline quirks** — type `@tomorrow` (or any date) to drop a ghost entry on that day's timeline, `@time` for the current time, and `#` to file tags straight from the prose.
+- **Monthly recap** (opt-in AI) — at the end of a month, a letter about it, written in your own voice and linking back to the days it mentions.
 - **Private sync** — end-to-end encrypted sync across devices using a **passkey** (FaceID / fingerprint). No account, no password. The encryption key is derived from the passkey's PRF and never leaves your device, so the server only ever stores ciphertext.
 - **AI assist** (opt-in) — title & tag suggestions, mood analysis, and a short summary, plus **Reflection mode**: a gentle ghost follow-up question at your caret as you write.
 - **Places** (opt-in) — each new entry quietly notes where it was written; search for a place, pick a recent one, or name your own spot.
 - **Voice dictation** — live speech-to-text via Deepgram, streamed into the editor.
-- **Markdown + rich text** — headings, lists, todo checkboxes, links, blockquotes, code.
+- **Markdown + rich text** — headings, lists (drag to reorder), todo checkboxes, tables with resizable columns, links, blockquotes, code.
+- **Export & import** — download the whole journal as JSON (to restore from) or Markdown (to read); import a JSON export to restore.
 - **Themes** — Sage (default), Claude and Sky palettes, each with a light and dark half; auto day & night is on by default.
 - **Time-aware placeholders** — the composer greets you differently by time of day, weekend, and first run.
 
@@ -51,7 +61,7 @@ All features beyond local writing are optional. Set only what you need in `.env`
 
 | Variable | Needed for | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | AI suggestions, Reflection | Anthropic API key |
+| `ANTHROPIC_API_KEY` | AI suggestions, Reflection, monthly recap | Anthropic API key |
 | `DEEPGRAM_API_KEY` | Voice dictation | Deepgram API key |
 | `GOOGLE_MAPS_API_KEY` | Place names (optional) | Places API (New) + Geocoding. Server-only; set a daily quota on it. Without it, places come from OpenStreetMap (Photon) |
 | `SUPABASE_URL` | Sync | Supabase project URL |
