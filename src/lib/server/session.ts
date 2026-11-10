@@ -42,9 +42,17 @@ export async function mintSession(cookies: Cookies, userId: string): Promise<voi
 	cookies.set(SESSION_COOKIE, jwt, { ...baseCookie, maxAge: 60 * 60 * 24 * 30 });
 }
 
+// Rolling session: any authenticated request re-mints a cookie older than a
+// day, so the 30-day expiry counts from last use, not from sign-in.
+const REFRESH_AFTER_S = 60 * 60 * 24;
+
 export async function readSession(cookies: Cookies): Promise<string | null> {
-	const payload = await verify<{ sub?: string }>(cookies.get(SESSION_COOKIE));
-	return payload?.sub ?? null;
+	const payload = await verify<{ sub?: string; iat?: number }>(cookies.get(SESSION_COOKIE));
+	const userId = payload?.sub ?? null;
+	if (userId && Date.now() / 1000 - (payload?.iat ?? 0) > REFRESH_AFTER_S) {
+		await mintSession(cookies, userId);
+	}
+	return userId;
 }
 
 export function clearSession(cookies: Cookies): void {

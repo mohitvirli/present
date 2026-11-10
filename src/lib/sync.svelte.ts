@@ -289,10 +289,46 @@ export async function deleteSyncAccount(): Promise<boolean> {
 // session check — an expired session answers the pull with a 401, which turns
 // sync off the same way, one round trip sooner.
 export async function initSync(): Promise<void> {
-	if (!browser || !syncState.enabled) return;
+	if (!browser) return;
+	void persistStorage();
+	if (!syncState.enabled) {
+		await recoverSession();
+		return;
+	}
 	localStorage.removeItem(LEGACY_SINCE_KEY);
 	await loadKey(); // silent — avoids a passkey ceremony on every open
 	await fullSync();
+}
+
+// Ask the browser to keep this origin's storage. Without it storage is
+// "best-effort": Safari wipes IndexedDB + localStorage after ~7 days without a
+// visit, Chrome under disk pressure — which drops every local entry and the
+// sync flag at once (looks like a sign-out with an empty journal).
+async function persistStorage(): Promise<void> {
+	try {
+		if (navigator.storage?.persist && !(await navigator.storage.persisted())) {
+			await navigator.storage.persist();
+		}
+	} catch {
+		/* unsupported — nothing to do */
+	}
+}
+
+// The sync flag is missing (never set, or the browser evicted local storage)
+// but the httpOnly session cookie may have survived. If the server still knows
+// this device, resume syncing instead of showing a signed-out, empty journal.
+// An explicit sign-out writes '0' and clears the cookie, so it never lands here.
+async function recoverSession(): Promise<void> {
+	if (!syncSupported || localStorage.getItem(ENABLED_KEY) !== null) return;
+	try {
+		const res = await fetch('/api/sync/session');
+		if (!res.ok) return;
+		const { signedIn } = (await res.json()) as { signedIn?: boolean };
+		if (!signedIn) return;
+	} catch {
+		return;
+	}
+	await startSyncing();
 }
 
 // ----- engine -----
@@ -340,6 +376,8 @@ export async function fullSync(): Promise<void> {
 				// a 401 disables sync (handle401) and must stop the cycle
 				if (!syncState.enabled) throw e;
 				failure = errorMessage(e, 'Could not pull entries.');
+				// encrypted account, no key: pushing now would upload plaintext
+				if (e instanceof KeyMissing) break;
 			}
 			try {
 				await push();
@@ -369,7 +407,9 @@ function handle401(): never {
 // the function body limit. Each batch is marked clean as soon as it lands, so a
 // failure part way resumes where it stopped.
 async function push(): Promise<void> {
-	const dirty = await listDirty();
+	// seeded examples never leave the device, even if one slipped past
+	// clearTutorialEntries (e.g. seeded while a recovered session was starting)
+	const dirty = (await listDirty()).filter((e) => !e.metadata.tutorial);
 	if (!dirty.length) return;
 
 	// When a key is available, encrypt {content, metadata} into the content
@@ -434,10 +474,17 @@ async function pull(): Promise<void> {
 	if (changed) syncState.rev += 1; // signal views to re-read
 }
 
+// The account's entries are encrypted but this device has no key yet.
+class KeyMissing extends Error {
+	constructor() {
+		super('Passkey needed to decrypt synced entries — sign in again.');
+	}
+}
+
 // Unwrap the envelope back into the real content + metadata.
 async function decrypt(remote: Entry): Promise<Entry> {
 	if (!isEnvelope(remote.content as unknown)) return remote;
-	if (!(await ensureKey())) throw new Error('Passkey needed to decrypt synced entries.');
+	if (!(await ensureKey())) throw new KeyMissing();
 	const dec = await decryptJSON<{ content: Entry['content']; metadata: Entry['metadata'] }>(
 		aesKey!,
 		remote.content as unknown as Envelope
