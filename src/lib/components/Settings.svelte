@@ -119,6 +119,11 @@
 
 	const open = () => show(dialog);
 	const close = () => hide(dialog);
+
+	// a tap on the dimmed backdrop lands on the <dialog> itself
+	function backdropClick(e: MouseEvent) {
+		if (e.target === dialog) close();
+	}
 	const openDeleteDialog = () => show(deleteDialog);
 	const closeDeleteDialog = () => hide(deleteDialog);
 
@@ -282,6 +287,7 @@
 		e.preventDefault();
 		close();
 	}}
+	onclick={backdropClick}
 >
 	<div class="settings-shell">
 		<aside class="settings-side">
@@ -313,7 +319,7 @@
 						role="tab"
 						type="button"
 						aria-selected={tab === t.id}
-						aria-controls="settings-panel"
+						aria-controls="settings-section-{t.id}"
 						tabindex={tab === t.id ? 0 : -1}
 						onclick={() => selectTab(t.id)}
 						onkeydown={(e) => tabKey(e, i)}
@@ -375,15 +381,17 @@
 			</footer>
 		</aside>
 
-		<div
-			bind:this={panel}
-			id="settings-panel"
-			class="settings-panel"
-			role="tabpanel"
-			aria-labelledby="settings-tab-{tab}"
-			data-lenis-prevent
-		>
-			{#if tab === 'writing'}
+		<!-- every section stays rendered, only the active one shown, so a phone
+		     can size the dialog to the tallest of them (see app.css) -->
+		<div bind:this={panel} class="settings-panel" data-lenis-prevent>
+			<div
+				id="settings-section-writing"
+				class="settings-section"
+				class:active={tab === 'writing'}
+				role="tabpanel"
+				aria-labelledby="settings-tab-writing"
+				inert={tab !== 'writing'}
+			>
 				<h3 class="settings-section-title">Writing</h3>
 				<p class="settings-section-sub">What the editor does while you write.</p>
 				<div class="settings-group">
@@ -446,7 +454,15 @@
 						</label>
 					{/if}
 				</div>
-			{:else if tab === 'appearance'}
+			</div>
+			<div
+				id="settings-section-appearance"
+				class="settings-section"
+				class:active={tab === 'appearance'}
+				role="tabpanel"
+				aria-labelledby="settings-tab-appearance"
+				inert={tab !== 'appearance'}
+			>
 				<h3 class="settings-section-title">Appearance</h3>
 				<p class="settings-section-sub">Colours and what sits around the timeline.</p>
 
@@ -534,7 +550,15 @@
 						/>
 					</label>
 				</div>
-			{:else if tab === 'sync'}
+			</div>
+			<div
+				id="settings-section-sync"
+				class="settings-section"
+				class:active={tab === 'sync'}
+				role="tabpanel"
+				aria-labelledby="settings-tab-sync"
+				inert={tab !== 'sync'}
+			>
 				<h3 class="settings-section-title">Private Sync</h3>
 				<p class="settings-section-sub">
 					Your journal on every device, unlocked by FaceID or fingerprint.
@@ -659,7 +683,15 @@
 						</div>
 					</div>
 				{/if}
-			{:else}
+			</div>
+			<div
+				id="settings-section-data"
+				class="settings-section"
+				class:active={tab === 'data'}
+				role="tabpanel"
+				aria-labelledby="settings-tab-data"
+				inert={tab !== 'data'}
+			>
 				<h3 class="settings-section-title">Data</h3>
 				<p class="settings-section-sub">
 					Every entry in one file. {#if syncState.enabled}Syncs first, so it holds the whole
@@ -733,7 +765,12 @@
 					aria-hidden="true"
 					onchange={handleImportFile}
 				/>
-			{/if}
+			</div>
+		</div>
+
+		<!-- settings apply as they change, so closing is all that's left to do -->
+		<div class="settings-actions">
+			<button class="sync-btn primary" type="button" onclick={close}>Done</button>
 		</div>
 	</div>
 </dialog>
