@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-10
+
 ### Changed
 
 - **Settings, redesigned**: one long scroll became four sections — Writing,
@@ -64,6 +66,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Timeline cards keep their details on one line — time, place, and views
   shown as a count with an eye. A long place name is shortened instead of
   pushing the rest onto new lines. The writing-time label is gone for now.
+
+[1.2.0]: https://github.com/mohitvirli/present/releases/tag/v1.2.0
 
 ## [1.1.0] - 2026-06-09
 
