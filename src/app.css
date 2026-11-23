@@ -4317,6 +4317,112 @@ body:has(dialog[open]) .cursor-rail {
 	}
 }
 
+/* ---------- list folding ---------- */
+/* Chevron owned by the ListFold plugin (tiptap-list-fold.ts), injected as the
+   first child of any row that has a nested list. It sits in the slot just left
+   of the bullet (or checkbox); the drag grip steps out past it on those rows. */
+.composer .writing .tiptap li {
+	position: relative;
+}
+
+.list-fold {
+	position: absolute;
+	top: 0;
+	right: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	/* a <button> does not inherit type, so without this 1lh is the UA's 13px
+	   button line and the chevron rides above the row's text */
+	font: inherit;
+	line-height: inherit;
+	height: 1lh;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	opacity: 0;
+	transition:
+		opacity 0.12s ease,
+		background 0.12s ease;
+}
+
+/* bullets and numbers are painted outside the row, so the chevron clears them */
+.composer .writing .tiptap ul:not([data-type='taskList']) > li > .list-fold,
+.composer .writing .tiptap ol > li > .list-fold {
+	margin-right: 18px;
+}
+
+/* task rows: the widget lands in the content div, the chevron clears the checkbox */
+.composer .writing .tiptap ul[data-type='taskList'] > li > div > .list-fold {
+	margin-right: 6px;
+}
+
+.list-fold svg {
+	transition: transform 0.16s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.list-fold[aria-expanded='false'] svg {
+	transform: rotate(-90deg);
+}
+
+.composer .writing .tiptap li:hover > .list-fold,
+.composer .writing .tiptap li:hover > div > .list-fold,
+.list-fold:focus-visible {
+	opacity: 0.6;
+}
+
+.list-fold:hover {
+	opacity: 1 !important;
+	background: var(--color-surface-2);
+}
+
+/* a folded row always shows that it is holding something */
+.list-fold[aria-expanded='false'] {
+	opacity: 0.6;
+}
+
+/* the hidden part. Only while editable: a read-only view has no chevrons to
+   open it with, so it shows the whole outline instead. */
+.composer .writing .tiptap[contenteditable='true'] li[data-collapsed='true'] > ul,
+.composer .writing .tiptap[contenteditable='true'] li[data-collapsed='true'] > ol,
+.composer .writing .tiptap[contenteditable='true'] li[data-collapsed='true'] > div > ul,
+.composer .writing .list-drag-layer li[data-collapsed='true'] > ul,
+.composer .writing .list-drag-layer li[data-collapsed='true'] > ol,
+.composer .writing .list-drag-layer li[data-collapsed='true'] > div > ul {
+	display: none;
+}
+
+/* a folded bullet takes the accent colour, so the fold reads without hovering */
+.composer
+	.writing
+	.tiptap[contenteditable='true']
+	ul:not([data-type='taskList'])
+	> li[data-collapsed='true']::marker {
+	color: var(--color-accent);
+}
+
+.composer .writing .tiptap[contenteditable='false'] .list-fold,
+.list-drag-layer .list-fold {
+	display: none;
+}
+
+/* no hover on touch: parent rows keep their chevron in view */
+@media (hover: none) {
+	.list-fold {
+		opacity: 0.5;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.list-fold svg {
+		transition: none;
+	}
+}
+
 /* task list (checkbox todos) */
 .composer .writing .tiptap ul[data-type='taskList'] {
 	list-style: none;

@@ -36,6 +36,8 @@ const HANDLE_GAP = 6;
 const MARKER_W = 16;
 // Top-level rows land slightly negative; the page's 2rem gutter absorbs it.
 const HANDLE_MIN_LEFT = -26;
+// the fold chevron's slot beside the marker (see .list-fold in app.css)
+const FOLD_W = 18;
 // how far past the grip's own column the pointer may stray and still be
 // treated as running along the rows rather than having left them
 const GUTTER_SLACK = 10;
@@ -101,7 +103,10 @@ function itemDOM(view: EditorView, item: Item): HTMLElement | null {
 // so the first child — the paragraph, or a task row's label — is what the
 // handle aligns to and what the drop midpoint is measured against.
 function lineRect(dom: HTMLElement): DOMRect {
-	const first = dom.firstElementChild;
+	// skip the fold chevron (tiptap-list-fold.ts), which is the row's first
+	// element but sits out in the gutter
+	let first = dom.firstElementChild;
+	if (first?.classList.contains('list-fold')) first = first.nextElementSibling;
 	return (first ?? dom).getBoundingClientRect();
 }
 
@@ -396,7 +401,7 @@ class ListDragView {
 	private rowBeside(x: number, y: number): HTMLElement | null {
 		const box = this.view.dom.getBoundingClientRect();
 		if (y < box.top || y > box.bottom) return null;
-		if (x < box.left + HANDLE_MIN_LEFT - GUTTER_SLACK || x > box.right) return null;
+		if (x < box.left + HANDLE_MIN_LEFT - FOLD_W - GUTTER_SLACK || x > box.right) return null;
 		// clamped so a pointer out in the gutter still lands on that line's text
 		const item = itemFromCoords(this.view, Math.max(x, box.left + 1), y);
 		return item && itemDOM(this.view, item);
@@ -420,8 +425,10 @@ class ListDragView {
 		// task rows render as flex and drop their marker; bullet/ordered rows keep
 		// one and need the extra clearance
 		const marker = style.display === 'list-item' && style.listStyleType !== 'none' ? MARKER_W : 0;
-		const offset = HANDLE_W + HANDLE_GAP + marker;
-		const left = Math.max(rect.left - hostRect.left - offset, HANDLE_MIN_LEFT);
+		// a row with a fold chevron keeps that slot for it; the grip steps out past it
+		const fold = dom.querySelector(':scope > .list-fold, :scope > div > .list-fold') ? FOLD_W : 0;
+		const offset = HANDLE_W + HANDLE_GAP + marker + fold;
+		const left = Math.max(rect.left - hostRect.left - offset, HANDLE_MIN_LEFT - fold);
 		this.handle.style.left = `${left}px`;
 		this.handle.style.top = `${rect.top - hostRect.top + (line - HANDLE_H) / 2}px`;
 		this.handle.classList.add('visible');

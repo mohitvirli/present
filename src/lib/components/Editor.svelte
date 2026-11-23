@@ -14,6 +14,7 @@
 	import { TagMenu } from '$lib/tiptap-tag-menu';
 	import { RecapStatsNode } from '$lib/tiptap-recap-stats';
 	import { ListDragHandle } from '$lib/tiptap-list-drag';
+	import { ListFold } from '$lib/tiptap-list-fold';
 	import {
 		Tables,
 		TablePipeRow,
@@ -122,6 +123,7 @@
 				TaskList,
 				TaskItemBracket.configure({ nested: true }),
 				ListDragHandle,
+				ListFold,
 				...Tables,
 				TablePipeRow,
 				TableBackspaceDelete,
