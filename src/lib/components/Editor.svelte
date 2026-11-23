@@ -24,6 +24,10 @@
 		type ColumnAlign
 	} from '$lib/tiptap-table';
 	import { spellcheckSettings } from '$lib/settings.svelte';
+	import Collaboration from '@tiptap/extension-collaboration';
+	import CollaborationCaret from '@tiptap/extension-collaboration-caret';
+	import type * as Y from 'yjs';
+	import type { Awareness } from 'y-protocols/awareness';
 
 	let {
 		content = null,
@@ -33,8 +37,19 @@
 		tagVocabulary = [],
 		entryTags = [],
 		onTag,
+		collab = null,
 		editor = $bindable()
 	}: {
+		/**
+		 * Shared-entry mode: the Y.Doc is the source of truth and `content` is
+		 * ignored. Awareness carries live carets; `user` is this person's label.
+		 * Fixed for the editor's lifetime (read once on mount).
+		 */
+		collab?: {
+			doc: Y.Doc;
+			awareness?: Awareness;
+			user?: { name: string; color: string };
+		} | null;
 		content?: JSONContent | string | null;
 		editable?: boolean;
 		placeholder?: string;
@@ -85,7 +100,21 @@
 		editor = new Editor({
 			element,
 			extensions: [
-				StarterKit,
+				// Yjs brings its own undo history, scoped to this person's edits
+				collab ? StarterKit.configure({ undoRedo: false }) : StarterKit,
+				...(collab
+					? [
+							Collaboration.configure({ document: collab.doc }),
+							...(collab.awareness
+								? [
+										CollaborationCaret.configure({
+											provider: { awareness: collab.awareness },
+											user: collab.user ?? { name: 'Someone', color: '#888' }
+										})
+									]
+								: [])
+						]
+					: []),
 				Placeholder.configure({ placeholder }),
 				Typography,
 				TaskList,
@@ -112,7 +141,9 @@
 					onPick: (tag: string) => onTag?.(tag)
 				})
 			],
-			content: content ?? '',
+			// the Y.Doc fills a collaborative editor; passing content too would
+			// duplicate it into the shared doc on every mount
+			content: collab ? undefined : (content ?? ''),
 			editable,
 			autofocus: false,
 			onUpdate: ({ editor }) => onChange?.(editor.getJSON(), editor.getText()),
