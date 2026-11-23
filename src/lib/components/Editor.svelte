@@ -147,8 +147,10 @@
 			editable,
 			autofocus: false,
 			onUpdate: ({ editor }) => onChange?.(editor.getJSON(), editor.getText()),
-			// covers typing, selection moves and undo/redo in one hook
-			onTransaction: () => updateTableMenu()
+			// covers typing, selection moves and undo/redo in one hook. Deferred:
+			// the editor's teardown dispatches a blur transaction while Svelte is
+			// unmounting, where writing $state throws state_unsafe_mutation.
+			onTransaction: () => queueMicrotask(updateTableMenu)
 		});
 
 		// dev console handle for debugging/testing gestures

@@ -9,7 +9,8 @@ import {
 	importEntryKey,
 	newEntryKeyBytes,
 	openSealed,
-	sealTo
+	sealTo,
+	type Sealed
 } from '$lib/crypto';
 import { loadIdentity } from '$lib/keystore';
 import { applyDerived, getEntry, purgeEntries, putRemote, type Entry } from '$lib/db';
@@ -34,6 +35,7 @@ const COMPACT_AFTER = 100; // updates since the last snapshot before uploading a
 interface SharedRecord {
 	id: string;
 	key: CryptoKey; // non-extractable entry key
+	wrappedKey?: Sealed; // the same key sealed to us — unsealed again to invite others
 	epoch: number;
 	role: 'owner' | 'editor';
 	state: Uint8Array; // Y.encodeStateAsUpdate of the doc
@@ -228,6 +230,7 @@ export async function createShared(opts: {
 	const record: SharedRecord = {
 		id,
 		key,
+		wrappedKey,
 		epoch: 1,
 		role: 'owner',
 		state,
@@ -286,10 +289,11 @@ async function catchUp(item: SharedListItem) {
 		const key = await importEntryKey(raw);
 		raw.fill(0);
 		record = record
-			? { ...record, key, epoch: item.epoch, role: item.role }
+			? { ...record, key, wrappedKey: item.wrappedKey, epoch: item.epoch, role: item.role }
 			: {
 					id: item.id,
 					key,
+					wrappedKey: item.wrappedKey,
 					epoch: item.epoch,
 					role: item.role,
 					state: Y.encodeStateAsUpdate(new Y.Doc()),
@@ -358,4 +362,32 @@ export async function clearShared(): Promise<void> {
 	const ids = await db.getAllKeys('docs');
 	await db.clear('docs');
 	await purgeEntries(ids);
+}
+
+// ---- for invites -------------------------------------------------------------
+
+// The entry key's raw bytes, unsealed with this user's identity. Only to seal
+// it again for someone else; callers zero it when done.
+export async function entryKeyBytes(id: string): Promise<{ raw: Uint8Array; epoch: number }> {
+	const db = await getDB();
+	const record = live.get(id)?.record ?? (await db.get('docs', id));
+	let sealed = record?.wrappedKey;
+	let epoch = record?.epoch ?? 1;
+	if (!sealed) {
+		const res = await fetch('/api/shared');
+		const item = res.ok
+			? ((await res.json()) as SharedListItem[]).find((i) => i.id === id)
+			: undefined;
+		if (!item) throw new Error('Not a member of this entry.');
+		sealed = item.wrappedKey;
+		epoch = item.epoch;
+	}
+	const identity = await loadIdentity();
+	if (!identity) throw new Error('No identity keys on this device yet.');
+	return { raw: await openSealed(identity.privateKey, sealed), epoch };
+}
+
+// Member display names: userId → name, encrypted with everything else.
+export function sharedNames(doc: Y.Doc): Y.Map<string> {
+	return doc.getMap('names');
 }

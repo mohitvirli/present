@@ -38,3 +38,5 @@ alter table public.entries     enable row level security; -- no policy → servi
 -- (per-user identity key pair; private half encrypted under the journal key).
 -- supabase/migrations/20261124_shared_entries.sql adds shared_entries,
 -- shared_members and shared_updates (ciphertext only; see the migration).
+-- supabase/migrations/20261125_shared_invites.sql adds shared_invites and the
+-- shared_accept_invite function (atomic join with the 8-member cap).

@@ -40,6 +40,7 @@
 	import { hasWrittenEntry, markEntryWritten } from '$lib/onboarding';
 	import { pickPlaceholder, FIRST_RUN_PLACEHOLDER } from '$lib/placeholders';
 	import Editor from '$lib/components/Editor.svelte';
+	import SharedMembers from '$lib/components/SharedMembers.svelte';
 	import RollingNumber from '$lib/components/RollingNumber.svelte';
 	import TagInput from '$lib/components/TagInput.svelte';
 	import LocationInput from '$lib/components/LocationInput.svelte';
@@ -680,6 +681,7 @@
 		composer.pinned = false;
 		composer.collaborate = null;
 		composer.shared = false;
+		composer.showMembers = false;
 		if (shareStateTimer) clearTimeout(shareStateTimer);
 		composer.shareState = 'idle';
 		composer.reflection = false;
@@ -1081,6 +1083,14 @@
 					createdAt
 				).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{/if}
 		</p>
+	{/if}
+	{#if composer.showMembers && shared && entryId}
+		<SharedMembers
+			{entryId}
+			doc={shared.doc}
+			title={meta.title}
+			onClose={() => (composer.showMembers = false)}
+		/>
 	{/if}
 	<section class="writing" bind:this={writingEl} ondblclick={onWritingDblClick} onclick={onLetterClick}>
 		{#if ready}

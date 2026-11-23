@@ -513,15 +513,17 @@
 						</span>
 					{/if}
 					{#if composer.collaborate || composer.shared}
-						<!-- shared entries: write together (flagged). The members sheet
-						     replaces the static mark in Phase 3. -->
+						<!-- shared entries (flagged): make one, or open its members sheet -->
 						<button
 							class="header-action"
 							class:active={composer.shared}
-							onclick={() => composer.collaborate?.()}
-							disabled={composer.shared}
-							aria-label={composer.shared ? 'Shared entry' : 'Write together'}
-							title={composer.shared ? 'Shared entry' : 'Write together — share this entry'}
+							onclick={() =>
+								composer.shared
+									? (composer.showMembers = !composer.showMembers)
+									: composer.collaborate?.()}
+							aria-expanded={composer.shared ? composer.showMembers : undefined}
+							aria-label={composer.shared ? 'Members' : 'Write together'}
+							title={composer.shared ? 'Members and invites' : 'Write together — share this entry'}
 						>
 							<svg
 								width="18"

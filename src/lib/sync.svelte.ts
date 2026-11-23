@@ -13,7 +13,13 @@ import {
 } from './db';
 import { markOnboarded } from './onboarding';
 import { PRF_SALT, deriveKey, encryptJSON, decryptJSON, isEnvelope, type Envelope } from './crypto';
-import { saveAesKey, loadAesKey, clearAesKey, clearIdentity } from './keystore';
+import {
+	saveAesKey,
+	loadAesKey,
+	clearAesKey,
+	clearIdentity,
+	type StoredIdentity
+} from './keystore';
 import { sharedEntriesFlag } from './settings.svelte';
 import { ensureIdentity } from './shared/identity';
 import { syncShared, clearShared } from './shared/store';
@@ -99,6 +105,15 @@ function syncSharedEntries(): void {
 	ensureIdentity(aesKey)
 		.then(() => syncShared())
 		.catch((e) => console.warn('shared entries:', e));
+}
+
+// For pages that need shared-entry keys right away (joining from an invite):
+// this account's identity, created or restored if needed. Null when sync is off
+// or the passkey has no PRF (no journal key to protect the private half).
+export async function sharedIdentity(): Promise<StoredIdentity | null> {
+	if (!syncState.enabled) return null;
+	if (!(await loadKey()) || !aesKey) return null;
+	return ensureIdentity(aesKey);
 }
 
 export const syncSupported =

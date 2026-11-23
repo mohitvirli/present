@@ -166,3 +166,18 @@ with a real account: create, edit (title via Y map, pushed as one encrypted upda
 returned snapshot + 1 update with no plaintext, local copy wiped, restored from the server with
 identical content, edited title and tags; the mirror never entered private push. Invites table
 moved to Phase 3's migration. Next, 2b: open shared entries in the editor and a Share action.
+
+## Phase 3 result (Nov 23) — done
+
+Invites (`shared_invites` + `shared_accept_invite`, migration 20261125). Verified with two accounts
+on https://localhost:5173: owner set a name and created a link from the members sheet; a second
+account (Incognito, new passkey) opened it, saw the preview, joined, and both sides' edits merged
+on sync. Members sheet shows names from the doc.
+
+Follow-ups for Phase 6 polish:
+
+- **Mobile layout** for the members sheet (currently a fixed popover under the header) and the
+  `/join` page — check on phone widths and make the sheet a bottom sheet there.
+- Replace the `confirm()` / `alert()` in "Write together" with in-app UI.
+- Supabase CLI: link the project (`npx supabase@latest link`), rename migrations to 14-digit
+  versions, mark the applied ones with `migration repair`, then use `db push`.
