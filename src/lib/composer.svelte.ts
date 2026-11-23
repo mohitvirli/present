@@ -14,6 +14,9 @@ export const composer = $state<{
 	shareState: 'idle' | 'copied' | 'download';
 	pin: (() => void) | null; // toggles the entry's pinned flag (set for saved entries)
 	pinned: boolean; // entry's current pinned state — drives the header button
+	collaborate: (() => void) | null; // turns this entry into a shared one (flagged)
+	shared: boolean; // the open entry is co-written — header shows the shared mark
+	openEditing: string | null; // entry id to open straight into edit mode (once)
 	reflection: boolean; // AI "reflection mode" — ghost follow-up questions at the caret
 	canReflect: boolean; // whether the header should offer the reflection toggle
 	newEntryNonce: number; // bumped to force a fresh /entry mount even when already there
@@ -29,6 +32,9 @@ export const composer = $state<{
 	shareState: 'idle',
 	pin: null,
 	pinned: false,
+	collaborate: null,
+	shared: false,
+	openEditing: null,
 	reflection: false,
 	canReflect: false,
 	newEntryNonce: 0

@@ -18,7 +18,15 @@
 		type KnownPlace
 	} from '$lib/db';
 	import { composer } from '$lib/composer.svelte';
-	import { aiSettings, micSettings, spellcheckSettings, locationSettings } from '$lib/settings.svelte';
+	import {
+		aiSettings,
+		micSettings,
+		spellcheckSettings,
+		locationSettings,
+		sharedEntriesFlag
+	} from '$lib/settings.svelte';
+	import { createShared, openShared, sharedMeta } from '$lib/shared/store';
+	import type * as Y from 'yjs';
 	import { placeOf, toPlace, type Place } from '$lib/place';
 	import { currentPosition, resolvePlace } from '$lib/location';
 	import { extractText, extractTags } from '$lib/tiptap';
@@ -61,6 +69,12 @@
 	let editor = $state<TiptapEditor>();
 	let writingEl: HTMLElement;
 	let lastFocusWasTitleOrTags = false;
+
+	// Co-written entry: its Y.Doc is the source of truth. Content edits flow
+	// through the editor's Collaboration binding; title and tags live in the
+	// doc's meta map. The store mirrors the doc back into this entry record.
+	let shared = $state<{ doc: Y.Doc; dispose: () => void } | null>(null);
+	let unobserveMeta: (() => void) | null = null;
 
 	// Monthly recap letters: a byline over the text, and never editable — the
 	// letter is a reading of the month, not a draft.
@@ -247,9 +261,13 @@
 				place = placeOf(e.metadata.location);
 				entryId = e.id;
 				savedAt = e.updatedAt;
+				if (e.metadata.shared) await openSharedDoc(e.id);
 				createdAt = e.createdAt;
 				// pinned notes are living documents — open them straight into edit mode
 				readonly = !e.metadata.pinned || !!e.metadata.recap;
+				// just made shared while writing → carry on writing
+				if (composer.openEditing === e.id) readonly = false;
+				composer.openEditing = null;
 				// Tags written in the body as `#` chips are visible where they were
 				// written, so they don't earn an open panel — only a title or a tag
 				// typed into the Context header itself does.
@@ -302,7 +320,72 @@
 
 	onDestroy(() => {
 		document.removeEventListener('focusin', onFocusIn);
+		unobserveMeta?.();
+		shared?.dispose();
 	});
+
+	async function openSharedDoc(id: string) {
+		shared = await openShared(id);
+		if (!shared) return; // not on this device yet — shown read-only from the mirror
+		const m = sharedMeta(shared.doc);
+		const fromDoc = () => {
+			const title = m.get('title') as string | undefined;
+			const docTags = (m.get('tags') as string[] | undefined) ?? [];
+			if ((meta.title ?? '') !== (title ?? '')) meta.title = title;
+			if (JSON.stringify(tags) !== JSON.stringify(docTags)) tags = [...docTags];
+		};
+		fromDoc();
+		// others' title/tag edits arrive here while the entry is open
+		const onMeta = (_: unknown, tx: Y.Transaction) => {
+			if (!tx.local) fromDoc();
+		};
+		m.observe(onMeta);
+		unobserveMeta = () => m.unobserve(onMeta);
+	}
+
+	// title and tags → the shared doc (content already goes through the editor)
+	function saveSharedMeta() {
+		if (!shared) return;
+		const m = sharedMeta(shared.doc);
+		const title = meta.title?.trim() || undefined;
+		shared.doc.transact(() => {
+			if ((m.get('title') ?? undefined) !== title) {
+				if (title) m.set('title', title);
+				else m.delete('title');
+			}
+			if (JSON.stringify(m.get('tags') ?? []) !== JSON.stringify(tags)) {
+				if (tags.length) m.set('tags', [...tags]);
+				else m.delete('tags');
+			}
+		});
+	}
+
+	// Turn this private entry into a shared one: a new id, content moved into an
+	// encrypted shared doc, and the private copy deleted (synced as a tombstone).
+	async function collaborate() {
+		if (!entryId || shared || isLetter || !editor || content == null) return;
+		const ok = confirm(
+			'Share this entry so others can write in it with you? It moves from your private journal into a shared entry.'
+		);
+		if (!ok) return;
+		if (saveTimer) clearTimeout(saveTimer);
+		saveTimer = null;
+		const privateId = entryId;
+		try {
+			const id = await createShared({
+				content: editor.getJSON(),
+				meta: { title: meta.title, tags, createdAt: createdAt ?? Date.now() },
+				schema: editor.schema
+			});
+			entryId = null; // keep onDestroy from re-saving the private copy
+			if (!readonly) composer.openEditing = id;
+			await deleteEntry(privateId);
+			queueSync();
+			await goto(`/entry?id=${id}`);
+		} catch (e) {
+			alert(e instanceof Error ? e.message : 'Could not share this entry.');
+		}
+	}
 
 	// a date chip in a letter is a citation — follow it to that day's entry
 	async function onLetterClick(e: MouseEvent) {
@@ -325,6 +408,8 @@
 		// so persist the change here too — but ONLY when the doc actually changed.
 		// TipTap fires onUpdate while loading content, which would otherwise bump
 		// updatedAt on every open (inflating the timeline's writing-duration).
+		// shared: the doc already holds every edit, view-mode toggles included
+		if (shared) return;
 		if (readonly && entryId) {
 			// a letter has nothing to toggle — its text is never written back
 			if (isLetter) return;
@@ -368,6 +453,14 @@
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 	async function doSave() {
+		if (shared) {
+			// never deleted by emptying it — leaving a shared entry is its own action
+			saveSharedMeta();
+			// mood, place, pin stay personal: kept on this device's mirror only
+			if (entryId) await updateEntry(entryId, { metadata: meta });
+			savedAt = Date.now();
+			return;
+		}
 		// emptied an existing entry → remove it instead of persisting a blank doc
 		// (or leaving the last non-empty content stranded in the DB)
 		if (!text.trim()) {
@@ -472,6 +565,7 @@
 
 	function startEditing(pos?: number) {
 		if (isLetter) return;
+		if (meta.shared && !shared) return; // shared doc not on this device yet
 		readonly = false;
 		tick().then(() => {
 			if (pos != null && editor) editor.commands.focus(pos);
@@ -499,6 +593,7 @@
 
 	async function removeEntry() {
 		if (!entryId) return;
+		if (shared) return; // leave / delete-for-everyone come with members (Phase 5)
 		if (saveTimer) clearTimeout(saveTimer);
 		saveTimer = null;
 		const id = entryId;
@@ -552,13 +647,19 @@
 		composer.share = hasContent ? doShare : null;
 	});
 
+	$effect(() => {
+		composer.shared = !!meta.shared;
+		composer.collaborate =
+			sharedEntriesFlag && entryId && !meta.shared && !isLetter && hasContent ? collaborate : null;
+	});
+
 	onDestroy(() => {
 		destroyed = true;
 		beatTl?.kill();
 		dictation.unmount();
 		if (saveTimer) clearTimeout(saveTimer);
 		if (reflectTimer) clearTimeout(reflectTimer);
-		if (!readonly && entryId) {
+		if (!readonly && entryId && !shared) {
 			// leaving with content → flush a final save; leaving emptied → delete the
 			// entry so a cleared-out doc never lingers if we navigate before autosave
 			if (text.trim() && content != null) {
@@ -577,6 +678,8 @@
 		composer.sharing = false;
 		composer.pin = null;
 		composer.pinned = false;
+		composer.collaborate = null;
+		composer.shared = false;
 		if (shareStateTimer) clearTimeout(shareStateTimer);
 		composer.shareState = 'idle';
 		composer.reflection = false;
@@ -984,6 +1087,7 @@
 			<Editor
 				bind:editor
 				{content}
+				collab={shared ? { doc: shared.doc } : null}
 				editable={!readonly}
 				{placeholder}
 				onChange={onEditorChange}
