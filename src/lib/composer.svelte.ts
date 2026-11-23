@@ -18,6 +18,7 @@ export const composer = $state<{
 	shared: boolean; // the open entry is co-written — header shows the shared mark
 	openEditing: string | null; // entry id to open straight into edit mode (once)
 	showMembers: boolean; // the shared entry's members sheet is open
+	online: { name: string; color: string }[]; // others live in this shared entry now
 	reflection: boolean; // AI "reflection mode" — ghost follow-up questions at the caret
 	canReflect: boolean; // whether the header should offer the reflection toggle
 	newEntryNonce: number; // bumped to force a fresh /entry mount even when already there
@@ -37,6 +38,7 @@ export const composer = $state<{
 	shared: false,
 	openEditing: null,
 	showMembers: false,
+	online: [],
 	reflection: false,
 	canReflect: false,
 	newEntryNonce: 0

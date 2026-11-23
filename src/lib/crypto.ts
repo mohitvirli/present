@@ -180,3 +180,24 @@ export async function decryptBytes(key: CryptoKey, env: Envelope): Promise<Uint8
 	);
 	return new Uint8Array(buf);
 }
+
+// A shared entry's live channel name, derived from its key (and epoch, so a
+// rotated key moves everyone to a new channel). Only key holders can compute it.
+const TOPIC_SALT = new TextEncoder().encode('present:shared:topic-salt:v1');
+
+export async function entryTopic(raw: Uint8Array, epoch: number): Promise<string> {
+	const base = await crypto.subtle.importKey('raw', raw as BufferSource, 'HKDF', false, [
+		'deriveBits'
+	]);
+	const bits = await crypto.subtle.deriveBits(
+		{
+			name: 'HKDF',
+			hash: 'SHA-256',
+			salt: TOPIC_SALT,
+			info: new TextEncoder().encode(`present:shared:topic:v1:${epoch}`)
+		},
+		base,
+		128
+	);
+	return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}

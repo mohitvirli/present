@@ -1617,6 +1617,33 @@ a {
 }
 
 /* keyboard focus should always reveal the control */
+/* shared entries: others live in the entry, beside the people button */
+.online {
+	display: inline-flex;
+	align-items: center;
+	margin-left: -2px;
+}
+.online-dot {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	display: grid;
+	place-items: center;
+	font-size: 0.62rem;
+	font-weight: 600;
+	color: #fff;
+	border: 2px solid var(--color-bg);
+	margin-left: -6px;
+}
+.online-dot:first-child {
+	margin-left: 0;
+}
+.online-more {
+	font-size: 0.7rem;
+	color: var(--color-text-muted);
+	margin-left: 4px;
+}
+
 .header-action:focus-visible {
 	opacity: 1;
 	transform: translate(0, 0);
@@ -5006,4 +5033,42 @@ body:has(dialog[open]) .cursor-rail {
 		transition: none;
 		animation: none;
 	}
+}
+
+/* shared entries: other people's carets (CollaborationCaret) */
+.collaboration-carets__caret {
+	position: relative;
+	margin: 0 -1px;
+	border-left: 1px solid;
+	border-right: 1px solid;
+	word-break: normal;
+	pointer-events: none;
+}
+.collaboration-carets__label {
+	position: absolute;
+	top: -1.4em;
+	left: -1px;
+	padding: 0 4px;
+	border-radius: 3px 3px 3px 0;
+	font-size: 0.7rem;
+	font-weight: 600;
+	line-height: 1.4;
+	color: #fff;
+	white-space: nowrap;
+	user-select: none;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+}
+/* the name shows while its owner is active, or on hover of the caret */
+.collaboration-carets__caret.is-active .collaboration-carets__label,
+.collaboration-carets__caret:hover .collaboration-carets__label {
+	opacity: 1;
+}
+/* a wider, invisible hover target than the 2px line */
+.collaboration-carets__caret::after {
+	content: '';
+	position: absolute;
+	inset: -2px -5px;
+	pointer-events: auto;
 }

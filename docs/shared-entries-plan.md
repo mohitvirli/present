@@ -181,3 +181,13 @@ Follow-ups for Phase 6 polish:
 - Replace the `confirm()` / `alert()` in "Write together" with in-app UI.
 - Supabase CLI: link the project (`npx supabase@latest link`), rename migrations to 14-digit
   versions, mark the applied ones with `migration repair`, then use `db push`.
+
+## Phase 4 result (Nov 23) — done
+
+Live editing over Supabase Realtime broadcast, without the custom-JWT design above: each entry's
+channel topic is derived from its key (HKDF, per epoch) and every message is AES-GCM sealed with
+it, so only members can find, read or write a channel. The client gets the project URL and anon
+key from `/api/shared/realtime` (`SUPABASE_ANON_KEY` in `.env`); no realtime RLS needed.
+Awareness is created before the editor mounts, so carets never depend on the connection; it
+connects in the background with backoff. Caret names fade 2.5s after the owner's last move and
+show on hover. Verified with two accounts: live text, carets with names, header presence.

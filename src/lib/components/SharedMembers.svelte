@@ -4,7 +4,7 @@
 	// encrypted doc, keyed by user id; roles and join dates come from the server.
 	import { onMount } from 'svelte';
 	import type * as Y from 'yjs';
-	import { sharedNames } from '$lib/shared/store';
+	import { memberHue, sharedNames } from '$lib/shared/store';
 	import { createInvite, lastName, rememberName } from '$lib/shared/invites';
 	import type { MembersResponse } from '../../routes/api/shared/[id]/members/+server';
 
@@ -88,12 +88,7 @@
 		}
 	}
 
-	// stable per person, same on every member's screen
-	function hue(id: string): number {
-		let h = 0;
-		for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360;
-		return h;
-	}
+	const hue = memberHue;
 
 	function label(userId: string, i: number): string {
 		return nameMap[userId] || `Member ${i + 1}`;

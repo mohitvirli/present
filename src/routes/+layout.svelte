@@ -542,6 +542,23 @@
 								<path d="M18 14.8c2 .7 3.2 2.5 3.5 5.2" />
 							</svg>
 						</button>
+						{#if composer.online.length}
+							<!-- who else is in this shared entry right now -->
+							<span
+								class="online"
+								role="status"
+								title={composer.online.map((u) => u.name).join(', ') + ' here now'}
+							>
+								{#each composer.online.slice(0, 3) as u, i (i)}
+									<span class="online-dot" style="background: {u.color}"
+										>{u.name.slice(0, 1).toUpperCase()}</span
+									>
+								{/each}
+								{#if composer.online.length > 3}<span class="online-more"
+										>+{composer.online.length - 3}</span
+									>{/if}
+							</span>
+						{/if}
 					{/if}
 					{#if composer.pin}
 						<button

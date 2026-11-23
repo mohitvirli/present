@@ -25,7 +25,17 @@
 		locationSettings,
 		sharedEntriesFlag
 	} from '$lib/settings.svelte';
-	import { createShared, openShared, sharedMeta } from '$lib/shared/store';
+	import {
+		createShared,
+		memberHue,
+		openShared,
+		sharedMeta,
+		sharedNames
+	} from '$lib/shared/store';
+	import { lastName } from '$lib/shared/invites';
+	import { noteCaretMove } from '$lib/shared/carets';
+	import type { LiveSession } from '$lib/shared/realtime';
+	import { Awareness } from 'y-protocols/awareness';
 	import type * as Y from 'yjs';
 	import { placeOf, toPlace, type Place } from '$lib/place';
 	import { currentPosition, resolvePlace } from '$lib/location';
@@ -76,6 +86,13 @@
 	// doc's meta map. The store mirrors the doc back into this entry record.
 	let shared = $state<{ doc: Y.Doc; dispose: () => void } | null>(null);
 	let unobserveMeta: (() => void) | null = null;
+	// live editing: carets and presence over the entry's encrypted channel
+	let liveSession: LiveSession | null = null;
+	let collab = $state<{
+		doc: Y.Doc;
+		awareness?: Awareness;
+		user?: { name: string; color: string; cid?: number };
+	} | null>(null);
 
 	// Monthly recap letters: a byline over the text, and never editable — the
 	// letter is a reading of the month, not a draft.
@@ -322,6 +339,8 @@
 	onDestroy(() => {
 		document.removeEventListener('focusin', onFocusIn);
 		unobserveMeta?.();
+		liveSession?.destroy();
+		collab?.awareness?.destroy();
 		shared?.dispose();
 	});
 
@@ -342,6 +361,68 @@
 		};
 		m.observe(onMeta);
 		unobserveMeta = () => m.unobserve(onMeta);
+		// Carets are part of the editor from the start: the awareness exists before
+		// it mounts, and the live channel attaches to it in the background.
+		const awareness = new Awareness(shared.doc);
+		const color = 'hsl(0 0% 55%)'; // until we know our user id
+		const cid = shared.doc.clientID; // lets peers tie our caret to our moves
+		collab = { doc: shared.doc, awareness, user: { name: lastName() || 'Someone', color, cid } };
+		void goLive(id, shared.doc, awareness);
+	}
+
+	// Join the entry's live channel, retrying while the page is open. Until it
+	// connects, edits still sync through the server log on every sync.
+	async function goLive(id: string, doc: Y.Doc, awareness: Awareness, attempt = 0) {
+		if (destroyed || liveSession) return;
+		try {
+			const res = await fetch(`/api/shared/${id}/members`);
+			if (!res.ok) throw new Error(`members ${res.status}`);
+			const { me } = (await res.json()) as { me: string };
+			const names = sharedNames(doc);
+			const color = `hsl(${memberHue(me)} 45% 50%)`;
+			const userOf = () => ({
+				name: names.get(me) || lastName() || 'Someone',
+				color,
+				cid: doc.clientID
+			});
+			editor?.commands.updateUser(userOf());
+			// not mounted yet: the caret extension will publish collab.user on create
+			if (!editor && collab) collab = { ...collab, user: userOf() };
+			const { connectLive } = await import('$lib/shared/realtime');
+			if (destroyed) return;
+			const session = await connectLive(id, doc, awareness);
+			if (destroyed) return session.destroy();
+
+			const onPresence = (
+				{ added, updated }: { added: number[]; updated: number[] },
+				origin: unknown
+			) => {
+				// someone else typed or moved: show their name on their caret for a moment
+				if (origin !== 'local') {
+					for (const c of [...added, ...updated]) if (c !== doc.clientID) noteCaretMove(c);
+				}
+				composer.online = [...awareness.getStates().entries()]
+					.filter(([clientId]) => clientId !== doc.clientID)
+					.map(([, state]) => state.user as { name: string; color: string } | undefined)
+					.filter((u): u is { name: string; color: string } => !!u?.name);
+			};
+			awareness.on('change', onPresence);
+			// renaming yourself in the members sheet relabels your caret
+			const onName = () => editor?.commands.updateUser(userOf());
+			names.observe(onName);
+			liveSession = {
+				destroy: () => {
+					names.unobserve(onName);
+					awareness.off('change', onPresence);
+					composer.online = [];
+					session.destroy();
+				}
+			};
+		} catch (e) {
+			const wait = Math.min(30_000, 2_000 * 2 ** attempt);
+			console.warn(`live editing unavailable, retrying in ${wait / 1000}s:`, e);
+			setTimeout(() => void goLive(id, doc, awareness, attempt + 1), wait);
+		}
 	}
 
 	// title and tags → the shared doc (content already goes through the editor)
@@ -1097,7 +1178,7 @@
 			<Editor
 				bind:editor
 				{content}
-				collab={shared ? { doc: shared.doc } : null}
+				{collab}
 				editable={!readonly}
 				{placeholder}
 				onChange={onEditorChange}

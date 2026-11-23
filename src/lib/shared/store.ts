@@ -6,6 +6,7 @@ import { prosemirrorJSONToYXmlFragment, yDocToProsemirrorJSON } from '@tiptap/y-
 import {
 	decryptBytes,
 	encryptBytes,
+	entryTopic,
 	importEntryKey,
 	newEntryKeyBytes,
 	openSealed,
@@ -28,7 +29,7 @@ import type { UpdatesPage } from '../../routes/api/shared/[id]/updates/+server';
 // the entry key, which arrives sealed to this user's identity key.
 
 const FRAGMENT = 'default';
-const REMOTE = 'shared-remote'; // origin for updates that came from the server
+export const REMOTE = 'shared-remote'; // origin for updates from the server or peers
 const LOAD = 'shared-load'; // origin for state loaded from disk (not undoable)
 const COMPACT_AFTER = 100; // updates since the last snapshot before uploading a new one
 
@@ -116,7 +117,8 @@ function onDocUpdate(id: string, update: Uint8Array, origin: unknown) {
 	clearTimeout(saveTimers.get(id));
 	saveTimers.set(
 		id,
-		setTimeout(() => void flush(id), origin === REMOTE ? 0 : PUSH_DEBOUNCE_MS)
+		// remote: refresh the local copy soon, but not on every live keystroke
+		setTimeout(() => void flush(id), origin === REMOTE ? 300 : PUSH_DEBOUNCE_MS)
 	);
 }
 
@@ -390,4 +392,33 @@ export async function entryKeyBytes(id: string): Promise<{ raw: Uint8Array; epoc
 // Member display names: userId → name, encrypted with everything else.
 export function sharedNames(doc: Y.Doc): Y.Map<string> {
 	return doc.getMap('names');
+}
+
+// The open entry's key, for the live channel (null until the doc is loaded).
+export function liveEntryKey(id: string): CryptoKey | null {
+	return live.get(id)?.record.key ?? null;
+}
+
+const topics = new Map<string, string>();
+
+// This entry's live channel topic (derived from its key; cached per epoch).
+export async function sharedTopic(id: string): Promise<string> {
+	const { raw, epoch } = await entryKeyBytes(id);
+	const cacheKey = `${id}:${epoch}`;
+	const hit = topics.get(cacheKey);
+	if (hit) {
+		raw.fill(0);
+		return hit;
+	}
+	const topic = await entryTopic(raw, epoch);
+	raw.fill(0);
+	topics.set(cacheKey, topic);
+	return topic;
+}
+
+// A member's color, the same on every screen: a hue from their user id.
+export function memberHue(userId: string): number {
+	let h = 0;
+	for (const c of userId) h = (h * 31 + c.charCodeAt(0)) % 360;
+	return h;
 }

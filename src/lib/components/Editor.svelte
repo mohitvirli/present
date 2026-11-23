@@ -28,6 +28,7 @@
 	import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 	import type * as Y from 'yjs';
 	import type { Awareness } from 'y-protocols/awareness';
+	import { renderCaret } from '$lib/shared/carets';
 
 	let {
 		content = null,
@@ -48,7 +49,7 @@
 		collab?: {
 			doc: Y.Doc;
 			awareness?: Awareness;
-			user?: { name: string; color: string };
+			user?: { name: string; color: string; cid?: number };
 		} | null;
 		content?: JSONContent | string | null;
 		editable?: boolean;
@@ -109,7 +110,8 @@
 								? [
 										CollaborationCaret.configure({
 											provider: { awareness: collab.awareness },
-											user: collab.user ?? { name: 'Someone', color: '#888' }
+											user: collab.user ?? { name: 'Someone', color: '#888' },
+											render: renderCaret
 										})
 									]
 								: [])
