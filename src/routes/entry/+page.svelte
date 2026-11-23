@@ -619,7 +619,8 @@
 		composer.recapMonth = meta.recap ?? null;
 		composer.edit = isLetter ? null : startEditing; // letters have no edit mode
 		// offer the reflection toggle only while writing a new/editable entry with AI on
-		composer.canReflect = ready && !readonly && aiSettings.enabled;
+		// not for shared entries: their text isn't only yours to send to AI
+		composer.canReflect = ready && !readonly && aiSettings.enabled && !meta.shared;
 	});
 
 	// ----- Reflection mode: ghost follow-up question at the caret -----
@@ -637,6 +638,7 @@
 	}
 
 	async function runReflect() {
+		if (meta.shared) return;
 		if (!editor || !composer.reflection || readonly || reflectBusy) return;
 		if (text.trim().split(/\s+/).filter(Boolean).length < 15) return;
 		const sel = editor.state.selection;
@@ -836,7 +838,7 @@
 	let aiError = $state('');
 
 	async function suggest() {
-		if (aiBusy || !text.trim()) return;
+		if (aiBusy || !text.trim() || meta.shared) return;
 		aiBusy = true;
 		aiError = '';
 		try {
@@ -1089,7 +1091,7 @@
 			{/if}
 
 			{#if !readonly}
-				{#if aiSettings.enabled}
+				{#if aiSettings.enabled && !meta.shared}
 					<div class="ai-row">
 						<button type="button" class="ai-suggest" onclick={suggest} disabled={aiBusy || !hasContent}>
 							{#if aiBusy}Thinking…{:else}✦ Suggest{/if}

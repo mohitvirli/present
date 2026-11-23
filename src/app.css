@@ -5388,6 +5388,16 @@ body:has(dialog[open]) .cursor-rail {
 	.members-shell {
 		padding: 0.75rem 1rem calc(1rem + env(safe-area-inset-bottom));
 	}
+	/* iOS Safari zooms into inputs under 16px */
+	.members-list .name-input,
+	.invite-card .link {
+		font-size: 16px;
+	}
+	/* no hover on touch: keep member actions in reach */
+	.members-list .icon-btn {
+		width: 36px;
+		height: 36px;
+	}
 	/* grab handle */
 	.members-shell::before {
 		content: '';

@@ -50,6 +50,8 @@ export const MIN_RECAP_ENTRIES = 3;
 export const recapId = (month: string) => `recap-${month}`;
 
 export const isRecap = (e: Entry) => !!e.metadata.recap;
+// co-written entries aren't only the writer's words, so a recap leaves them out
+const isShared = (e: Entry) => !!e.metadata.shared;
 
 // The month before the current one (UTC, matching the timeline's month groups).
 export function previousMonthKey(now = new Date()): string {
@@ -64,7 +66,7 @@ export function recapOffers(all: Entry[], now = new Date()): { month: string; co
 	const written = new Set(all.filter(isRecap).map((e) => e.metadata.recap));
 	const counts = new Map<string, number>();
 	for (const e of all) {
-		if (e.deleted || e.metadata.tutorial || isRecap(e)) continue;
+		if (e.deleted || e.metadata.tutorial || isRecap(e) || isShared(e)) continue;
 		const m = dayKeyOf(e.createdAt).slice(0, 7);
 		if (m < current && !written.has(m)) counts.set(m, (counts.get(m) ?? 0) + 1);
 	}
@@ -84,7 +86,7 @@ function daysIn(month: string): number {
 }
 
 // The entries a recap reads: the month's own writing — never the seeded
-// examples, and never an earlier letter.
+// examples, an earlier letter, or an entry written with others.
 export function monthEntries(all: Entry[], month: string): Entry[] {
 	return all
 		.filter(
@@ -92,6 +94,7 @@ export function monthEntries(all: Entry[], month: string): Entry[] {
 				!e.deleted &&
 				!e.metadata.tutorial &&
 				!isRecap(e) &&
+				!isShared(e) &&
 				dayKeyOf(e.createdAt).slice(0, 7) === month
 		)
 		.sort((a, b) => a.createdAt - b.createdAt);
@@ -172,7 +175,7 @@ export function computeStats(
 	const seenBefore = new Set<string>();
 	let earlier = false;
 	for (const e of all)
-		if (!e.deleted && !e.metadata.tutorial && !isRecap(e) && e.createdAt < start) {
+		if (!e.deleted && !e.metadata.tutorial && !isRecap(e) && !isShared(e) && e.createdAt < start) {
 			earlier = true;
 			for (const t of e.metadata.tags ?? []) seenBefore.add(t.trim().toLowerCase());
 		}

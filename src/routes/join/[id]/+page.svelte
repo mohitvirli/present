@@ -6,11 +6,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { fullSync, syncState, sharedIdentity } from '$lib/sync.svelte';
-	import {
-		setSharedEnabled,
-		sharedEntriesAvailable,
-		sharedSettings
-	} from '$lib/settings.svelte';
+	import { setSharedEnabled, sharedEntriesAvailable, sharedSettings } from '$lib/settings.svelte';
 	import { openInvite, lastName, rememberName, type OpenedInvite } from '$lib/shared/invites';
 	import { openShared, sharedNames, syncShared } from '$lib/shared/store';
 	import type { MembersResponse } from '../../api/shared/[id]/members/+server';
@@ -95,8 +91,8 @@
 	{:else if view === 'off'}
 		<h1>Turn on shared entries?</h1>
 		<p class="muted">
-			Someone invited you to write an entry together. Shared entries are end-to-end encrypted;
-			you can turn them off again in Settings → Sync.
+			Someone invited you to write an entry together. Shared entries are end-to-end encrypted; you
+			can turn them off again in Settings → Sync.
 		</p>
 		<div class="actions">
 			<button type="button" class="btn primary" onclick={turnOn}>Turn on</button>
@@ -212,5 +208,19 @@
 	.btn:disabled {
 		opacity: 0.5;
 		cursor: default;
+	}
+	@media (max-width: 639px) {
+		.join {
+			margin-top: 10vh;
+		}
+		/* iOS Safari zooms into inputs under 16px */
+		input {
+			font-size: 16px;
+		}
+		.actions .btn {
+			flex: 1;
+			text-align: center;
+			padding: 11px 14px;
+		}
 	}
 </style>

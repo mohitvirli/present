@@ -132,6 +132,12 @@ export async function planImport(file: File): Promise<ImportPlan> {
 			...(touchedAt === undefined ? {} : { touchedAt })
 		};
 		fileIds.add(id);
+		// a shared entry's copy: the entry itself comes back through sync, and a
+		// private copy under the same id would collide with it
+		if ((metadata as Entry['metadata'] | undefined)?.shared) {
+			plan.skip += 1;
+			continue;
+		}
 		const local = await getEntry(id);
 		if (!local) plan.create.push(incoming);
 		else if (clock(incoming) > clock(local)) plan.update.push(incoming);

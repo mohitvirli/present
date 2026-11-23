@@ -211,8 +211,11 @@ and prefetched on open, skeleton on first load, staggered rows; in-app confirm/a
 Write together reopens in edit mode with the members sheet open; timeline cards show a
 "with Morvi, Asha" pill (grey "No longer shared with you" for removed copies).
 
-Still to do: `/join` page at phone widths, leave shared entries out of AI analysis, reflections
-and recaps, export with co-authors, and deciding when to drop the flag.
+Then: shared entries are left out of AI suggestions, reflection mode and monthly recaps (counts,
+stats and letters); Markdown export marks them `shared: true` with `sharedWith`; import skips them
+(they return via sync, and a private copy would collide with the live id); `/join` and the
+members sheet get phone fixes (16px inputs so iOS doesn't zoom, full-width buttons, larger
+touch targets). Phase 6 done.
 
 ## Release gating (Nov 23)
 

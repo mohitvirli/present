@@ -198,6 +198,13 @@ function placeLines(raw: unknown): (string | null)[] {
 }
 
 // Keys are omitted when absent, the same convention the stored metadata follows.
+// A co-written entry: flagged, with who else wrote in it.
+function sharedLines(shared: unknown): (string | null)[] {
+	const s = shared as { with?: string[]; removed?: boolean } | undefined;
+	if (!s) return [];
+	return [yamlLine('shared', true), yamlLine('sharedWith', s.with?.length ? s.with : undefined)];
+}
+
 export function entryFrontmatter(meta: {
 	title?: string;
 	day: string;
@@ -223,6 +230,7 @@ export function entryFrontmatter(meta: {
 		yamlLine('aiEmotion2', meta.aiEmotion2),
 		yamlLine('aiTone', meta.aiTone),
 		yamlLine('recap', meta.recap),
+		...sharedLines(meta.shared),
 		yamlLine('tutorial', meta.tutorial)
 	].filter((l): l is string => l !== null);
 	return lines.join('\n');
