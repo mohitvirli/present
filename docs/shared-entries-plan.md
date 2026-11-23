@@ -201,3 +201,15 @@ invites dropped, live channel moves with the epoch). Writes with a stale epoch g
 resent after re-keying. Removed members keep a read-only copy they can delete; leaving and
 delete-for-everyone remove it. Verified with two accounts: transfer both ways, remove, rejoin,
 leave, delete for everyone.
+
+## Phase 6 progress (Nov 23)
+
+Done: members sheet rebuilt as a native modal dialog (Escape, focus trap, backdrop) with GSAP
+open/close, anchored under the header on desktop and a bottom sheet on phones; members cached
+and prefetched on open, skeleton on first load, staggered rows; in-app confirm/alert dialogs
+(`DialogHost`, `confirmDialog`/`alertDialog`) replace every browser `confirm()`/`alert()`;
+Write together reopens in edit mode with the members sheet open; timeline cards show a
+"with Morvi, Asha" pill (grey "No longer shared with you" for removed copies).
+
+Still to do: `/join` page at phone widths, leave shared entries out of AI analysis, reflections
+and recaps, export with co-authors, and deciding when to drop the flag.

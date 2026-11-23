@@ -25,6 +25,17 @@
 	}
 
 	const place = $derived(placeOf(entry.metadata.location));
+
+	// co-written entry: who it's with ("with Morvi, Asha +1"), or that you left
+	const shared = $derived(entry.metadata.shared);
+	const sharedLabel = $derived.by(() => {
+		if (!shared) return '';
+		if (shared.removed) return 'No longer shared with you';
+		const names = shared.with ?? [];
+		if (!names.length) return 'Shared';
+		const shown = names.slice(0, 2).join(', ');
+		return names.length > 2 ? `with ${shown} +${names.length - 2}` : `with ${shown}`;
+	});
 	const heading = $derived(firstHeading(entry.content));
 	const displayTitle = $derived(entry.metadata.title || heading);
 
@@ -57,6 +68,27 @@
 	<span class="entry-meta">
 		<time>{time(entry.createdAt)}</time>
 		{#if place}<span class="place" title={place.city ?? place.name}>{place.name}</span>{/if}
+		{#if shared}
+			<span
+				class="shared-mark"
+				class:removed={shared.removed}
+				title={shared.removed ? sharedLabel : `Shared entry — ${shared.with?.join(', ') || 'just you so far'}`}
+				><svg
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+					><circle cx="9" cy="8" r="3.5" /><path
+						d="M2.5 20c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5"
+					/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8" /><path d="M18 14.8c2 .7 3.2 2.5 3.5 5.2" /></svg
+				><span class="shared-names">{sharedLabel}</span></span
+			>
+		{/if}
 		{#if entry.metadata.views}
 			{@const v = entry.metadata.views}
 			<span class="views" aria-label="{v} {v === 1 ? 'view' : 'views'}"

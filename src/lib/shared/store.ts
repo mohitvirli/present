@@ -187,7 +187,7 @@ async function writeMirror(record: SharedRecord, doc: Y.Doc) {
 				...(existing?.metadata ?? {}),
 				...(title ? { title } : { title: undefined }),
 				...(tags?.length ? { tags } : { tags: undefined }),
-				shared: { role: record.role }
+				shared: { role: record.role, with: othersNames(doc) }
 			},
 			content
 		),
@@ -269,6 +269,8 @@ async function runSync() {
 	const res = await fetch('/api/shared');
 	if (!res.ok) throw new Error(`shared list ${res.status}`);
 	const items = (await res.json()) as SharedListItem[];
+	// learn our own user id once, so mirrors can list the *other* members
+	if (!myId() && items.length) await fetchMembers(items[0].id).catch(() => {});
 	const db = await getDB();
 	const known = new Set(await db.getAllKeys('docs'));
 
@@ -320,7 +322,15 @@ async function catchUp(item: SharedListItem) {
 				};
 		await db.put('docs', record);
 	}
-	if (record.seenAt === item.updatedAt && !record.pending) return;
+	if (record.seenAt === item.updatedAt && !record.pending) {
+		// nothing new — but a copy written before it carried names still gets them
+		const mirror = await getEntry(item.id);
+		if (mirror?.metadata.shared && !Array.isArray(mirror.metadata.shared.with)) {
+			// load, then flush: rewrites the mirror and unloads the doc again
+			if (await loadLive(item.id)) await flush(item.id);
+		}
+		return;
+	}
 
 	const entry = await loadLive(item.id);
 	if (!entry) return;
@@ -403,6 +413,12 @@ export async function clearShared(): Promise<void> {
 	const ids = await db.getAllKeys('docs');
 	await db.clear('docs');
 	await purgeEntries(ids);
+	meId = null;
+	try {
+		localStorage.removeItem(ME_KEY);
+	} catch {
+		/* storage blocked */
+	}
 }
 
 // ---- for invites -------------------------------------------------------------
@@ -483,9 +499,7 @@ function notifyRekey(id: string) {
 export async function rotate(id: string): Promise<void> {
 	const entry = await loadLive(id);
 	if (!entry) throw new Error('Shared entry is not on this device.');
-	const res = await fetch(`/api/shared/${id}/members`);
-	if (!res.ok) throw new Error(`members ${res.status}`);
-	const { me, epoch, members } = (await res.json()) as MembersResponse;
+	const { me, epoch, members } = await fetchMembers(id);
 	const missing = members.filter((m) => !m.publicKey);
 	if (missing.length) throw new Error('A member has no keys yet; try again later.');
 
@@ -563,4 +577,54 @@ export async function deleteForEveryone(id: string): Promise<void> {
 // A removed member deletes the read-only copy they kept.
 export async function discardRemovedCopy(id: string): Promise<void> {
 	await purgeEntries([id]);
+}
+
+// ---- members list (cached, so the members sheet opens already filled) --------
+
+const membersCache = new Map<string, MembersResponse>();
+
+export function cachedMembers(id: string): MembersResponse | null {
+	return membersCache.get(id) ?? null;
+}
+
+export async function fetchMembers(id: string): Promise<MembersResponse> {
+	const res = await fetch(`/api/shared/${id}/members`);
+	if (!res.ok) throw new Error(`members ${res.status}`);
+	const data = (await res.json()) as MembersResponse;
+	membersCache.set(id, data);
+	rememberMe(data.me);
+	return data;
+}
+
+// ---- who "I" am, to leave myself out of the timeline's "with …" ---------------
+
+const ME_KEY = 'present:shared-me';
+let meId: string | null = null;
+
+function myId(): string | null {
+	if (meId) return meId;
+	try {
+		meId = localStorage.getItem(ME_KEY);
+	} catch {
+		/* storage blocked */
+	}
+	return meId;
+}
+
+function rememberMe(id: string) {
+	if (meId === id) return;
+	meId = id;
+	try {
+		localStorage.setItem(ME_KEY, id);
+	} catch {
+		/* storage blocked — kept in memory */
+	}
+}
+
+// Everyone else's name in this entry, in the order they were named.
+function othersNames(doc: Y.Doc): string[] {
+	const me = myId();
+	return [...sharedNames(doc).entries()]
+		.filter(([id, name]) => id !== me && !!name)
+		.map(([, name]) => name);
 }

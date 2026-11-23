@@ -4,6 +4,7 @@
 	import Clock from '$lib/components/Clock.svelte';
 	import Scrollbar from '$lib/components/Scrollbar.svelte';
 	import Settings from '$lib/components/Settings.svelte';
+	import DialogHost from '$lib/components/DialogHost.svelte';
 	import { composer } from '$lib/composer.svelte';
 	import { monthName } from '$lib/recap';
 	import { scroll } from '$lib/scroll.svelte';
@@ -861,6 +862,8 @@
 		{/key}
 	</main>
 </div>
+
+<DialogHost />
 
 <dialog
 	bind:this={confirmDialog}

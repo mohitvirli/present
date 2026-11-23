@@ -7,6 +7,7 @@
 	import type { Editor as TipTap, JSONContent } from '@tiptap/core';
 	import Editor from '$lib/components/Editor.svelte';
 	import { BroadcastProvider } from '$lib/shared/broadcast-provider';
+	import SharedMembers from '$lib/components/SharedMembers.svelte';
 
 	const name = page.url.searchParams.get('name') ?? 'Tab';
 	const room = page.url.searchParams.get('room') ?? 'spike';
@@ -20,6 +21,7 @@
 	let editor = $state<TipTap>();
 	let json = $state<JSONContent | null>(null);
 	let peers = $state<string[]>([]);
+	let showSheet = $state(false); // members sheet preview (fetch is mocked from the console)
 
 	provider.awareness.on('change', () => {
 		peers = [...provider.awareness.getStates().values()]
@@ -130,10 +132,19 @@
 		<code>{room}</code> · here: {peers.join(', ')}
 		<button type="button" onclick={seed}>Seed fixture</button>
 		<button type="button" onclick={snapshot}>Show JSON</button>
+		<button type="button" onclick={() => (showSheet = true)}>Members sheet</button>
 	</header>
 	<section class="composer writing">
 		<Editor bind:editor {collab} placeholder="Write together…" />
 	</section>
+	{#if showSheet}
+		<SharedMembers
+			entryId="spike-entry"
+			{doc}
+			title="Lisbon trip"
+			onClose={() => (showSheet = false)}
+		/>
+	{/if}
 	{#if json}<pre>{JSON.stringify(json, null, 1)}</pre>{/if}
 </main>
 

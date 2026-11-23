@@ -28,6 +28,7 @@
 	import {
 		createShared,
 		discardRemovedCopy,
+		fetchMembers,
 		memberHue,
 		onRekey,
 		openShared,
@@ -36,6 +37,7 @@
 	} from '$lib/shared/store';
 	import { lastName } from '$lib/shared/invites';
 	import { noteCaretMove } from '$lib/shared/carets';
+	import { alertDialog, confirmDialog } from '$lib/dialogs.svelte';
 	import type { LiveSession } from '$lib/shared/realtime';
 	import { Awareness } from 'y-protocols/awareness';
 	import type * as Y from 'yjs';
@@ -288,6 +290,9 @@
 				// just made shared while writing → carry on writing
 				if (composer.openEditing === e.id) readonly = false;
 				composer.openEditing = null;
+				// …and land on the members sheet, where inviting someone happens
+				if (composer.openMembers === e.id) composer.showMembers = true;
+				composer.openMembers = null;
 				// Tags written in the body as `#` chips are visible where they were
 				// written, so they don't earn an open panel — only a title or a tag
 				// typed into the Context header itself does.
@@ -389,9 +394,8 @@
 	async function goLive(id: string, doc: Y.Doc, awareness: Awareness, attempt = 0) {
 		if (destroyed || liveSession) return;
 		try {
-			const res = await fetch(`/api/shared/${id}/members`);
-			if (!res.ok) throw new Error(`members ${res.status}`);
-			const { me } = (await res.json()) as { me: string };
+			// also warms the members sheet, so it opens with the list in place
+			const { me } = await fetchMembers(id);
 			const names = sharedNames(doc);
 			const color = `hsl(${memberHue(me)} 45% 50%)`;
 			const userOf = () => ({
@@ -460,9 +464,11 @@
 	// encrypted shared doc, and the private copy deleted (synced as a tombstone).
 	async function collaborate() {
 		if (!entryId || shared || isLetter || !editor || content == null) return;
-		const ok = confirm(
-			'Share this entry so others can write in it with you? It moves from your private journal into a shared entry.'
-		);
+		const ok = await confirmDialog({
+			title: 'Write this entry together?',
+			body: 'It moves from your private journal into a shared entry you can invite people to. It stays end-to-end encrypted.',
+			confirmLabel: 'Share entry'
+		});
 		if (!ok) return;
 		if (saveTimer) clearTimeout(saveTimer);
 		saveTimer = null;
@@ -474,12 +480,17 @@
 				schema: editor.schema
 			});
 			entryId = null; // keep onDestroy from re-saving the private copy
-			if (!readonly) composer.openEditing = id;
+			// sharing is for writing together: land in edit mode, members sheet open
+			composer.openEditing = id;
+			composer.openMembers = id;
 			await deleteEntry(privateId);
 			queueSync();
 			await goto(`/entry?id=${id}`);
 		} catch (e) {
-			alert(e instanceof Error ? e.message : 'Could not share this entry.');
+			void alertDialog({
+				title: 'Couldn’t share this entry',
+				body: e instanceof Error ? e.message : undefined
+			});
 		}
 	}
 
@@ -1200,7 +1211,11 @@
 			{entryId}
 			doc={shared.doc}
 			title={meta.title}
-			onClose={() => (composer.showMembers = false)}
+			onClose={() => {
+				composer.showMembers = false;
+				// back to the text, caret and all, if you're writing
+				if (!readonly) focusEditor();
+			}}
 		/>
 	{/if}
 	<section class="writing" bind:this={writingEl} ondblclick={onWritingDblClick} onclick={onLetterClick}>
