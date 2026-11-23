@@ -151,3 +151,10 @@ Spike: `/dev/shared-spike?name=<you>` (dev only), Yjs over a BroadcastChannel be
 - Learned: content inserted with `setContent` counts as your edit, so undo can wipe a freshly
   created shared entry. Phase 2 must apply the initial snapshot with a non-tracked origin.
 - Learned: a caret only shows while that person's editor has focus (background tabs publish none).
+
+## Phase 1 result (Nov 23) — done
+
+Identity key pairs (`b60e126`). Verified on https://localhost:5173 with a real passkey:
+key pair created and stored (`user_keys` row, GET 200); after deleting the device copy, a
+reload restored the same public key from the server. Seal/open round trip, non-extractable
+private key and JWK guards checked in the browser. Needs a PRF passkey (journal key on device).
