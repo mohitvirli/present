@@ -149,3 +149,34 @@ export async function openSealed(privateKey: CryptoKey, sealed: Sealed): Promise
 	);
 	return new Uint8Array(buf);
 }
+
+// ----- Entry keys (shared entries) -----
+// One random AES-GCM key per shared entry. Members hold it sealed to their
+// identity key; on-device it's a non-extractable CryptoKey. Yjs updates are
+// binary, so these encrypt bytes into the same Envelope shape as journal data.
+
+export function newEntryKeyBytes(): Uint8Array {
+	return crypto.getRandomValues(new Uint8Array(32));
+}
+
+export function importEntryKey(raw: Uint8Array): Promise<CryptoKey> {
+	return crypto.subtle.importKey('raw', raw as BufferSource, 'AES-GCM', false, [
+		'encrypt',
+		'decrypt'
+	]);
+}
+
+export async function encryptBytes(key: CryptoKey, data: Uint8Array): Promise<Envelope> {
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data as BufferSource);
+	return { enc: 1, iv: toB64(iv), ct: toB64(new Uint8Array(ct)) };
+}
+
+export async function decryptBytes(key: CryptoKey, env: Envelope): Promise<Uint8Array> {
+	const buf = await crypto.subtle.decrypt(
+		{ name: 'AES-GCM', iv: fromB64(env.iv) as BufferSource },
+		key,
+		fromB64(env.ct) as BufferSource
+	);
+	return new Uint8Array(buf);
+}

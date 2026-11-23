@@ -28,6 +28,9 @@ export interface EntryMetadata {
 	views?: number; // times the entry was opened from the timeline
 	recap?: string; // 'YYYY-MM' — this entry is the monthly recap letter for that month
 	recapSeen?: boolean; // the letter has been opened once (its reveal has played)
+	// a co-written entry: this record mirrors its Y.Doc (lib/shared/store.ts) for
+	// the timeline and search, and never goes through private sync
+	shared?: { role: 'owner' | 'editor' };
 }
 
 export interface Entry {
@@ -281,7 +284,8 @@ export async function listDirty(): Promise<Entry[]> {
 		tx.done
 	]);
 	const marks = new Map(ids.map((id, i) => [id, clocks[i]]));
-	return all.filter((e) => marks.get(e.id) !== clockOf(e));
+	// shared-entry mirrors sync through their own encrypted log, never here
+	return all.filter((e) => !e.metadata.shared && marks.get(e.id) !== clockOf(e));
 }
 
 // Record that the server holds these entries as given. Pass the snapshot that
@@ -424,7 +428,7 @@ const TUTORIAL_SEEDS: Seed[] = [
 	{
 		offsetMs: DAY + 30_000,
 		content: doc(
-			'A feature I am proud of. Sync across all your devices using just FaceID / fingerprint — no account, no password, fully encrypted.',
+			'A feature I am proud of. Sync across all your devices using just FaceID / fingerprint — no account, no password, fully encrypted.'
 		),
 		metadata: { title: 'Sync', tags: ['sync'], tutorial: true }
 	},
@@ -445,25 +449,56 @@ const TUTORIAL_SEEDS: Seed[] = [
 						{ type: 'text', text: 'It all began when I stumbled upon this font - ' },
 						{
 							type: 'text',
-							marks: [{ type: 'link', attrs: { href: 'https://www.fontshare.com/fonts/satoshi', target: '_blank', rel: 'noopener noreferrer nofollow', class: null, title: null } }],
+							marks: [
+								{
+									type: 'link',
+									attrs: {
+										href: 'https://www.fontshare.com/fonts/satoshi',
+										target: '_blank',
+										rel: 'noopener noreferrer nofollow',
+										class: null,
+										title: null
+									}
+								}
+							],
 							text: 'Satoshi'
 						},
-						{ type: 'text', text: '. I just wanted a minimal space to write my thoughts using it, nothing overcomplex, just something sleek.' }
-					]
-				},
-				{
-					type: 'paragraph',
-					content: [
-						{ type: 'text', text: 'I tried couple of apps and I wasn’t fully content with them. Like adding a title first? How can I know what the title of the journal should be before even starting it? So I tucked it away in the context button. hehe' }
-					]
-				},
-				{
-					type: 'paragraph',
-					content: [
-						{ type: 'text', text: 'Anyhow, here’s my attempt at the way how I’d like to journal. So many features still to add. Checkout the repo → ' },
 						{
 							type: 'text',
-							marks: [{ type: 'link', attrs: { href: 'https://github.com/mohitvirli/present', target: '_blank', rel: 'noopener noreferrer nofollow', class: null, title: null } }],
+							text: '. I just wanted a minimal space to write my thoughts using it, nothing overcomplex, just something sleek.'
+						}
+					]
+				},
+				{
+					type: 'paragraph',
+					content: [
+						{
+							type: 'text',
+							text: 'I tried couple of apps and I wasn’t fully content with them. Like adding a title first? How can I know what the title of the journal should be before even starting it? So I tucked it away in the context button. hehe'
+						}
+					]
+				},
+				{
+					type: 'paragraph',
+					content: [
+						{
+							type: 'text',
+							text: 'Anyhow, here’s my attempt at the way how I’d like to journal. So many features still to add. Checkout the repo → '
+						},
+						{
+							type: 'text',
+							marks: [
+								{
+									type: 'link',
+									attrs: {
+										href: 'https://github.com/mohitvirli/present',
+										target: '_blank',
+										rel: 'noopener noreferrer nofollow',
+										class: null,
+										title: null
+									}
+								}
+							],
 							text: 'Github'
 						}
 					]
@@ -475,7 +510,8 @@ const TUTORIAL_SEEDS: Seed[] = [
 		metadata: {
 			title: 'This app’s story',
 			tags: ['origin', 'design'],
-			aiSummary: 'The story behind Present — a craving for a simple, font-first space to journal, free of forced titles.',
+			aiSummary:
+				'The story behind Present — a craving for a simple, font-first space to journal, free of forced titles.',
 			aiEmotion: 'excited',
 			aiTone: 'positive',
 			aiEmotion2: 'nostalgic',

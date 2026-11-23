@@ -158,3 +158,11 @@ Identity key pairs (`b60e126`). Verified on https://localhost:5173 with a real p
 key pair created and stored (`user_keys` row, GET 200); after deleting the device copy, a
 reload restored the same public key from the server. Seal/open round trip, non-extractable
 private key and JWK guards checked in the browser. Needs a PRF passkey (journal key on device).
+
+## Phase 2a result (Nov 23) — done
+
+Storage and async sync (no UI yet). `scripts/shared-phase2-check.js` on https://localhost:5173
+with a real account: create, edit (title via Y map, pushed as one encrypted update), server
+returned snapshot + 1 update with no plaintext, local copy wiped, restored from the server with
+identical content, edited title and tags; the mirror never entered private push. Invites table
+moved to Phase 3's migration. Next, 2b: open shared entries in the editor and a Share action.

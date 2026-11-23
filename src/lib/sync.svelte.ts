@@ -16,6 +16,7 @@ import { PRF_SALT, deriveKey, encryptJSON, decryptJSON, isEnvelope, type Envelop
 import { saveAesKey, loadAesKey, clearAesKey, clearIdentity } from './keystore';
 import { sharedEntriesFlag } from './settings.svelte';
 import { ensureIdentity } from './shared/identity';
+import { syncShared, clearShared } from './shared/store';
 
 // Private Sync — passkey identity + server-proxied Supabase sync. Content is
 // end-to-end encrypted when the passkey supports PRF.
@@ -89,12 +90,15 @@ async function ensureKey(): Promise<boolean> {
 	return !!aesKey;
 }
 
-// Shared entries (flagged): make sure this account has its identity key pair.
-// Needs the journal key to wrap the private half, so PRF-less accounts skip it.
-// Background and non-fatal: sync itself never waits on or fails because of it.
-function prepareIdentity(): void {
+// Shared entries (flagged): make sure this account has its identity key pair,
+// then catch up the shared entries it belongs to. Needs the journal key to wrap
+// the private half, so PRF-less accounts skip it. Background and non-fatal:
+// private sync never waits on or fails because of it.
+function syncSharedEntries(): void {
 	if (!sharedEntriesFlag || !aesKey) return;
-	ensureIdentity(aesKey).catch((e) => console.warn('identity keys:', e));
+	ensureIdentity(aesKey)
+		.then(() => syncShared())
+		.catch((e) => console.warn('shared entries:', e));
 }
 
 export const syncSupported =
@@ -212,7 +216,6 @@ async function startSyncing(): Promise<void> {
 	// If PRF is unsupported, we fall back to plaintext sync.
 	if (!aesKey) await ensureKey();
 	await fullSync();
-	prepareIdentity();
 }
 
 // Enable = create a new passkey (and user) with this device's biometrics.
@@ -255,6 +258,7 @@ function resetLocalSyncState(): void {
 	syncState.encrypted = false;
 	void clearAesKey();
 	void clearIdentity();
+	void clearShared();
 	// the next account starts from nothing: pull everything, push everything
 	if (browser) {
 		localStorage.removeItem(CURSOR_KEY);
@@ -310,7 +314,6 @@ export async function initSync(): Promise<void> {
 	localStorage.removeItem(LEGACY_SINCE_KEY);
 	await loadKey(); // silent — avoids a passkey ceremony on every open
 	await fullSync();
-	prepareIdentity();
 }
 
 // Ask the browser to keep this origin's storage. Without it storage is
@@ -402,6 +405,7 @@ export async function fullSync(): Promise<void> {
 		if (failure) throw new Error(failure);
 		setSyncedAt(Date.now());
 		syncState.status = 'synced';
+		syncSharedEntries();
 	} catch (e) {
 		syncState.status = 'error';
 		syncState.error = errorMessage(e, 'Sync failed.');

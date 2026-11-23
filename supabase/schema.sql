@@ -36,3 +36,5 @@ alter table public.entries     enable row level security; -- no policy → servi
 
 -- Shared entries: supabase/migrations/20261123_user_keys.sql adds user_keys
 -- (per-user identity key pair; private half encrypted under the journal key).
+-- supabase/migrations/20261124_shared_entries.sql adds shared_entries,
+-- shared_members and shared_updates (ciphertext only; see the migration).
