@@ -9,15 +9,30 @@ import {
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import type { Node as PMNode } from '@tiptap/pm/model';
 
-// Outliner-style folding for list rows: a row with a nested list gets a chevron
-// beside its marker, and folding it hides the sublist. The state is a node
-// attribute (`collapsed`) rather than view-only state, so a fold survives a
-// reload and follows the entry to other devices, the way an outliner keeps it.
+// Outliner-style folding for list rows: a row with a nested list gets a caret
+// in (or beside) its marker, and folding it hides the sublist. While editing,
+// the state is a node attribute (`collapsed`), so a fold survives a reload and
+// follows the entry to other devices, the way an outliner keeps it.
+//
+// A read-only view can't write to the entry, so folding there is a view-only
+// override held in plugin state: it starts from the saved folds, never touches
+// the document, and is dropped once the view becomes editable again.
 
 const ITEM_TYPES = ['listItem', 'taskItem'];
 const LIST_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
-const foldKey = new PluginKey<DecorationSet>('listFold');
+type FoldState = {
+	decos: DecorationSet;
+	/** read-only folds, by row position: wins over the row's own attribute */
+	overrides: Map<number, boolean>;
+};
+type FoldMeta = { set: [number, boolean] } | { clear: true };
+
+const foldKey = new PluginKey<FoldState>('listFold');
+
+function isCollapsed(state: EditorState, pos: number, node: PMNode): boolean {
+	return foldKey.getState(state)?.overrides.get(pos) ?? !!node.attrs.collapsed;
+}
 
 // A row only folds when there is something under it to hide.
 function hasSublist(node: PMNode): boolean {
@@ -49,11 +64,26 @@ function setCollapsed(tr: Transaction, pos: number, node: PMNode, collapsed: boo
 	return tr;
 }
 
+// Changing the attribute makes ProseMirror redraw the row, so the caret is a
+// brand-new element afterwards and a CSS transition has nothing to run from.
+// The row just toggled is remembered briefly; its new caret plays the turn as
+// a keyframe instead. Everything else (page load, remote edits) draws still.
+let lastToggle: { pos: number; at: number } | null = null;
+
 function toggle(view: EditorView, pos: number, collapsed?: boolean) {
 	const node = view.state.doc.nodeAt(pos);
 	if (!node || !isItem(node) || !hasSublist(node)) return false;
-	const next = collapsed ?? !node.attrs.collapsed;
-	if (next === !!node.attrs.collapsed) return true;
+	const current = isCollapsed(view.state, pos, node);
+	const next = collapsed ?? !current;
+	if (next === current) return true;
+	lastToggle = { pos, at: performance.now() };
+
+	if (!view.editable) {
+		const meta: FoldMeta = { set: [pos, next] };
+		view.dispatch(view.state.tr.setMeta(foldKey, meta));
+		return true;
+	}
+
 	const tr = setCollapsed(view.state.tr, pos, node, next);
 
 	// A caret inside the part being hidden would be typing into nothing, so it
@@ -69,51 +99,131 @@ function toggle(view: EditorView, pos: number, collapsed?: boolean) {
 	return true;
 }
 
-function chevron(view: EditorView, getPos: () => number | undefined, collapsed: boolean) {
+function itemPosAround(view: EditorView, at: number): number | null {
+	const $at = view.state.doc.resolve(at);
+	for (let d = $at.depth; d > 0; d--) {
+		if (isItem($at.node(d))) return $at.before(d);
+	}
+	return null;
+}
+
+const CARET =
+	'<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">' +
+	'<path d="M2.5 3.75 5 6.25 7.5 3.75" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+	'</svg>';
+
+// The toggle. On a bullet row it takes the bullet's place outright — a caret
+// instead of a dot; numbered and todo rows keep their number or checkbox and
+// get the same caret beside it.
+function foldButton(
+	view: EditorView,
+	getPos: () => number | undefined,
+	collapsed: boolean,
+	bullet: boolean
+) {
 	const btn = document.createElement('button');
 	btn.type = 'button';
-	btn.className = 'list-fold';
+	btn.className = bullet ? 'list-fold list-fold--bullet' : 'list-fold list-fold--chevron';
 	btn.contentEditable = 'false';
 	btn.tabIndex = -1;
 	btn.setAttribute('aria-expanded', String(!collapsed));
 	btn.setAttribute('aria-label', collapsed ? 'Expand nested items' : 'Collapse nested items');
-	btn.innerHTML =
-		'<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">' +
-		'<path d="M2.5 3.75 5 6.25 7.5 3.75" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-		'</svg>';
+	btn.innerHTML = CARET;
+	const at = getPos();
+	if (
+		lastToggle &&
+		at != null &&
+		lastToggle.pos === at - 1 &&
+		performance.now() - lastToggle.at < 300
+	) {
+		btn.classList.add('is-turning');
+	}
 	// mousedown would move the caret into the row and blur nothing useful
 	btn.addEventListener('mousedown', (e) => e.preventDefault());
 	btn.addEventListener('click', (e) => {
 		e.preventDefault();
 		e.stopPropagation();
 		const at = getPos();
-		if (at == null) return;
 		// the widget sits at the row's content start, one inside the row itself
-		const $at = view.state.doc.resolve(at);
-		for (let d = $at.depth; d > 0; d--) {
-			if (isItem($at.node(d))) {
-				toggle(view, $at.before(d));
-				break;
-			}
-		}
+		const item = at == null ? null : itemPosAround(view, at);
+		if (item != null) toggle(view, item);
 	});
 	return btn;
 }
 
-function buildDecorations(doc: PMNode): DecorationSet {
+// How many rows a fold is holding, at any depth.
+function hiddenCount(node: PMNode): number {
+	let n = 0;
+	node.forEach((child, _o, i) => {
+		if (i === 0) return;
+		child.descendants((d) => {
+			if (isItem(d)) n++;
+			return true;
+		});
+	});
+	return n;
+}
+
+// The tag after a folded row's text saying there's more under it. Clicking it
+// opens the fold, same as the caret.
+function moreTag(view: EditorView, getPos: () => number | undefined, count: number) {
+	const tag = document.createElement('button');
+	tag.type = 'button';
+	tag.className = 'list-fold-more';
+	tag.contentEditable = 'false';
+	tag.tabIndex = -1;
+	tag.textContent = `+${count}`;
+	tag.setAttribute('aria-label', `Show ${count} hidden ${count === 1 ? 'item' : 'items'}`);
+	tag.addEventListener('mousedown', (e) => e.preventDefault());
+	tag.addEventListener('click', (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		const at = getPos();
+		const item = at == null ? null : itemPosAround(view, at);
+		if (item != null) toggle(view, item, false);
+	});
+	return tag;
+}
+
+function buildDecorations(doc: PMNode, overrides: Map<number, boolean>): DecorationSet {
 	const decos: Decoration[] = [];
 	doc.descendants((node, pos) => {
 		if (!isItem(node) || !hasSublist(node)) return true;
-		const collapsed = !!node.attrs.collapsed;
+		const override = overrides.get(pos);
+		const collapsed = override ?? !!node.attrs.collapsed;
+		// A read-only fold restyles the row through an attribute of its own.
+		// Overwriting data-collapsed instead would not survive the override being
+		// dropped: ProseMirror removes a decoration's attribute outright, taking
+		// the row's own saved value with it.
+		if (override != null) {
+			decos.push(
+				Decoration.node(pos, pos + node.nodeSize, { 'data-fold': override ? 'closed' : 'open' })
+			);
+		}
+		const bullet = doc.resolve(pos).parent.type.name === 'bulletList';
 		decos.push(
-			Decoration.widget(pos + 1, (view, getPos) => chevron(view, getPos, collapsed), {
+			Decoration.widget(pos + 1, (view, getPos) => foldButton(view, getPos, collapsed, bullet), {
 				side: -1,
 				ignoreSelection: true,
 				stopEvent: () => true,
 				// a new key per state, so the button is rebuilt with the right label
-				key: `fold-${collapsed ? 'c' : 'o'}`
+				key: `fold-${bullet ? 'b' : 'v'}-${collapsed ? 'c' : 'o'}`
 			})
 		);
+		if (collapsed) {
+			const count = hiddenCount(node);
+			// inside the row's first block, after its last character; side 1 keeps
+			// a caret typed at the end of the line in front of the tag
+			const end = pos + 1 + node.child(0).nodeSize - 1;
+			decos.push(
+				Decoration.widget(end, (view, getPos) => moreTag(view, getPos, count), {
+					side: 1,
+					ignoreSelection: true,
+					stopEvent: () => true,
+					key: `more-${count}`
+				})
+			);
+		}
 		return true;
 	});
 	return DecorationSet.create(doc, decos);
@@ -170,7 +280,8 @@ export const ListFold = Extension.create({
 		// foldable row they fall through to the usual jump to top / bottom.
 		const fold = (collapsed: boolean) => () => {
 			const found = foldableAtSelection(this.editor.state);
-			if (!found || !!found.node.attrs.collapsed === collapsed) return false;
+			if (!found || isCollapsed(this.editor.state, found.pos, found.node) === collapsed)
+				return false;
 			return toggle(this.editor.view, found.pos, collapsed);
 		};
 		return {
@@ -181,17 +292,54 @@ export const ListFold = Extension.create({
 	},
 
 	addProseMirrorPlugins() {
+		// Mirrors view.editable for appendTransaction, which only sees state. In a
+		// read-only view nothing here may write to the document — the entry would
+		// save a change nobody made.
+		let editable = true;
+
 		return [
-			new Plugin<DecorationSet>({
+			new Plugin<FoldState>({
 				key: foldKey,
 				state: {
-					init: (_, state) => buildDecorations(state.doc),
-					apply: (tr, old) => (tr.docChanged ? buildDecorations(tr.doc) : old)
+					init: (_, state) => ({
+						decos: buildDecorations(state.doc, new Map()),
+						overrides: new Map()
+					}),
+					apply: (tr, prev) => {
+						const meta = tr.getMeta(foldKey) as FoldMeta | undefined;
+						if (!tr.docChanged && !meta) return prev;
+						let overrides = prev.overrides;
+						if (tr.docChanged && overrides.size) {
+							const mapped = new Map<number, boolean>();
+							for (const [pos, v] of overrides) {
+								const r = tr.mapping.mapResult(pos, 1);
+								if (!r.deleted) mapped.set(r.pos, v);
+							}
+							overrides = mapped;
+						}
+						if (meta && 'clear' in meta) overrides = new Map();
+						else if (meta) overrides = new Map(overrides).set(...meta.set);
+						return { decos: buildDecorations(tr.doc, overrides), overrides };
+					}
 				},
 				props: {
-					decorations: (state) => foldKey.getState(state)
+					decorations: (state) => foldKey.getState(state)?.decos
+				},
+				view: (view) => {
+					editable = view.editable;
+					return {
+						update: (view) => {
+							editable = view.editable;
+							// back in edit mode, the attributes are the truth again
+							if (editable && foldKey.getState(view.state)?.overrides.size) {
+								const meta: FoldMeta = { clear: true };
+								queueMicrotask(() => view.dispatch(view.state.tr.setMeta(foldKey, meta)));
+							}
+						}
+					};
 				},
 				appendTransaction(trs, _old, state) {
+					if (!editable) return null;
 					if (!trs.some((t) => t.docChanged || t.selectionSet)) return null;
 					let tr: Transaction | null = null;
 

@@ -38,6 +38,8 @@ const MARKER_W = 16;
 const HANDLE_MIN_LEFT = -26;
 // the fold chevron's slot beside the marker (see .list-fold in app.css)
 const FOLD_W = 18;
+// a bullet row's marker slot, wide enough for a parent row's fold caret (see .list-fold--bullet)
+const BULLET_W = 22;
 // how far past the grip's own column the pointer may stray and still be
 // treated as running along the rows rather than having left them
 const GUTTER_SLACK = 10;
@@ -424,9 +426,21 @@ class ListDragView {
 		const line = parseFloat(style.lineHeight) || rect.height;
 		// task rows render as flex and drop their marker; bullet/ordered rows keep
 		// one and need the extra clearance
-		const marker = style.display === 'list-item' && style.listStyleType !== 'none' ? MARKER_W : 0;
-		// a row with a fold chevron keeps that slot for it; the grip steps out past it
-		const fold = dom.querySelector(':scope > .list-fold, :scope > div > .list-fold') ? FOLD_W : 0;
+		// (bullets are drawn by app.css rather than ::marker, so ask the list type)
+		const list = dom.parentElement;
+		const marker =
+			list?.getAttribute('data-type') === 'taskList'
+				? 0
+				: list?.tagName === 'UL'
+					? BULLET_W
+					: MARKER_W;
+		// a row with a fold chevron keeps that slot for it; the grip steps out past
+		// it. A bullet that is itself the toggle needs no extra room.
+		const fold = dom.querySelector(
+			':scope > .list-fold--chevron, :scope > div > .list-fold--chevron'
+		)
+			? FOLD_W
+			: 0;
 		const offset = HANDLE_W + HANDLE_GAP + marker + fold;
 		const left = Math.max(rect.left - hostRect.left - offset, HANDLE_MIN_LEFT - fold);
 		this.handle.style.left = `${left}px`;

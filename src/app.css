@@ -4317,12 +4317,58 @@ body:has(dialog[open]) .cursor-rail {
 	}
 }
 
-/* ---------- list folding ---------- */
-/* Chevron owned by the ListFold plugin (tiptap-list-fold.ts), injected as the
-   first child of any row that has a nested list. It sits in the slot just left
-   of the bullet (or checkbox); the drag grip steps out past it on those rows. */
+/* ---------- bullets & list folding ---------- */
+/* Bullets are drawn here instead of by the browser's ::marker, so a row with a
+   nested list can turn its own bullet into the fold button (ListFold plugin,
+   tiptap-list-fold.ts) and still sit exactly where its siblings' bullets do.
+   Numbered and todo rows keep their marker and get a chevron beside it. */
 .composer .writing .tiptap li {
 	position: relative;
+}
+
+.composer .writing .tiptap ul:not([data-type='taskList']) > li {
+	list-style: none;
+	/* the bullet's centre, measured left from the row's text */
+	--bullet-x: 0.8em;
+	--dot: 0.32em;
+	--dot-fill: currentColor;
+	--dot-ring: 0 0 0 0 transparent;
+	--dot-radius: 50%;
+}
+
+/* second level: hollow ring */
+.composer .writing .tiptap li ul:not([data-type='taskList']) > li {
+	--dot-fill: transparent;
+	--dot-ring: inset 0 0 0 1.3px currentColor;
+}
+
+/* third level and deeper: small square */
+.composer .writing .tiptap li li ul:not([data-type='taskList']) > li {
+	--dot: 0.28em;
+	--dot-fill: currentColor;
+	--dot-ring: 0 0 0 0 transparent;
+	--dot-radius: 1px;
+}
+
+.composer .writing .tiptap ul:not([data-type='taskList']) > li::before {
+	content: '';
+	width: var(--dot);
+	height: var(--dot);
+	border-radius: var(--dot-radius);
+	background: var(--dot-fill);
+	box-shadow: var(--dot-ring);
+}
+
+.composer .writing .tiptap ul:not([data-type='taskList']) > li::before {
+	position: absolute;
+	top: calc(0.5lh - var(--dot) / 2);
+	right: 100%;
+	margin-right: calc(var(--bullet-x) - var(--dot) / 2);
+}
+
+/* a parent row's bullet is replaced by its fold caret */
+.composer .writing .tiptap ul:not([data-type='taskList']) > li:has(> .list-fold--bullet)::before {
+	content: none;
 }
 
 .list-fold {
@@ -4332,94 +4378,171 @@ body:has(dialog[open]) .cursor-rail {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 16px;
 	/* a <button> does not inherit type, so without this 1lh is the UA's 13px
-	   button line and the chevron rides above the row's text */
+	   button line and the control rides above the row's text */
 	font: inherit;
 	line-height: inherit;
 	height: 1lh;
 	padding: 0;
 	border: none;
-	border-radius: 4px;
 	background: transparent;
-	color: var(--color-text-muted);
+	color: inherit;
 	cursor: pointer;
+}
+
+/* --- caret in the bullet's place --- */
+.list-fold--bullet {
+	width: 1.2em;
+	margin-right: calc(var(--bullet-x) - 0.6em);
+	border-radius: 5px;
+	opacity: 0.7;
+	transition:
+		opacity 0.12s ease,
+		background 0.12s ease;
+}
+
+.list-fold--bullet:hover,
+.list-fold--bullet:focus-visible,
+.list-fold--bullet[aria-expanded='false'] {
+	opacity: 1;
+}
+
+.list-fold--bullet:hover {
+	background: var(--color-surface-2);
+}
+
+/* --- the caret's turn, for both kinds --- */
+.list-fold[aria-expanded='false'] svg {
+	transform: rotate(-90deg);
+}
+
+/* the row is redrawn on toggle, so the turn plays as a keyframe on the new
+   caret (tiptap-list-fold.ts marks it .is-turning) rather than a transition */
+.list-fold.is-turning[aria-expanded='false'] svg {
+	animation: list-fold-close 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.list-fold.is-turning[aria-expanded='true'] svg {
+	animation: list-fold-open 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes list-fold-close {
+	from {
+		transform: rotate(0deg);
+	}
+}
+
+@keyframes list-fold-open {
+	from {
+		transform: rotate(-90deg);
+	}
+}
+
+/* a row just opened lets its children settle in rather than pop */
+.composer .writing .tiptap li:has(> .is-turning[aria-expanded='true']) > :is(ul, ol),
+.composer .writing .tiptap li:has(> div > .is-turning[aria-expanded='true']) > div > ul {
+	animation: list-fold-reveal 0.2s ease;
+}
+
+@keyframes list-fold-reveal {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+/* --- "+3" after a folded row's text --- */
+.list-fold-more {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 0.5em;
+	padding: 0.1em 0.55em;
+	border: none;
+	border-radius: 999px;
+	background: var(--color-surface-2);
+	color: var(--color-text-muted);
+	font: inherit;
+	font-size: 0.72em;
+	line-height: 1.4;
+	vertical-align: 0.12em;
+	cursor: pointer;
+	user-select: none;
+	transition:
+		color 0.12s ease,
+		background 0.12s ease;
+}
+
+.list-fold-more:hover {
+	color: var(--color-text);
+	background: var(--color-border);
+}
+
+/* --- chevron beside numbers and checkboxes --- */
+.list-fold--chevron {
+	width: 16px;
+	border-radius: 4px;
+	color: var(--color-text-muted);
 	opacity: 0;
 	transition:
 		opacity 0.12s ease,
 		background 0.12s ease;
 }
 
-/* bullets and numbers are painted outside the row, so the chevron clears them */
-.composer .writing .tiptap ul:not([data-type='taskList']) > li > .list-fold,
-.composer .writing .tiptap ol > li > .list-fold {
-	margin-right: 18px;
+/* numbers are wider than a bullet and painted outside the row; clear "10." */
+.composer .writing .tiptap ol > li > .list-fold--chevron {
+	margin-right: 1.5em;
 }
 
 /* task rows: the widget lands in the content div, the chevron clears the checkbox */
-.composer .writing .tiptap ul[data-type='taskList'] > li > div > .list-fold {
+.composer .writing .tiptap ul[data-type='taskList'] > li > div > .list-fold--chevron {
 	margin-right: 6px;
 }
 
-.list-fold svg {
-	transition: transform 0.16s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.list-fold[aria-expanded='false'] svg {
-	transform: rotate(-90deg);
-}
-
-.composer .writing .tiptap li:hover > .list-fold,
-.composer .writing .tiptap li:hover > div > .list-fold,
-.list-fold:focus-visible {
+.composer .writing .tiptap li:hover > .list-fold--chevron,
+.composer .writing .tiptap li:hover > div > .list-fold--chevron,
+.list-fold--chevron:focus-visible,
+.list-fold--chevron[aria-expanded='false'] {
 	opacity: 0.6;
 }
 
-.list-fold:hover {
-	opacity: 1 !important;
+.list-fold--chevron:hover {
+	opacity: 1;
 	background: var(--color-surface-2);
 }
 
-/* a folded row always shows that it is holding something */
-.list-fold[aria-expanded='false'] {
-	opacity: 0.6;
-}
-
-/* the hidden part. Only while editable: a read-only view has no chevrons to
-   open it with, so it shows the whole outline instead. */
-.composer .writing .tiptap[contenteditable='true'] li[data-collapsed='true'] > ul,
-.composer .writing .tiptap[contenteditable='true'] li[data-collapsed='true'] > ol,
-.composer .writing .tiptap[contenteditable='true'] li[data-collapsed='true'] > div > ul,
-.composer .writing .list-drag-layer li[data-collapsed='true'] > ul,
-.composer .writing .list-drag-layer li[data-collapsed='true'] > ol,
-.composer .writing .list-drag-layer li[data-collapsed='true'] > div > ul {
-	display: none;
-}
-
-/* a folded bullet takes the accent colour, so the fold reads without hovering */
+/* the hidden part: a saved fold, unless a read-only view has opened it, or a
+   fold made in a read-only view (data-fold, see tiptap-list-fold.ts) */
 .composer
 	.writing
-	.tiptap[contenteditable='true']
-	ul:not([data-type='taskList'])
-	> li[data-collapsed='true']::marker {
-	color: var(--color-accent);
-}
-
-.composer .writing .tiptap[contenteditable='false'] .list-fold,
-.list-drag-layer .list-fold {
+	:is(.tiptap, .list-drag-layer)
+	:is(li[data-collapsed='true']:not([data-fold='open']), li[data-fold='closed'])
+	> :is(ul, ol),
+.composer
+	.writing
+	:is(.tiptap, .list-drag-layer)
+	:is(li[data-collapsed='true']:not([data-fold='open']), li[data-fold='closed'])
+	> div
+	> ul {
 	display: none;
 }
 
-/* no hover on touch: parent rows keep their chevron in view */
+/* the carried row in a drag is a picture of the row, not something to click */
+.list-drag-layer .list-fold--chevron {
+	display: none;
+}
+
+/* no hover on touch: chevrons stay in view */
 @media (hover: none) {
-	.list-fold {
+	.list-fold--chevron {
 		opacity: 0.5;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.list-fold svg {
-		transition: none;
+	.list-fold svg,
+	.composer .writing .tiptap li > :is(ul, ol),
+	.composer .writing .tiptap li > div > ul {
+		animation: none !important;
 	}
 }
 
