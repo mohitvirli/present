@@ -5429,3 +5429,22 @@ body:has(dialog[open]) .cursor-rail {
 	color: var(--color-text-muted);
 	background: var(--color-surface-2);
 }
+
+/* settings: a small "Beta" tag beside a row title, and a row that can't be used here */
+.settings-beta {
+	display: inline-block;
+	margin-left: 6px;
+	padding: 0 6px;
+	border-radius: 999px;
+	font-size: 0.65rem;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	vertical-align: 1px;
+	color: var(--color-accent);
+	background: var(--color-accent-soft);
+}
+.settings-row.is-disabled {
+	opacity: 0.6;
+	cursor: default;
+}

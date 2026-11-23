@@ -213,3 +213,11 @@ Write together reopens in edit mode with the members sheet open; timeline cards 
 
 Still to do: `/join` page at phone widths, leave shared entries out of AI analysis, reflections
 and recaps, export with co-authors, and deciding when to drop the flag.
+
+## Release gating (Nov 23)
+
+Two gates: the build flag `VITE_SHARED_ENTRIES=1` makes the feature exist at all, and a
+"Shared entries (Beta)" switch in Settings → Sync (per device, off by default, needs an encrypting
+passkey) turns it on. Off: no Write together, shared entries open read-only from their last copy
+and don't sync. The join page offers to turn it on. To ship: run the four migrations, then set
+`VITE_SHARED_ENTRIES=1` and `SUPABASE_ANON_KEY` in Vercel.

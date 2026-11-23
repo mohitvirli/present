@@ -5,8 +5,12 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { syncState, sharedIdentity } from '$lib/sync.svelte';
-	import { sharedEntriesFlag } from '$lib/settings.svelte';
+	import { fullSync, syncState, sharedIdentity } from '$lib/sync.svelte';
+	import {
+		setSharedEnabled,
+		sharedEntriesAvailable,
+		sharedSettings
+	} from '$lib/settings.svelte';
 	import { openInvite, lastName, rememberName, type OpenedInvite } from '$lib/shared/invites';
 	import { openShared, sharedNames, syncShared } from '$lib/shared/store';
 	import type { MembersResponse } from '../../api/shared/[id]/members/+server';
@@ -22,7 +26,11 @@
 	const secret = typeof location !== 'undefined' ? location.hash.slice(1) : '';
 
 	async function load() {
-		if (!sharedEntriesFlag) return void (view = 'off');
+		if (!sharedEntriesAvailable) {
+			message = 'Shared entries aren’t available yet.';
+			return void (view = 'error');
+		}
+		if (!sharedSettings.enabled) return void (view = 'off');
 		if (!syncState.enabled) return void (view = 'signin');
 		view = 'loading';
 		try {
@@ -35,6 +43,12 @@
 	}
 
 	onMount(load);
+
+	function turnOn() {
+		setSharedEnabled(true);
+		void fullSync(); // creates this account's sharing keys in the background
+		void load();
+	}
 
 	// signing in to sync from Settings on this page picks the invite back up
 	$effect(() => {
@@ -79,8 +93,15 @@
 	{#if view === 'loading'}
 		<p class="muted">Opening invite…</p>
 	{:else if view === 'off'}
-		<h1>Shared entries aren’t on here</h1>
-		<p class="muted">This device hasn’t turned on shared entries yet.</p>
+		<h1>Turn on shared entries?</h1>
+		<p class="muted">
+			Someone invited you to write an entry together. Shared entries are end-to-end encrypted;
+			you can turn them off again in Settings → Sync.
+		</p>
+		<div class="actions">
+			<button type="button" class="btn primary" onclick={turnOn}>Turn on</button>
+			<a class="btn" href={resolve('/')}>Not now</a>
+		</div>
 	{:else if view === 'signin'}
 		<h1>Sign in to join</h1>
 		<p class="muted">

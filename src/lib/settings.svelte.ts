@@ -69,6 +69,17 @@ export function setLocationEnabled(on: boolean): void {
 	if (browser) localStorage.setItem(LOC_KEY, on ? '1' : '0');
 }
 
-// Shared entries are in development: off unless this device opted in with
-// localStorage['present:shared-entries'] = '1'. No UI until the feature ships.
-export const sharedEntriesFlag = browser && localStorage.getItem('present:shared-entries') === '1';
+// Shared entries ship behind two gates. The release flag (VITE_SHARED_ENTRIES=1
+// at build time) decides whether the feature exists at all; the per-device
+// switch in Settings → Sync turns it on for this person. Off by default.
+export const sharedEntriesAvailable = import.meta.env.VITE_SHARED_ENTRIES === '1';
+const SHARED_KEY = 'present:shared-entries';
+
+export const sharedSettings = $state<{ enabled: boolean }>({
+	enabled: browser && sharedEntriesAvailable && localStorage.getItem(SHARED_KEY) === '1'
+});
+
+export function setSharedEnabled(on: boolean): void {
+	sharedSettings.enabled = sharedEntriesAvailable && on;
+	if (browser) localStorage.setItem(SHARED_KEY, on ? '1' : '0');
+}

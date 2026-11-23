@@ -11,7 +11,10 @@
 		setMicEnabled,
 		setCalendarEnabled,
 		setSpellcheckEnabled,
-		setLocationEnabled
+		setLocationEnabled,
+		sharedEntriesAvailable,
+		sharedSettings,
+		setSharedEnabled
 	} from '$lib/settings.svelte';
 	import { currentPosition, geolocationSupported, permissionState } from '$lib/location';
 	import {
@@ -657,6 +660,37 @@
 						</div>
 					{/if}
 				</section>
+
+				{#if syncSupported && syncState.enabled && sharedEntriesAvailable}
+					<div class="settings-group">
+						<label class="settings-row" class:is-disabled={!syncState.encrypted}>
+							<span class="settings-row-text">
+								<span class="settings-row-title"
+									>Shared entries <span class="settings-beta">Beta</span></span
+								>
+								<span class="settings-row-sub">
+									{#if syncState.encrypted}
+										Write entries together with people you invite. End-to-end encrypted.
+									{:else}
+										Needs a passkey that can encrypt; this one can’t.
+									{/if}
+								</span>
+							</span>
+							<input
+								type="checkbox"
+								role="switch"
+								class="switch"
+								checked={sharedSettings.enabled}
+								disabled={!syncState.encrypted}
+								onchange={(e) => {
+									setSharedEnabled(e.currentTarget.checked);
+									// on: set up this account's sharing keys and pull shared entries
+									if (e.currentTarget.checked) void fullSync();
+								}}
+							/>
+						</label>
+					</div>
+				{/if}
 
 				{#if syncSupported && syncState.enabled}
 					<div class="settings-group">

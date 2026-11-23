@@ -20,7 +20,7 @@ import {
 	clearIdentity,
 	type StoredIdentity
 } from './keystore';
-import { sharedEntriesFlag } from './settings.svelte';
+import { sharedSettings } from './settings.svelte';
 import { ensureIdentity } from './shared/identity';
 import { syncShared, clearShared } from './shared/store';
 
@@ -101,7 +101,7 @@ async function ensureKey(): Promise<boolean> {
 // the private half, so PRF-less accounts skip it. Background and non-fatal:
 // private sync never waits on or fails because of it.
 function syncSharedEntries(): void {
-	if (!sharedEntriesFlag || !aesKey) return;
+	if (!sharedSettings.enabled || !aesKey) return;
 	ensureIdentity(aesKey)
 		.then(() => syncShared())
 		.catch((e) => console.warn('shared entries:', e));

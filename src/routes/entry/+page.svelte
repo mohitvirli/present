@@ -23,7 +23,7 @@
 		micSettings,
 		spellcheckSettings,
 		locationSettings,
-		sharedEntriesFlag
+		sharedSettings
 	} from '$lib/settings.svelte';
 	import {
 		createShared,
@@ -283,7 +283,8 @@
 				place = placeOf(e.metadata.location);
 				entryId = e.id;
 				savedAt = e.updatedAt;
-				if (e.metadata.shared) await openSharedDoc(e.id);
+				// switched off in Settings: shared entries show their last synced copy, read-only
+				if (e.metadata.shared && sharedSettings.enabled) await openSharedDoc(e.id);
 				createdAt = e.createdAt;
 				// pinned notes are living documents — open them straight into edit mode
 				readonly = !e.metadata.pinned || !!e.metadata.recap;
@@ -763,11 +764,11 @@
 	});
 
 	$effect(() => {
-		composer.shared = !!meta.shared && !meta.shared.removed;
+		composer.shared = sharedSettings.enabled && !!meta.shared && !meta.shared.removed;
 		// a live shared entry is left or deleted from its members sheet instead
 		composer.delete = meta.shared && !meta.shared.removed ? null : removeEntry;
 		composer.collaborate =
-			sharedEntriesFlag && entryId && !meta.shared && !isLetter && hasContent ? collaborate : null;
+			sharedSettings.enabled && entryId && !meta.shared && !isLetter && hasContent ? collaborate : null;
 	});
 
 	onDestroy(() => {
