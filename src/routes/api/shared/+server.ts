@@ -14,6 +14,7 @@ export interface SharedListItem {
 	deleted: boolean;
 	createdAt: string;
 	updatedAt: string; // last update or snapshot — lets clients skip unchanged entries
+	needsRotation: boolean; // someone left or was removed; the owner re-keys
 }
 
 type Row = {
@@ -26,6 +27,7 @@ type Row = {
 		deleted: boolean;
 		created_at: string;
 		updated_at: string;
+		needs_rotation: boolean;
 	};
 };
 
@@ -36,7 +38,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
 	const { data, error: dbErr } = await supabaseAdmin()
 		.from('shared_members')
 		.select(
-			'entry_id, role, wrapped_key, epoch, shared_entries!inner(owner_id, deleted, created_at, updated_at)'
+			'entry_id, role, wrapped_key, epoch, shared_entries!inner(owner_id, deleted, created_at, updated_at, needs_rotation)'
 		)
 		.eq('user_id', userId);
 	if (dbErr) {
@@ -51,7 +53,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		ownerId: r.shared_entries.owner_id,
 		deleted: r.shared_entries.deleted,
 		createdAt: r.shared_entries.created_at,
-		updatedAt: r.shared_entries.updated_at
+		updatedAt: r.shared_entries.updated_at,
+		needsRotation: !!r.shared_entries.needs_rotation
 	}));
 	return json(items);
 };

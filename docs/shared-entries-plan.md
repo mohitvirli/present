@@ -191,3 +191,13 @@ key from `/api/shared/realtime` (`SUPABASE_ANON_KEY` in `.env`); no realtime RLS
 Awareness is created before the editor mounts, so carets never depend on the connection; it
 connects in the background with backoff. Caret names fade 2.5s after the owner's last move and
 show on hover. Verified with two accounts: live text, carets with names, header presence.
+
+## Phase 5 result (Nov 23) — done
+
+Leave, remove, make owner, delete for everyone, and key rotation (migration 20261126:
+`needs_rotation` + `shared_rotate`). Leaving or removal flags the entry; the owner's client
+rotates (new key sealed to each remaining member, snapshot under it, old-key updates and open
+invites dropped, live channel moves with the epoch). Writes with a stale epoch get 409 and are
+resent after re-keying. Removed members keep a read-only copy they can delete; leaving and
+delete-for-everyone remove it. Verified with two accounts: transfer both ways, remove, rejoin,
+leave, delete for everyone.

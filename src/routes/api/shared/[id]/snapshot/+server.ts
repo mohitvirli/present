@@ -15,11 +15,13 @@ export const prerender = false;
 export const POST: RequestHandler = async ({ params, request, cookies }) => {
 	const userId = await requireUser(cookies);
 	const id = params.id!;
-	await requireMember(id, userId);
+	const { epoch } = await requireMember(id, userId);
 	const body = (await request.json().catch(() => null)) as {
 		snapshot?: unknown;
 		seq?: unknown;
+		epoch?: unknown;
 	} | null;
+	if (body?.epoch !== epoch) throw error(409, 'The entry key changed.');
 	const seq = body?.seq;
 	if (typeof seq !== 'number' || !Number.isSafeInteger(seq) || seq <= 0) {
 		throw error(400, 'Bad seq.');

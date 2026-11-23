@@ -4,7 +4,16 @@
 	// encrypted doc, keyed by user id; roles and join dates come from the server.
 	import { onMount } from 'svelte';
 	import type * as Y from 'yjs';
-	import { memberHue, sharedNames } from '$lib/shared/store';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import {
+		deleteForEveryone,
+		leaveShared,
+		memberHue,
+		removeMember,
+		sharedNames,
+		transferOwner
+	} from '$lib/shared/store';
 	import { createInvite, lastName, rememberName } from '$lib/shared/invites';
 	import type { MembersResponse } from '../../routes/api/shared/[id]/members/+server';
 
@@ -40,18 +49,62 @@
 		return () => n.unobserve(readNames);
 	});
 
-	onMount(async () => {
+	async function loadMembers() {
 		try {
 			const res = await fetch(`/api/shared/${entryId}/members`);
 			if (!res.ok) throw new Error(`(${res.status})`);
 			const data = (await res.json()) as MembersResponse;
 			me = data.me;
 			members = data.members;
-			myName = names.get(data.me) ?? lastName();
+			if (!myName) myName = names.get(data.me) ?? lastName();
 		} catch (e) {
 			loadError = `Couldn’t load members ${e instanceof Error ? e.message : ''}`.trim();
 		}
-	});
+	}
+	onMount(loadMembers);
+
+	let busy = $state(false);
+	let actionError = $state('');
+
+	async function act(fn: () => Promise<void>, after: 'reload' | 'leave') {
+		busy = true;
+		actionError = '';
+		try {
+			await fn();
+			if (after === 'leave') {
+				onClose();
+				await goto(resolve('/'));
+			} else {
+				invite = null;
+				await loadMembers();
+			}
+		} catch (e) {
+			actionError = e instanceof Error ? e.message : 'Something went wrong.';
+		} finally {
+			busy = false;
+		}
+	}
+
+	function remove(userId: string, i: number) {
+		if (!confirm(`Remove ${label(userId, i)}? They keep what they’ve seen, but nothing new.`))
+			return;
+		void act(() => removeMember(entryId, userId), 'reload');
+	}
+
+	function makeOwner(userId: string, i: number) {
+		if (!confirm(`Make ${label(userId, i)} the owner? You’ll become an editor.`)) return;
+		void act(() => transferOwner(entryId, userId), 'reload');
+	}
+
+	function leave() {
+		if (!me || !confirm('Leave this shared entry? It disappears from your journal.')) return;
+		void act(() => leaveShared(entryId, me!), 'leave');
+	}
+
+	function deleteAll() {
+		if (!confirm('Delete this entry for everyone? This can’t be undone.')) return;
+		void act(() => deleteForEveryone(entryId), 'leave');
+	}
 
 	function saveName() {
 		const n = myName.trim().slice(0, 40);
@@ -139,6 +192,22 @@
 					<span class="role">
 						{m.role === 'owner' ? 'Owner' : `Joined ${joined(m.joinedAt)}`}
 					</span>
+					{#if isOwner && m.userId !== me}
+						<span class="row-actions">
+							<button
+								type="button"
+								class="link"
+								disabled={busy}
+								onclick={() => makeOwner(m.userId, i)}>Make owner</button
+							>
+							<button
+								type="button"
+								class="link danger"
+								disabled={busy}
+								onclick={() => remove(m.userId, i)}>Remove</button
+							>
+						</span>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -172,6 +241,21 @@
 					</p>
 				{/if}
 				{#if inviteError}<p class="error">{inviteError}</p>{/if}
+			</div>
+		{/if}
+
+		{#if me && members.length}
+			<div class="footer">
+				{#if isOwner}
+					<button type="button" class="link danger" disabled={busy} onclick={deleteAll}
+						>Delete for everyone</button
+					>
+				{:else}
+					<button type="button" class="link danger" disabled={busy} onclick={leave}
+						>Leave entry</button
+					>
+				{/if}
+				{#if actionError}<p class="error">{actionError}</p>{/if}
 			</div>
 		{/if}
 	{/if}
@@ -299,5 +383,34 @@
 		color: var(--color-danger);
 		margin: 6px 0 0;
 		font-size: 0.75rem;
+	}
+	.members li {
+		flex-wrap: wrap;
+	}
+	.row-actions {
+		display: flex;
+		gap: 10px;
+		flex-basis: 100%;
+		padding-left: 32px;
+	}
+	button.link {
+		border: none;
+		background: none;
+		padding: 0;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+	button.link:hover {
+		color: var(--color-text);
+	}
+	button.link.danger:hover {
+		color: var(--color-danger);
+	}
+	.footer {
+		margin-top: 12px;
+		padding-top: 10px;
+		border-top: 1px solid var(--color-border);
 	}
 </style>

@@ -72,8 +72,14 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 	const userId = await requireUser(cookies);
 	const id = params.id!;
 	const { epoch } = await requireMember(id, userId);
-	const body = (await request.json().catch(() => null)) as { updates?: unknown } | null;
+	const body = (await request.json().catch(() => null)) as {
+		updates?: unknown;
+		epoch?: unknown;
+	} | null;
 	if (!Array.isArray(body?.updates) || !body.updates.length) throw error(400, 'No updates.');
+	// encrypted with a key that has since been rotated out: refuse, so nobody
+	// receives updates they can't read. The client re-keys and resends.
+	if (body.epoch !== epoch) throw error(409, 'The entry key changed.');
 	if (body.updates.length > MAX_UPDATES_PER_PUSH) throw error(413, 'Too many updates.');
 	const rows = body.updates.map((u) => ({
 		entry_id: id,

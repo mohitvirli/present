@@ -27,7 +27,9 @@
 	} from '$lib/settings.svelte';
 	import {
 		createShared,
+		discardRemovedCopy,
 		memberHue,
+		onRekey,
 		openShared,
 		sharedMeta,
 		sharedNames
@@ -368,6 +370,18 @@
 		const cid = shared.doc.clientID; // lets peers tie our caret to our moves
 		collab = { doc: shared.doc, awareness, user: { name: lastName() || 'Someone', color, cid } };
 		void goLive(id, shared.doc, awareness);
+		// a member left or was removed and the key rotated: the live channel moved
+		const doc = shared.doc;
+		const offRekey = onRekey(id, () => {
+			liveSession?.destroy();
+			liveSession = null;
+			void goLive(id, doc, awareness);
+		});
+		const offMeta = unobserveMeta;
+		unobserveMeta = () => {
+			offMeta?.();
+			offRekey();
+		};
 	}
 
 	// Join the entry's live channel, retrying while the page is open. Until it
@@ -675,7 +689,15 @@
 
 	async function removeEntry() {
 		if (!entryId) return;
-		if (shared) return; // leave / delete-for-everyone come with members (Phase 5)
+		if (shared) return; // leave / delete-for-everyone live in the members sheet
+		if (meta.shared?.removed) {
+			// a removed member's read-only copy: purge it (it never synced privately)
+			const id = entryId;
+			entryId = null;
+			await discardRemovedCopy(id);
+			await goto('/');
+			return;
+		}
 		if (saveTimer) clearTimeout(saveTimer);
 		saveTimer = null;
 		const id = entryId;
@@ -730,7 +752,9 @@
 	});
 
 	$effect(() => {
-		composer.shared = !!meta.shared;
+		composer.shared = !!meta.shared && !meta.shared.removed;
+		// a live shared entry is left or deleted from its members sheet instead
+		composer.delete = meta.shared && !meta.shared.removed ? null : removeEntry;
 		composer.collaborate =
 			sharedEntriesFlag && entryId && !meta.shared && !isLetter && hasContent ? collaborate : null;
 	});
@@ -1163,6 +1187,12 @@
 			{letterStats.entries === 1 ? 'entry' : 'entries'}{#if createdAt}{' · written '}{new Date(
 					createdAt
 				).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{/if}
+		</p>
+	{/if}
+	{#if meta.shared?.removed}
+		<p class="shared-removed" role="status">
+			You’re no longer in this shared entry. This is the last version you saw; delete it whenever
+			you like.
 		</p>
 	{/if}
 	{#if composer.showMembers && shared && entryId}

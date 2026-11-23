@@ -40,3 +40,5 @@ alter table public.entries     enable row level security; -- no policy → servi
 -- shared_members and shared_updates (ciphertext only; see the migration).
 -- supabase/migrations/20261125_shared_invites.sql adds shared_invites and the
 -- shared_accept_invite function (atomic join with the 8-member cap).
+-- supabase/migrations/20261126_shared_rotation.sql adds needs_rotation and
+-- shared_rotate (owner re-keys an entry for its remaining members).

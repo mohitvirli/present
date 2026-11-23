@@ -30,7 +30,7 @@ export interface EntryMetadata {
 	recapSeen?: boolean; // the letter has been opened once (its reveal has played)
 	// a co-written entry: this record mirrors its Y.Doc (lib/shared/store.ts) for
 	// the timeline and search, and never goes through private sync
-	shared?: { role: 'owner' | 'editor' };
+	shared?: { role: 'owner' | 'editor'; removed?: boolean }; // removed: read-only copy kept
 }
 
 export interface Entry {

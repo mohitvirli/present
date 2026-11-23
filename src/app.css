@@ -5072,3 +5072,13 @@ body:has(dialog[open]) .cursor-rail {
 	inset: -2px -5px;
 	pointer-events: auto;
 }
+
+/* shared entries: a removed member's read-only copy */
+.shared-removed {
+	margin: 0 0 16px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	background: var(--color-surface-2);
+	color: var(--color-text-muted);
+	font-size: 0.85rem;
+}

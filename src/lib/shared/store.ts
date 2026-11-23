@@ -17,6 +17,7 @@ import { loadIdentity } from '$lib/keystore';
 import { applyDerived, getEntry, purgeEntries, putRemote, type Entry } from '$lib/db';
 import type { SharedListItem } from '../../routes/api/shared/+server';
 import type { UpdatesPage } from '../../routes/api/shared/[id]/updates/+server';
+import type { MembersResponse } from '../../routes/api/shared/[id]/members/+server';
 
 // Shared entries on this device. Each is a Y.Doc: the XML fragment 'default'
 // holds the TipTap content (what Collaboration binds to) and the map 'meta'
@@ -152,8 +153,14 @@ async function pushPending(record: SharedRecord) {
 	const res = await fetch(`/api/shared/${record.id}/updates`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ updates: [envelope] })
+		body: JSON.stringify({ updates: [envelope], epoch: record.epoch })
 	});
+	if (res.status === 409) {
+		// the key was rotated: fetch the new one; the edits stay queued and go
+		// out, re-encrypted, on the flush that catch-up runs
+		void syncShared().catch(() => {});
+		return;
+	}
 	if (!res.ok) throw new Error(`push ${res.status}`);
 	// edits made while sending stay queued
 	record.pending = record.pending === sending ? null : record.pending;
@@ -277,8 +284,15 @@ async function runSync() {
 			console.warn('shared catch-up failed', item.id, e);
 		}
 	}
-	// local docs the server no longer lists for us (removed, or a stale account)
-	for (const id of known) await forget(id);
+	// local docs the server no longer lists for us: we were removed
+	for (const id of known) await markRemoved(id);
+
+	// someone left or was removed from an entry we own: move it to a new key
+	for (const item of items) {
+		if (item.role === 'owner' && item.needsRotation && !item.deleted) {
+			await rotate(item.id).catch((e) => console.warn('shared rotate failed', item.id, e));
+		}
+	}
 }
 
 async function catchUp(item: SharedListItem) {
@@ -310,7 +324,9 @@ async function catchUp(item: SharedListItem) {
 
 	const entry = await loadLive(item.id);
 	if (!entry) return;
+	const rekeyed = entry.record.epoch !== record.epoch;
 	entry.record = record;
+	if (rekeyed) notifyRekey(item.id);
 	let more = true;
 	while (more) {
 		const page = await fetchPage(item.id, record.cursor);
@@ -319,7 +335,15 @@ async function catchUp(item: SharedListItem) {
 			remote.push(await decryptBytes(record.key, page.snapshot.envelope));
 			record.sinceSnapshot = 0;
 		}
-		for (const u of page.updates) remote.push(await decryptBytes(record.key, u.envelope));
+		for (const u of page.updates) {
+			try {
+				remote.push(await decryptBytes(record.key, u.envelope));
+			} catch {
+				// sealed with a key rotated out mid-flight; its content is in the
+				// rotation snapshot, so skipping it loses nothing
+				console.warn('shared: skipped an update under an old key', item.id, u.seq);
+			}
+		}
 		if (remote.length) Y.applyUpdate(entry.doc, Y.mergeUpdates(remote), REMOTE);
 		record.sinceSnapshot += page.updates.length;
 		record.cursor = page.cursor;
@@ -341,11 +365,26 @@ async function compact(record: SharedRecord, doc: Y.Doc) {
 	const res = await fetch(`/api/shared/${record.id}/snapshot`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ snapshot, seq: record.cursor })
+		body: JSON.stringify({ snapshot, seq: record.cursor, epoch: record.epoch })
 	});
 	if (res.ok) {
 		record.sinceSnapshot = 0;
 		await (await getDB()).put('docs', record);
+	}
+}
+
+// Removed from an entry: keep what we last saw as a read-only copy (the
+// mirror, flagged removed) and drop the doc and its key.
+async function markRemoved(id: string) {
+	live.get(id)?.doc.destroy();
+	live.delete(id);
+	await (await getDB()).delete('docs', id);
+	const mirror = await getEntry(id);
+	if (mirror?.metadata.shared && !mirror.metadata.shared.removed) {
+		await putRemote({
+			...mirror,
+			metadata: { ...mirror.metadata, shared: { ...mirror.metadata.shared, removed: true } }
+		});
 	}
 }
 
@@ -421,4 +460,107 @@ export function memberHue(userId: string): number {
 	let h = 0;
 	for (const c of userId) h = (h * 31 + c.charCodeAt(0)) % 360;
 	return h;
+}
+
+// ---- members: rotation, leaving, removal, ownership ---------------------------
+
+const rekeyListeners = new Map<string, Set<() => void>>();
+
+// Called when this entry moves to a new key (and so a new live channel).
+export function onRekey(id: string, fn: () => void): () => void {
+	const set = rekeyListeners.get(id) ?? new Set();
+	set.add(fn);
+	rekeyListeners.set(id, set);
+	return () => set.delete(fn);
+}
+
+function notifyRekey(id: string) {
+	for (const fn of rekeyListeners.get(id) ?? []) fn();
+}
+
+// Owner: move the entry to a fresh key, sealed to each current member, with a
+// snapshot of the whole doc under it. Old-key updates are folded in server-side.
+export async function rotate(id: string): Promise<void> {
+	const entry = await loadLive(id);
+	if (!entry) throw new Error('Shared entry is not on this device.');
+	const res = await fetch(`/api/shared/${id}/members`);
+	if (!res.ok) throw new Error(`members ${res.status}`);
+	const { me, epoch, members } = (await res.json()) as MembersResponse;
+	const missing = members.filter((m) => !m.publicKey);
+	if (missing.length) throw new Error('A member has no keys yet; try again later.');
+
+	const raw = newEntryKeyBytes();
+	const key = await importEntryKey(raw);
+	const keys: Record<string, Sealed> = {};
+	for (const m of members) keys[m.userId] = await sealTo(m.publicKey!, raw);
+	raw.fill(0);
+
+	const atSnapshot = Y.encodeStateVector(entry.doc);
+	const snapshot = await encryptBytes(key, Y.encodeStateAsUpdate(entry.doc));
+	const r = await fetch(`/api/shared/${id}/rotate`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ epoch: epoch + 1, snapshot, keys })
+	});
+	if (!r.ok) throw new Error(`rotate ${r.status}`);
+	const { snapshotSeq } = (await r.json()) as { snapshotSeq: number };
+
+	const { record } = entry;
+	record.key = key;
+	record.epoch = epoch + 1;
+	record.wrappedKey = keys[me];
+	record.cursor = snapshotSeq;
+	record.sinceSnapshot = 0;
+	// the snapshot carries everything up to now; only edits made since are pending
+	const since = Y.encodeStateAsUpdate(entry.doc, atSnapshot);
+	record.pending = since.length > 2 ? since : null;
+	await (await getDB()).put('docs', record);
+	notifyRekey(id);
+	if (record.pending) await flush(id);
+}
+
+async function call(url: string, init: RequestInit): Promise<void> {
+	const res = await fetch(url, init);
+	if (!res.ok) {
+		const body = (await res.json().catch(() => ({}))) as { message?: string };
+		throw new Error(body.message || `Request failed (${res.status}).`);
+	}
+}
+
+// Editor: leave the entry. It disappears from this device.
+export async function leaveShared(id: string, me: string): Promise<void> {
+	await call(`/api/shared/${id}/members/${me}`, { method: 'DELETE' });
+	await forget(id);
+}
+
+// Owner: remove someone, then re-key so they get nothing new.
+export async function removeMember(id: string, userId: string): Promise<void> {
+	await call(`/api/shared/${id}/members/${userId}`, { method: 'DELETE' });
+	await rotate(id);
+}
+
+// Owner: hand ownership to another member (you become an editor).
+export async function transferOwner(id: string, userId: string): Promise<void> {
+	await call(`/api/shared/${id}/owner`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ userId })
+	});
+	const entry = await loadLive(id);
+	if (entry) {
+		entry.record.role = 'editor';
+		await (await getDB()).put('docs', entry.record);
+		await writeMirror(entry.record, entry.doc);
+	}
+}
+
+// Owner: delete for everyone. Every member's next sync removes their copy.
+export async function deleteForEveryone(id: string): Promise<void> {
+	await call(`/api/shared/${id}`, { method: 'DELETE' });
+	await forget(id);
+}
+
+// A removed member deletes the read-only copy they kept.
+export async function discardRemovedCopy(id: string): Promise<void> {
+	await purgeEntries([id]);
 }
