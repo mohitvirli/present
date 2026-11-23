@@ -33,3 +33,6 @@ alter table public.entries     enable row level security; -- no policy → servi
 -- sync_push_entries is the guarded bulk upsert (last-write-wins on touched_at,
 -- server-side, so a stale device can't resurrect a row another device
 -- tombstoned); sync_pull_entries pages rows by the (synced_at, id) cursor.
+
+-- Shared entries: supabase/migrations/20261123_user_keys.sql adds user_keys
+-- (per-user identity key pair; private half encrypted under the journal key).

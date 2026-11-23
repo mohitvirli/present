@@ -1,4 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
+import type { PublicJwk } from './crypto';
 
 // Persists the PRF-derived AES key as a NON-EXTRACTABLE CryptoKey. IndexedDB
 // stores the key handle, not the raw bytes — they can never be read back out
@@ -35,4 +36,26 @@ export async function loadAesKey(): Promise<CryptoKey | null> {
 export async function clearAesKey(): Promise<void> {
 	const db = await getDB();
 	await db.delete(STORE, ID);
+}
+
+// ----- identity key pair (shared entries) -----
+// The private half is a non-extractable CryptoKey, safe at rest like the AES
+// key above. The public JWK is kept beside it so we needn't ask the server.
+const IDENTITY_ID = 'identity-ecdh';
+
+export type StoredIdentity = { privateKey: CryptoKey; publicJwk: PublicJwk };
+
+export async function saveIdentity(id: StoredIdentity): Promise<void> {
+	const db = await getDB();
+	await db.put(STORE, id, IDENTITY_ID);
+}
+
+export async function loadIdentity(): Promise<StoredIdentity | null> {
+	const db = await getDB();
+	return (await db.get(STORE, IDENTITY_ID)) ?? null;
+}
+
+export async function clearIdentity(): Promise<void> {
+	const db = await getDB();
+	await db.delete(STORE, IDENTITY_ID);
 }

@@ -21,6 +21,13 @@ export const DELETE: RequestHandler = async ({ cookies }) => {
 		throw error(502, 'Could not delete sync data.');
 	}
 
+	// tolerate a missing table: the shared-entries migration may not be run yet
+	const { error: keysErr } = await admin.from('user_keys').delete().eq('user_id', userId);
+	if (keysErr && keysErr.code !== '42P01') {
+		console.error('user_keys delete failed', keysErr);
+		throw error(502, 'Could not delete keys.');
+	}
+
 	const { error: credsErr } = await admin.from('credentials').delete().eq('user_id', userId);
 	if (credsErr) {
 		console.error('credentials delete failed', credsErr);

@@ -13,7 +13,9 @@ import {
 } from './db';
 import { markOnboarded } from './onboarding';
 import { PRF_SALT, deriveKey, encryptJSON, decryptJSON, isEnvelope, type Envelope } from './crypto';
-import { saveAesKey, loadAesKey, clearAesKey } from './keystore';
+import { saveAesKey, loadAesKey, clearAesKey, clearIdentity } from './keystore';
+import { sharedEntriesFlag } from './settings.svelte';
+import { ensureIdentity } from './shared/identity';
 
 // Private Sync — passkey identity + server-proxied Supabase sync. Content is
 // end-to-end encrypted when the passkey supports PRF.
@@ -85,6 +87,14 @@ async function ensureKey(): Promise<boolean> {
 		/* cancelled */
 	}
 	return !!aesKey;
+}
+
+// Shared entries (flagged): make sure this account has its identity key pair.
+// Needs the journal key to wrap the private half, so PRF-less accounts skip it.
+// Background and non-fatal: sync itself never waits on or fails because of it.
+function prepareIdentity(): void {
+	if (!sharedEntriesFlag || !aesKey) return;
+	ensureIdentity(aesKey).catch((e) => console.warn('identity keys:', e));
 }
 
 export const syncSupported =
@@ -202,6 +212,7 @@ async function startSyncing(): Promise<void> {
 	// If PRF is unsupported, we fall back to plaintext sync.
 	if (!aesKey) await ensureKey();
 	await fullSync();
+	prepareIdentity();
 }
 
 // Enable = create a new passkey (and user) with this device's biometrics.
@@ -243,6 +254,7 @@ function resetLocalSyncState(): void {
 	aesKey = null;
 	syncState.encrypted = false;
 	void clearAesKey();
+	void clearIdentity();
 	// the next account starts from nothing: pull everything, push everything
 	if (browser) {
 		localStorage.removeItem(CURSOR_KEY);
@@ -298,6 +310,7 @@ export async function initSync(): Promise<void> {
 	localStorage.removeItem(LEGACY_SINCE_KEY);
 	await loadKey(); // silent — avoids a passkey ceremony on every open
 	await fullSync();
+	prepareIdentity();
 }
 
 // Ask the browser to keep this origin's storage. Without it storage is

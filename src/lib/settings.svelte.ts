@@ -68,3 +68,7 @@ export function setLocationEnabled(on: boolean): void {
 	locationSettings.enabled = on;
 	if (browser) localStorage.setItem(LOC_KEY, on ? '1' : '0');
 }
+
+// Shared entries are in development: off unless this device opted in with
+// localStorage['present:shared-entries'] = '1'. No UI until the feature ships.
+export const sharedEntriesFlag = browser && localStorage.getItem('present:shared-entries') === '1';

@@ -61,3 +61,91 @@ export async function decryptJSON<T>(key: CryptoKey, env: Envelope): Promise<T> 
 	);
 	return JSON.parse(new TextDecoder().decode(buf)) as T;
 }
+
+// ----- Identity keys (shared entries) -----
+// Each user has one ECDH P-256 key pair. The public half is on the server so
+// others can seal keys to you; the private half is stored on the server only
+// as an Envelope under your journal key, and on-device as a non-extractable
+// CryptoKey. sealTo/openSealed are ECIES: an ephemeral ECDH exchange, HKDF,
+// then AES-GCM. Shared entries' keys travel this way (wrapped per member).
+
+const SEAL_SALT = new TextEncoder().encode('present:shared:seal-salt:v1');
+const SEAL_INFO = new TextEncoder().encode('present:shared:seal:v1');
+const ECDH = { name: 'ECDH', namedCurve: 'P-256' } as const;
+
+export type PublicJwk = { kty: 'EC'; crv: 'P-256'; x: string; y: string };
+export type Sealed = { seal: 1; epk: PublicJwk; iv: string; ct: string };
+
+export function isPublicJwk(v: unknown): v is PublicJwk {
+	const j = v as Partial<PublicJwk> & { d?: unknown };
+	return (
+		!!j &&
+		typeof j === 'object' &&
+		j.kty === 'EC' &&
+		j.crv === 'P-256' &&
+		typeof j.x === 'string' &&
+		typeof j.y === 'string' &&
+		j.d === undefined // never a private key
+	);
+}
+
+export function isSealed(v: unknown): v is Sealed {
+	const s = v as Partial<Sealed>;
+	return !!s && typeof s === 'object' && s.seal === 1 && isPublicJwk(s.epk);
+}
+
+function publicOnly(jwk: JsonWebKey): PublicJwk {
+	return { kty: 'EC', crv: 'P-256', x: jwk.x!, y: jwk.y! };
+}
+
+// A fresh key pair. Returns the private key as a JWK so it can be encrypted
+// for the server copy; the caller re-imports it non-extractable for local use.
+export async function generateIdentity(): Promise<{
+	publicJwk: PublicJwk;
+	privateJwk: JsonWebKey;
+}> {
+	const pair = await crypto.subtle.generateKey(ECDH, true, ['deriveBits']);
+	const privateJwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+	const publicJwk = publicOnly(await crypto.subtle.exportKey('jwk', pair.publicKey));
+	return { publicJwk, privateJwk };
+}
+
+export function importIdentityPrivate(jwk: JsonWebKey): Promise<CryptoKey> {
+	return crypto.subtle.importKey('jwk', jwk, ECDH, false, ['deriveBits']);
+}
+
+export function importIdentityPublic(jwk: PublicJwk): Promise<CryptoKey> {
+	return crypto.subtle.importKey('jwk', jwk, ECDH, true, []);
+}
+
+async function sealKey(priv: CryptoKey, pub: CryptoKey, usage: KeyUsage): Promise<CryptoKey> {
+	const bits = await crypto.subtle.deriveBits({ name: 'ECDH', public: pub }, priv, 256);
+	const hkdf = await crypto.subtle.importKey('raw', bits, 'HKDF', false, ['deriveKey']);
+	return crypto.subtle.deriveKey(
+		{ name: 'HKDF', hash: 'SHA-256', salt: SEAL_SALT, info: SEAL_INFO },
+		hkdf,
+		{ name: 'AES-GCM', length: 256 },
+		false,
+		[usage]
+	);
+}
+
+// Encrypt bytes so only the holder of `recipient`'s private key can read them.
+export async function sealTo(recipient: PublicJwk, data: Uint8Array): Promise<Sealed> {
+	const eph = await crypto.subtle.generateKey(ECDH, true, ['deriveBits']);
+	const key = await sealKey(eph.privateKey, await importIdentityPublic(recipient), 'encrypt');
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data as BufferSource);
+	const epk = publicOnly(await crypto.subtle.exportKey('jwk', eph.publicKey));
+	return { seal: 1, epk, iv: toB64(iv), ct: toB64(new Uint8Array(ct)) };
+}
+
+export async function openSealed(privateKey: CryptoKey, sealed: Sealed): Promise<Uint8Array> {
+	const key = await sealKey(privateKey, await importIdentityPublic(sealed.epk), 'decrypt');
+	const buf = await crypto.subtle.decrypt(
+		{ name: 'AES-GCM', iv: fromB64(sealed.iv) as BufferSource },
+		key,
+		fromB64(sealed.ct) as BufferSource
+	);
+	return new Uint8Array(buf);
+}
