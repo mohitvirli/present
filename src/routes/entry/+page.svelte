@@ -214,6 +214,60 @@
 
 	const dictation = createDictation(applyTranscript);
 
+	// Auto title: a level-1 heading typed as the first block of an untitled
+	// entry (`# ` at the top) moves into the title field, and the caret follows
+	// it there. Enter in the title drops back into the editor.
+	let titleInput = $state<HTMLInputElement | null>(null);
+	let titleFocused = $state(false);
+
+	function isH1(node: { type: { name: string }; attrs: Record<string, unknown> } | null | undefined) {
+		return node?.type.name === 'heading' && node.attrs.level === 1;
+	}
+
+	async function promoteHeadingToTitle(ed: TiptapEditor) {
+		const first = ed.state.doc.firstChild;
+		if (!first || !isH1(first)) return;
+		const tr = ed.state.tr;
+		// keep at least one block so the editor never ends up without a paragraph
+		if (ed.state.doc.childCount > 1) tr.delete(0, first.nodeSize);
+		else tr.replaceWith(0, first.nodeSize, ed.schema.nodes.paragraph.create());
+		ed.view.dispatch(tr);
+
+		meta.title = first.textContent.trim();
+		showMeta = true;
+		await tick();
+		if (!titleInput) return;
+		titleInput.focus();
+		const end = titleInput.value.length;
+		titleInput.setSelectionRange(end, end);
+	}
+
+	$effect(() => {
+		const ed = editor;
+		if (!ed) return;
+		const onTx = ({ transaction }: { transaction: import('@tiptap/pm/state').Transaction }) => {
+			if (readonly || !transaction.docChanged || meta.title?.trim()) return;
+			if (!isH1(ed.state.doc.firstChild) || isH1(transaction.before.firstChild)) return;
+			// only the writer's own edit — the caret sits in that first block
+			if (ed.state.selection.$from.index(0) !== 0) return;
+			queueMicrotask(() => void promoteHeadingToTitle(ed));
+		};
+		ed.on('transaction', onTx);
+		return () => {
+			ed.off('transaction', onTx);
+		};
+	});
+
+	function onTitleKeydown(e: KeyboardEvent) {
+		if (e.key !== 'Enter' || e.isComposing || e.shiftKey) return;
+		e.preventDefault();
+		if (!editor) return;
+		// Tiptap's focus lands a frame later; take DOM focus now so the next
+		// keystroke can't still hit the title
+		editor.view.dom.focus({ preventScroll: true });
+		editor.commands.focus('start');
+	}
+
 	// Stop any live dictation when the entry stops being editable or the mic
 	// setting is turned off.
 	$effect(() => {
@@ -326,7 +380,10 @@
 				delay: contentDelay,
 				ease: 'power3.out',
 				onComplete: () => {
-					if (!readonly) focusEditor();
+					// the writer may already be somewhere (the editor, or the title an
+					// auto-promoted heading moved them to) — don't yank them back
+					const active = document.activeElement;
+					if (!readonly && (!active || active === document.body)) focusEditor();
 				}
 			});
 		} else if (!readonly) {
@@ -685,10 +742,21 @@
 	// to edit with the caret where you clicked.
 	function onReadonlyKeydown(e: KeyboardEvent) {
 		if (!readonly || !ready) return;
-		if (e.key !== 'e' && e.key !== 'E') return;
-		if (e.metaKey || e.ctrlKey || e.altKey) return;
 		const t = e.target as HTMLElement | null;
 		if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+
+		// ⌘A / Ctrl+A selects just the entry's text, not the whole page
+		if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyA') {
+			const dom = editor?.view.dom;
+			const sel = window.getSelection();
+			if (!dom || !sel) return;
+			e.preventDefault();
+			sel.selectAllChildren(dom);
+			return;
+		}
+
+		if (e.key !== 'e' && e.key !== 'E') return;
+		if (e.metaKey || e.ctrlKey || e.altKey) return;
 		e.preventDefault();
 		startEditing();
 	}
@@ -811,7 +879,8 @@
 	let hasMeta = $derived(
 		!!(meta.title?.trim() || (meta.tags && meta.tags.length) || meta.mood || placeOf(meta.location))
 	);
-	let showContext = $derived(hasContent || hasMeta);
+	// titleFocused keeps the panel open while an auto-promoted title is still empty
+	let showContext = $derived(hasContent || hasMeta || titleFocused);
 	let showContextBtn = $derived(readonly ? hasMeta : showContext);
 	let wordCount = $derived(text.trim().split(/\s+/).filter(Boolean).length);
 
@@ -1076,7 +1145,11 @@
 				<div class="title-row">
 					<input
 						class="title-input"
+						bind:this={titleInput}
 						bind:value={meta.title}
+						onkeydown={onTitleKeydown}
+						onfocus={() => (titleFocused = true)}
+						onblur={() => (titleFocused = false)}
 						placeholder="Untitled"
 						spellcheck={spellcheckSettings.enabled}
 					/>
