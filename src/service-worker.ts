@@ -37,7 +37,7 @@ sw.addEventListener('fetch', (event) => {
 	const { request } = event;
 
 	// Only handle same-origin GET. Never touch API/auth/server functions —
-	// Supabase, AI, Deepgram, WebAuthn all go straight to network.
+	// Supabase, AI, WebAuthn all go straight to network.
 	if (request.method !== 'GET') return;
 
 	const url = new URL(request.url);
