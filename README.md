@@ -20,7 +20,7 @@ Built with SvelteKit + Svelte 5 (runes), TipTap, and IndexedDB. Local-first by d
 - **Private sync** — end-to-end encrypted sync across devices using a **passkey** (FaceID / fingerprint). No account, no password. The encryption key is derived from the passkey's PRF and never leaves your device, so the server only ever stores ciphertext.
 - **AI assist** (opt-in) — title & tag suggestions, mood analysis, and a short summary, plus **Reflection mode**: a gentle ghost follow-up question at your caret as you write.
 - **Places** (opt-in) — each new entry quietly notes where it was written; search for a place, pick a recent one, or name your own spot.
-- **Voice dictation** — live speech-to-text via Deepgram, streamed into the editor.
+- **Voice dictation** — live speech-to-text via the browser's Web Speech API, streamed into the editor.
 - **Markdown + rich text** — headings, lists (drag to reorder), todo checkboxes, tables with resizable columns, links, blockquotes, code.
 - **Export & import** — download the whole journal as JSON (to restore from) or Markdown (to read); import a JSON export to restore.
 - **Themes** — Sage (default), Claude and Sky palettes, each with a light and dark half; auto day & night is on by default.
@@ -33,7 +33,7 @@ Built with SvelteKit + Svelte 5 (runes), TipTap, and IndexedDB. Local-first by d
 - **Local storage**: IndexedDB via `idb`
 - **Sync backend**: Supabase (Postgres, service-role only) behind SvelteKit API routes
 - **Auth / crypto**: WebAuthn passkeys (`@simplewebauthn`), PRF-derived AES-GCM, `jose` for signed session cookies
-- **AI**: Vercel AI SDK + Anthropic; Deepgram for dictation
+- **AI**: Vercel AI SDK + Anthropic; Web Speech API for dictation
 - **Motion**: GSAP, Lenis smooth scroll
 - **Deploy**: `@sveltejs/adapter-vercel`
 
@@ -62,8 +62,9 @@ All features beyond local writing are optional. Set only what you need in `.env`
 | Variable | Needed for | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | AI suggestions, Reflection, monthly recap | Anthropic API key |
-| `DEEPGRAM_API_KEY` | Voice dictation | Deepgram API key |
 | `GOOGLE_MAPS_API_KEY` | Place names (optional) | Places API (New) + Geocoding. Server-only; set a daily quota on it. Without it, places come from OpenStreetMap (Photon) |
+| `VITE_UMAMI_WEBSITE_ID` | Umami analytics (optional) | Public website id, inlined at build. Empty skips Umami. Only loads in production builds |
+| `VITE_UMAMI_SRC` | Umami analytics (optional) | Script URL. Defaults to Umami Cloud; point at a self-hosted `/script.js` |
 | `SUPABASE_URL` | Sync | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Sync | Service-role key (server only — never exposed to the client) |
 | `SESSION_SECRET` | Sync | Random string used to sign session/challenge cookies |

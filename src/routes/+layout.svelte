@@ -34,7 +34,7 @@
 	// flip the theme at the day/night boundary while the tab stays open
 	onMount(initTheme);
 
-	// Google Analytics: load gtag once, then report the first view by hand —
+	// Analytics (GA + Umami): load once, then report the first view by hand —
 	// afterNavigate only fires for later client-side navigations.
 	onMount(() => {
 		initAnalytics();

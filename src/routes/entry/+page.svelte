@@ -50,6 +50,7 @@
 	import { dictationKey, type DictationState } from '$lib/tiptap-dictation';
 	import { suggestionKey } from '$lib/tiptap-suggestion';
 	import { queueSync } from '$lib/sync.svelte';
+	import { track } from '$lib/analytics';
 	import { shareEntryImage, downloadLastShareImage } from '$lib/share';
 	import { hasWrittenEntry, markEntryWritten } from '$lib/onboarding';
 	import { pickPlaceholder, FIRST_RUN_PLACEHOLDER } from '$lib/placeholders';
@@ -213,14 +214,10 @@
 
 	const dictation = createDictation(applyTranscript);
 
-	// Open the Deepgram socket as soon as the entry is editable so the mic is
-	// instant. Idempotent — safe to re-run when 'edit' flips a view to editable.
+	// Stop any live dictation when the entry stops being editable or the mic
+	// setting is turned off.
 	$effect(() => {
-		if (ready && !readonly && dictation.supported && micSettings.enabled) {
-			dictation.mount();
-		} else {
-			dictation.unmount();
-		}
+		if (!(ready && !readonly && micSettings.enabled)) dictation.unmount();
 	});
 
 	// Show the live caret the moment recording starts; clear all dictation
@@ -588,6 +585,7 @@
 			if (!entryId) {
 				const e = await addEntry(content, meta);
 				entryId = e.id;
+				track('entry_created');
 				replaceState(`/entry?id=${e.id}`, {});
 				markEntryWritten(); // first-run placeholder won't show again
 				if (locationSettings.enabled && !place && !locDismissed) void autoLocate(e.id);
@@ -719,6 +717,7 @@
 		content = null;
 		text = '';
 		await deleteEntry(id);
+		track('entry_deleted');
 		queueSync();
 		await goto('/');
 	}
@@ -750,6 +749,7 @@
 				title: meta.title,
 				tags
 			});
+			track('entry_shared', { result });
 			if (result === 'copied') {
 				// flash the check, then offer a download for a while
 				setShareState('copied');
@@ -1244,7 +1244,6 @@
 				class="mic"
 				class:recording={dictation.status === 'recording'}
 				disabled={dictation.status === 'connecting'}
-				onpointerdown={() => dictation.prewarm()}
 				onclick={() => dictation.toggle()}
 				aria-label={dictation.status === 'recording' ? 'Stop dictation' : 'Start live dictation'}
 				title={dictation.status === 'recording' ? 'Stop dictation' : 'Live dictation'}

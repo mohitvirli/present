@@ -28,6 +28,7 @@
 	} from '$lib/sync.svelte';
 	import { exportAll, type ExportFormat } from '$lib/export';
 	import { applyImport, planImport, type ImportPlan } from '$lib/import';
+	import { track } from '$lib/analytics';
 
 	let deleteDialog = $state<HTMLDialogElement | null>(null);
 
@@ -199,11 +200,13 @@
 			const res = await exportAll(format);
 			// a dismissed share sheet is a choice, not a failure
 			if (res.saved === 'dismissed') note('idle', '');
-			else
+			else {
+				track('export', { format });
 				note(
 					'idle',
 					`${entryCount(res.entryCount)} saved${res.synced === false ? ' — this device only, sync failed' : ''}.`
 				);
+			}
 		} catch (e) {
 			note('error', message(e, 'Could not export your entries.'));
 		}
@@ -243,6 +246,7 @@
 		const planned = plan.create.length + plan.update.length;
 		try {
 			const { applied, failed, purged } = await applyImport(plan, { clearSeeded });
+			track('import', { applied, failed });
 			const removed = purged
 				? `${purged} welcome ${purged === 1 ? 'entry' : 'entries'} removed`
 				: '';

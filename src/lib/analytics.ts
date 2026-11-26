@@ -4,21 +4,40 @@ import { browser, dev } from '$app/environment';
 // property, it isn't a secret.
 const GA_ID = 'G-DN2JFVEKY5';
 
+// Umami website id + script. Both public; set at build time. Without an id,
+// Umami is skipped. The script defaults to Umami Cloud — point it at a
+// self-hosted instance's /script.js to use that instead.
+const UMAMI_ID: string | undefined = import.meta.env.VITE_UMAMI_WEBSITE_ID;
+const UMAMI_SRC: string = import.meta.env.VITE_UMAMI_SRC || 'https://cloud.umami.is/script.js';
+
+type UmamiPayload = Record<string, unknown>;
+type Umami = { track: (fn: (props: UmamiPayload) => UmamiPayload) => void };
+
 declare global {
 	interface Window {
 		dataLayer: unknown[];
 		gtag: (...args: unknown[]) => void;
+		umami?: Umami;
 	}
 }
 
+/** Event names we report. Keep payloads free of journal content. */
+export type AnalyticsEvent =
+	| 'entry_created'
+	| 'entry_deleted'
+	| 'entry_shared'
+	| 'export'
+	| 'import';
+
 let started = false;
+// Umami calls made before its script finishes loading; flushed on load.
+let umamiQueue: ((u: Umami) => void)[] = [];
 
 /**
- * Load gtag.js once, on the client, in production only.
+ * Load gtag.js and Umami once, on the client, in production only.
  *
- * Automatic page_view is turned off: the app is a client-rendered SPA, so
- * gtag's own view tracking would only ever fire on the initial load. Views are
- * sent from trackPageView() after every navigation instead.
+ * Automatic page views are off for both: the app is a client-rendered SPA, so
+ * views are sent from trackPageView() after every navigation instead.
  */
 export function initAnalytics(): void {
 	if (!browser || dev || started) return;
@@ -38,6 +57,33 @@ export function initAnalytics(): void {
 	s.async = true;
 	s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_ID)}`;
 	document.head.appendChild(s);
+
+	if (UMAMI_ID) {
+		const u = document.createElement('script');
+		u.defer = true;
+		u.src = UMAMI_SRC;
+		u.dataset.websiteId = UMAMI_ID;
+		u.dataset.autoTrack = 'false';
+		// entry URLs carry ?id= for a private entry — never send it
+		u.dataset.excludeSearch = 'true';
+		u.dataset.excludeHash = 'true';
+		u.onload = () => {
+			const umami = window.umami;
+			if (umami) umamiQueue.forEach((fn) => fn(umami));
+			umamiQueue = [];
+		};
+		document.head.appendChild(u);
+	}
+}
+
+// Every Umami payload goes through here: url and title are forced to the bare
+// path, since the tab title carries an entry's date and time.
+function umami(extra: UmamiPayload = {}): void {
+	if (!UMAMI_ID) return;
+	const path = location.pathname;
+	const send = (u: Umami) => u.track((props) => ({ ...props, url: path, title: path, ...extra }));
+	if (window.umami) send(window.umami);
+	else umamiQueue.push(send);
 }
 
 /**
@@ -48,11 +94,27 @@ export function initAnalytics(): void {
  * in an analytics payload, so both are dropped in favour of the route.
  */
 export function trackPageView(url: URL): void {
-	if (!browser || dev || !started || typeof window.gtag !== 'function') return;
+	if (!browser || dev || !started) return;
 	const path = url.pathname;
-	window.gtag('event', 'page_view', {
-		page_path: path,
-		page_location: url.origin + path,
-		page_title: path
-	});
+	if (typeof window.gtag === 'function') {
+		window.gtag('event', 'page_view', {
+			page_path: path,
+			page_location: url.origin + path,
+			page_title: path
+		});
+	}
+	umami();
+}
+
+/**
+ * Report one product event. `data` must never hold entry text, titles, tags or
+ * places — counts and enum-like values only.
+ */
+export function track(
+	name: AnalyticsEvent,
+	data?: Record<string, string | number | boolean>
+): void {
+	if (!browser || dev || !started) return;
+	if (typeof window.gtag === 'function') window.gtag('event', name, data ?? {});
+	umami(data ? { name, data } : { name });
 }
