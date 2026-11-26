@@ -41,6 +41,28 @@
 		trackPageView(page.url);
 	});
 
+	// hide the mouse pointer while typing in a text field; any mouse move restores it
+	onMount(() => {
+		const root = document.documentElement;
+		const onType = (e: KeyboardEvent) => {
+			if (e.metaKey || e.ctrlKey || e.altKey) return;
+			if (e.key.length !== 1 && e.key !== 'Backspace' && e.key !== 'Enter') return;
+			const t = e.target as HTMLElement | null;
+			if (!t || !(t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+			root.classList.add('typing');
+		};
+		const onMove = () => root.classList.remove('typing');
+		window.addEventListener('keydown', onType, true);
+		window.addEventListener('mousemove', onMove, { passive: true });
+		window.addEventListener('mousedown', onMove, { passive: true });
+		return () => {
+			window.removeEventListener('keydown', onType, true);
+			window.removeEventListener('mousemove', onMove);
+			window.removeEventListener('mousedown', onMove);
+			root.classList.remove('typing');
+		};
+	});
+
 	// kick off sync on load (if enabled) and whenever the tab regains focus
 	onMount(() => {
 		void initSync();
@@ -367,10 +389,7 @@
 					aria-label="present — home"
 					in:gFade={{ duration: 1.1, delay: 0.7 }}
 				>
-					<Clock
-						at={composer.readonly ? composer.createdAt : null}
-						month={composer.recapMonth}
-					/>
+					<Clock at={composer.readonly ? composer.createdAt : null} month={composer.recapMonth} />
 				</a>
 			{:else}
 				<a class="cta" href="/entry" in:gFade={{ duration: 0.3 }}>
